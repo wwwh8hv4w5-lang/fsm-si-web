@@ -12,10 +12,10 @@
 <meta name="apple-mobile-web-app-title" content="FSM SI">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://avatars.githubusercontent.com https://*.githubusercontent.com; media-src 'self' blob:; connect-src https://api.github.com; frame-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<link rel="stylesheet" href="../style.css">
 </head>
 <body>
 <noscript>FSM SI a besoin de JavaScript.</noscript>
@@ -23,7 +23,7 @@
 <!-- Connexion -->
 <section id="login" class="login hidden">
   <div class="login-card">
-    <div class="brand-big"><img src="icons/icon-192.png" alt=""><div><h1>FSM SI</h1><p>Système multi-agents · F.S.M Game House</p></div></div>
+    <div class="brand-big"><img src="../icons/icon-192.png" alt=""><div><h1>FSM SI</h1><p>Système multi-agents · F.S.M Game House</p></div></div>
     <form id="loginForm" autocomplete="off">
       <label for="tokenInput">Jeton GitHub personnel</label>
       <input id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" required>
@@ -58,7 +58,7 @@
 <div id="app" class="app hidden">
   <aside id="sidebar" class="sidebar">
     <header class="side-head">
-      <div class="brand"><img src="icons/icon-192.png" alt=""><span>FSM SI</span></div>
+      <div class="brand"><img src="../icons/icon-192.png" alt=""><span>FSM SI</span></div>
       <button class="icon-btn" id="newBtn" title="Nouvelle conversation" aria-label="Nouvelle conversation">✎</button>
     </header>
     <div class="search"><input id="searchInput" type="search" placeholder="Rechercher…" aria-label="Rechercher une conversation"></div>
@@ -100,7 +100,7 @@
 
     <section id="chat" class="chat">
       <div id="welcome" class="welcome">
-        <img src="icons/icon-192.png" alt="">
+        <img src="../icons/icon-192.png" alt="">
         <h2>Bonjour 👋</h2>
         <p>Écris ta demande ci-dessous pour ouvrir une nouvelle conversation, ou choisis-en une dans la liste.</p>
       </div>
@@ -144,8 +144,8 @@
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <div id="lightbox" class="lightbox hidden"><img alt=""><button class="icon-btn close" aria-label="Fermer">✕</button></div>
 
-<script src="vendor/marked.js"></script>
-<script src="vendor/purify.min.js"></script>
-<script src="app.js"></script>
+<script src="../vendor/marked.js"></script>
+<script src="../vendor/purify.min.js"></script>
+<script src="../app.js"></script>
 </body>
 </html>
