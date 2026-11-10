@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>FSM SI</title>
+<meta name="description" content="Interface de conversation avec FSM SI, le système multi-agents de F.S.M Game House.">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FSM SI">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://avatars.githubusercontent.com https://*.githubusercontent.com; media-src 'self' blob:; connect-src https://api.github.com; frame-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<noscript>FSM SI a besoin de JavaScript.</noscript>
+
+<!-- Connexion -->
+<section id="login" class="login hidden">
+  <div class="login-card">
+    <div class="brand-big"><img src="icons/icon-192.png" alt=""><div><h1>FSM SI</h1><p>Système multi-agents · F.S.M Game House</p></div></div>
+    <form id="loginForm" autocomplete="off">
+      <label for="tokenInput">Jeton GitHub personnel</label>
+      <input id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+      <details class="adv"><summary>Réglages avancés</summary>
+        <label for="repoInput">Dépôt</label>
+        <input id="repoInput" type="text" value="wwwh8hv4w5-lang/fsm-si" autocapitalize="off" spellcheck="false">
+      </details>
+      <button class="btn primary wide" type="submit" id="loginBtn">Se connecter</button>
+      <p id="loginError" class="error hidden" role="alert"></p>
+    </form>
+    <div class="howto">
+      <h2>Créer ton jeton (2 minutes)</h2>
+      <ol>
+        <li>Ouvre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> (connecté au compte propriétaire du dépôt).</li>
+        <li><b>Token name</b> : « FSM SI web ». <b>Expiration</b> : au choix (90 jours conseillé).</li>
+        <li><b>Repository access</b> : <i>Only select repositories</i> → <code>fsm-si</code>.</li>
+        <li><b>Permissions → Repository</b> :
+          <ul>
+            <li><b>Issues</b> : Read and write</li>
+            <li><b>Contents</b> : Read and write <span class="muted">(envoi de fichiers dans <code>entree/</code>)</span></li>
+            <li><b>Actions</b> : Read-only</li>
+            <li><b>Metadata</b> : Read-only (ajouté tout seul)</li>
+          </ul></li>
+        <li><b>Generate token</b>, copie-le et colle-le ci-dessus.</li>
+      </ol>
+      <p class="muted">Le jeton reste uniquement dans ce navigateur (stockage local), jamais ailleurs. « Se déconnecter » l'efface.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Application -->
+<div id="app" class="app hidden">
+  <aside id="sidebar" class="sidebar">
+    <header class="side-head">
+      <div class="brand"><img src="icons/icon-192.png" alt=""><span>FSM SI</span></div>
+      <button class="icon-btn" id="newBtn" title="Nouvelle conversation" aria-label="Nouvelle conversation">✎</button>
+    </header>
+    <div class="search"><input id="searchInput" type="search" placeholder="Rechercher…" aria-label="Rechercher une conversation"></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-filter="open">Actives</button>
+      <button class="tab" data-filter="closed">Archivées</button>
+    </nav>
+    <div class="side-scroll">
+      <div id="validationsBox" class="validations hidden">
+        <h3>⏸️ Validations <span id="valCount" class="pill warn">0</span></h3>
+        <div id="validationsList"></div>
+      </div>
+      <ul id="convList" class="conv-list"></ul>
+      <p id="convEmpty" class="muted center hidden">Aucune conversation.</p>
+    </div>
+    <footer class="side-foot">
+      <button class="nav-btn" data-view="projets">📁 Projets</button>
+      <button class="nav-btn" data-view="taches">📅 Tâches</button>
+      <button class="nav-btn" data-view="memoire">🧠 Mémoire</button>
+      <button class="nav-btn" data-view="runs">⚙️ Activité</button>
+      <button class="nav-btn" data-view="reglages">☰ Réglages</button>
+    </footer>
+  </aside>
+
+  <main id="main" class="main">
+    <header class="main-head">
+      <button class="icon-btn back" id="backBtn" aria-label="Retour">‹</button>
+      <div class="title-wrap">
+        <h2 id="convTitle">FSM SI</h2>
+        <div id="convMeta" class="meta"></div>
+      </div>
+      <div class="head-actions">
+        <button class="icon-btn" id="filesBtn" title="Fichiers" aria-label="Fichiers de la conversation">📎</button>
+        <button class="icon-btn" id="menuBtn" title="Options" aria-label="Options">⋯</button>
+      </div>
+    </header>
+
+    <div id="banner" class="banner hidden" role="status"></div>
+
+    <section id="chat" class="chat">
+      <div id="welcome" class="welcome">
+        <img src="icons/icon-192.png" alt="">
+        <h2>Bonjour 👋</h2>
+        <p>Écris ta demande ci-dessous pour ouvrir une nouvelle conversation, ou choisis-en une dans la liste.</p>
+      </div>
+      <div id="messages" class="messages"></div>
+      <div id="typing" class="typing hidden"><span></span><span></span><span></span><em id="typingText">FSM SI travaille…</em></div>
+    </section>
+
+    <section id="panel" class="panel hidden"><div id="panelBody"></div></section>
+
+    <footer id="composer" class="composer">
+      <div id="chips" class="chips">
+        <button class="chip" data-cmd="/cout">💶 /cout</button>
+        <button class="chip" data-cmd="/memoire" data-arg="Mot-clé (facultatif)">🧠 /memoire</button>
+        <button class="chip" data-cmd="/stop" data-confirm="Arrêter le travail en cours dans cette conversation ?">⏹️ /stop</button>
+        <button class="chip" data-cmd="/refaire" data-confirm="Relancer ta dernière demande depuis le début ?">🔁 /refaire</button>
+        <button class="chip" data-cmd="/projets" data-arg="Mot-clé (facultatif)">📁 /projets</button>
+        <button class="chip" data-cmd="/taches">📅 /taches</button>
+        <button class="chip" data-cmd="/oublier" data-arg="Identifiant du fait (voir /memoire)" data-required="1">🗑️ /oublier</button>
+        <button class="chip" data-cmd="/annuler" data-arg="Identifiant de la tâche (voir /taches)" data-required="1">✖️ /annuler</button>
+        <button class="chip" data-cmd="/aide">❔ /aide</button>
+      </div>
+      <div id="attachments" class="attachments hidden"></div>
+      <div class="compose-row">
+        <button class="icon-btn" id="attachBtn" title="Joindre des fichiers" aria-label="Joindre des fichiers">＋</button>
+        <input id="fileInput" type="file" multiple hidden>
+        <textarea id="msgInput" rows="1" placeholder="Écris à FSM SI…" aria-label="Message"></textarea>
+        <button class="icon-btn" id="micBtn" title="Dictée vocale" aria-label="Dictée vocale">🎙️</button>
+        <button class="send-btn" id="sendBtn" aria-label="Envoyer" disabled>➤</button>
+      </div>
+      <div id="dropHint" class="drop-hint hidden">Dépose tes fichiers ici</div>
+    </footer>
+  </main>
+</div>
+
+<!-- Menus et fenêtres -->
+<div id="sheet" class="sheet hidden" role="dialog" aria-modal="true">
+  <div class="sheet-card">
+    <div id="sheetBody"></div>
+  </div>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<div id="lightbox" class="lightbox hidden"><img alt=""><button class="icon-btn close" aria-label="Fermer">✕</button></div>
+
+<script src="vendor/marked.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
