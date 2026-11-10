@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FSM SI">
+<meta name="theme-color" content="#152024">
+<title>FSM SI</title>
+<!--
+  NOTE INTERNE (pour Claude) : FSM SI, app de chat v0.2 (un seul fichier, aucune dépendance)
+  - Parle directement à l'API GitHub avec un jeton personnel gardé dans le navigateur (localStorage).
+    1 conversation = 1 issue du dépôt FSM SI ; envoyer = créer une issue ou un commentaire.
+  - Sécurité : tout texte venu de GitHub passe par esc() ; rendre() est un mini-Markdown maison
+    qui ne rétablit que <details>, <summary>, <sub> et les images/fichiers DU DÉPÔT (chargés par l'API).
+    Ne jamais injecter de HTML brut venu d'un commentaire.
+  - Fil : majFil() met à jour élément par élément (clé = id du commentaire) pour ne pas refermer les <details>.
+  - Voix : dictée (SpeechRecognition) si disponible, sinon note vocale (MediaRecorder → entree/vocal/ → transcrite
+    côté robot) ; lecture des réponses par speechSynthesis.
+  - Onglets : Conversation, Validations (issues « validation » ouvertes), Équipe (bots/, competences/, tâches), Réglages.
+-->
+<style>
+:root{
+  --fond:#152024;--pan:#1D2B30;--trait:#31454C;--encre:#E6E1CF;--doux:#9AA79E;--signal:#E8B23A;--sur-signal:#1B1500;--tampon:#E86A55;--moi:#27424D;
+  --titre:"DIN Condensed","Avenir Next Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme:light){
+  :root{--fond:#DDD7C3;--pan:#EAE5D3;--trait:#B7B098;--encre:#1E2A25;--doux:#566257;--signal:#7C5200;--sur-signal:#FFF8E6;--tampon:#A3261B;--moi:#C6D1CD}
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--fond);color:var(--encre);font:16px/1.45 -apple-system,"SF Pro Text",system-ui,"Segoe UI",sans-serif;display:flex;flex-direction:column;height:100dvh;-webkit-text-size-adjust:100%}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+[hidden]{display:none!important}
+
+#alerte{background:var(--tampon);color:#fff;padding:10px 16px;font-weight:600}
+header.haut{display:flex;align-items:center;gap:10px;padding:10px 16px 6px;padding-top:max(10px,env(safe-area-inset-top))}
+h1{font:400 32px/1 var(--titre);letter-spacing:.03em;margin:4px 6px 0 0;white-space:nowrap}
+#convs{flex:1;min-width:0;background:var(--pan);border:1px solid var(--trait);border-radius:10px;padding:9px 10px}
+.b1,.b2{min-height:44px;padding:0 16px;border-radius:10px;font-weight:600;white-space:nowrap}
+.b1{background:var(--signal);color:var(--sur-signal);border:0}
+.b2{background:transparent;border:1px solid var(--trait)}
+.b1:disabled{opacity:.5}
+
+#onglets{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--trait);overflow-x:auto}
+#onglets button{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:10px 4px 8px;font-size:15px;color:var(--doux);white-space:nowrap}
+#onglets button[aria-current=true]{color:var(--encre);border-bottom-color:var(--signal)}
+#nbv{background:var(--tampon);color:#fff;border-radius:10px;padding:0 7px;font-size:13px;margin-left:4px}
+
+main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+main>section{max-width:760px;margin:0 auto;padding:6px 16px 24px}
+.invite{color:var(--doux);margin:28px 0}
+h2{font:400 24px/1.1 var(--titre);letter-spacing:.02em;margin:26px 0 8px}
+
+/* Fil : les réponses de SI sont des transmissions (filet à gauche), mes messages des bulles à droite */
+.tx{margin:20px 0;padding-left:14px;border-left:3px solid var(--signal)}
+.tx .qui{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+.tx .qui b{font:400 21px/1 var(--titre);letter-spacing:.04em;color:var(--signal)}
+.tx .qui time,.moi time{font-size:13px;color:var(--doux)}
+.tx.note{border-left-color:var(--trait)}
+.tx.note .qui b{color:var(--doux)}
+.tx.encours{border-left-style:dashed}
+.tx.encours .qui::after{content:"";width:46px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--signal) 40%,transparent 40%);background-size:200% 100%;animation:balayage 1.4s linear infinite}
+@keyframes balayage{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.tx.encours .qui::after{animation:none}}
+.moi{margin:20px 0 20px auto;max-width:86%;width:fit-content;background:var(--moi);padding:10px 14px;border-radius:16px 16px 4px 16px}
+.moi time{display:block;text-align:right;margin-top:2px}
+.moi.ordre{background:none;padding:0;color:var(--doux);font-style:italic}
+.corps{overflow-wrap:anywhere}
+.corps .vide{height:.6em}
+.corps h4{font:400 20px/1.15 var(--titre);letter-spacing:.02em;margin:12px 0 4px}
+.corps ul{margin:4px 0;padding-left:20px}
+.corps li{margin:2px 0}
+.corps blockquote{margin:6px 0;padding-left:10px;border-left:2px solid var(--trait);color:var(--doux)}
+.corps code{background:var(--pan);border-radius:4px;padding:1px 5px;font-size:.92em}
+.corps pre{background:var(--pan);border-radius:8px;padding:10px;overflow-x:auto;font-size:14px;white-space:pre-wrap}
+.corps table{display:block;overflow-x:auto;border-collapse:collapse;margin:6px 0}
+.corps td{padding:5px 10px 5px 0;border-bottom:1px solid var(--trait);vertical-align:top}
+.corps details{border-top:1px solid var(--trait);margin-top:10px;padding-top:6px}
+.corps summary{color:var(--doux);padding:4px 0}
+.corps .petit{display:block;font-size:13px;color:var(--doux);margin-top:8px}
+.corps a{color:var(--signal)}
+.corps img.vue{display:block;max-width:100%;border-radius:6px;background:var(--pan);min-height:48px;margin:8px 0}
+a.fichier{display:inline-block;padding:9px 13px;margin:4px 6px 2px 0;border:1px solid var(--trait);border-radius:8px;background:var(--pan);color:var(--encre)!important;text-decoration:none;font-weight:600}
+
+/* Validation : un bon à signer */
+.bon{border:2px dashed var(--tampon);border-radius:4px;padding:4px 16px 16px;margin:18px 0}
+.bon h3{font:400 24px/1.1 var(--titre);letter-spacing:.02em;color:var(--tampon);margin:12px 0 6px}
+.bon .actes{display:flex;gap:10px;margin-top:14px}
+.bon .actes .b1{background:var(--tampon);color:#fff}
+
+.fiche{padding:12px 0;border-bottom:1px solid var(--trait)}
+.fiche b{font:400 21px/1 var(--titre);letter-spacing:.03em}
+.fiche p{margin:4px 0 8px;color:var(--doux)}
+.rang{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+label.champ{display:block;margin:14px 0 4px;color:var(--doux)}
+input[type=text],input[type=password]{width:100%;background:var(--pan);border:1px solid var(--trait);border-radius:10px;padding:11px}
+label.case{display:flex;gap:10px;align-items:center;margin:12px 0}
+label.case input{width:20px;height:20px;accent-color:var(--signal)}
+
+#saisie{display:flex;gap:8px;align-items:flex-end;padding:8px 12px;padding-bottom:max(8px,env(safe-area-inset-bottom));border-top:1px solid var(--trait);max-width:792px;width:100%;margin:0 auto}
+#texte{flex:1;min-width:0;resize:none;max-height:38vh;background:var(--pan);border:1px solid var(--trait);border-radius:12px;padding:10px 12px}
+#micro{width:44px;height:44px;border-radius:50%;background:var(--pan);border:1px solid var(--trait);display:grid;place-items:center;flex:none}
+#micro svg{width:20px;height:20px;fill:currentColor}
+#micro[aria-pressed=true]{background:var(--tampon);border-color:var(--tampon);color:#fff}
+
+#accueil{position:fixed;inset:0;background:var(--fond);overflow:auto;padding:max(24px,env(safe-area-inset-top)) 22px 24px}
+#accueil>div{max-width:520px;margin:0 auto}
+#accueil h1{font-size:54px;margin:18px 0 6px}
+#accueil ol{padding-left:20px;color:var(--doux)}
+#accueil li{margin:6px 0}
+</style>
+</head>
+<body>
+<div id="alerte" role="alert" hidden></div>
+
+<header class="haut">
+  <h1>FSM SI</h1>
+  <select id="convs" aria-label="Conversation"></select>
+  <button id="nouvelle" class="b2" type="button">Nouvelle</button>
+</header>
+<nav id="onglets" aria-label="Sections">
+  <button type="button" data-o="chat" aria-current="true">Conversation</button>
+  <button type="button" data-o="valid">Validations<span id="nbv" hidden></span></button>
+  <button type="button" data-o="equipe">Équipe</button>
+  <button type="button" data-o="regl">Réglages</button>
+</nav>
+
+<main id="zone">
+  <section id="chat">
+    <p id="invite" class="invite">Écris ta demande en bas pour ouvrir une conversation. Les réponses arrivent ici en 30 secondes à quelques minutes.</p>
+    <div id="fil" aria-live="polite"></div>
+  </section>
+  <section id="valid" hidden></section>
+  <section id="equipe" hidden></section>
+  <section id="regl" hidden>
+    <h2>Voix</h2>
+    <label class="case"><input type="checkbox" id="rvoix"> Lire les réponses à voix haute</label>
+    <label class="case"><input type="checkbox" id="rnote"> Envoyer des notes vocales au lieu de dicter</label>
+    <h2>Commandes</h2>
+    <p class="invite" style="margin:0 0 6px">Elles s'envoient dans la conversation ouverte.</p>
+    <div class="rang" id="ordres"></div>
+    <h2>Connexion</h2>
+    <p id="quisuisje" class="invite" style="margin:0"></p>
+    <div class="rang"><button type="button" class="b2" id="deco">Se déconnecter de cet appareil</button></div>
+  </section>
+</main>
+
+<footer id="saisie">
+  <button type="button" id="stop" class="b2" hidden>Arrêter</button>
+  <textarea id="texte" rows="1" placeholder="Écris à FSM SI, ou @nom pour un Bot" aria-label="Message"></textarea>
+  <button type="button" id="micro" aria-label="Dicter" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg></button>
+  <button type="button" id="envoyer" class="b1">Envoyer</button>
+</footer>
+
+<div id="accueil" hidden>
+  <div>
+    <h1>FSM SI</h1>
+    <p>Le poste de commande de ton équipe de Bots. Relie-le une fois à ton dépôt GitHub.</p>
+    <ol>
+      <li>Sur GitHub : Settings, Developer settings, Fine-grained tokens, Generate new token.</li>
+      <li>Accès limité au dépôt de FSM SI. Permissions : Issues en lecture et écriture, Contents en lecture et écriture.</li>
+      <li>Colle le jeton ici. Il reste dans ce navigateur et ne part que vers GitHub.</li>
+    </ol>
+    <label class="champ" for="adepot">Dépôt (propriétaire/nom)</label>
+    <input type="text" id="adepot" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="moncompte/fsm-si">
+    <label class="champ" for="ajeton">Jeton GitHub</label>
+    <input type="password" id="ajeton" autocomplete="off">
+    <p id="aerreur" style="color:var(--tampon);min-height:1.4em"></p>
+    <button type="button" class="b1" id="relier">Relier</button>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+var $ = function (i) { return document.getElementById(i); };
+var mem = {
+  lire: function (k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
+  ecrire: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ } },
+  oter: function (k) { try { localStorage.removeItem(k); } catch (e) { /* idem */ } }
+};
+var S = {
+  depot: mem.lire('si_depot'), jeton: mem.lire('si_jeton'), conv: Number(mem.lire('si_conv')) || 0,
+  voix: mem.lire('si_voix') === '1', note: mem.lire('si_note') === '1',
+  moi: '', branche: 'main', els: {}, attente: false, pret: false, minuteur: 0, blobs: {}, onglet: 'chat', convsVues: 0
+};
+var ORDRES = [['/cout', 'Dépenses'], ['/memoire', 'Mémoire'], ['/projets', 'Projets'], ['/taches', 'Tâches planifiées'], ['/bots', 'Équipe'], ['/competences', 'Compétences'], ['/refaire', 'Refaire la dernière demande'], ['/aide', 'Aide']];
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function alerte(m) { var a = $('alerte'); a.textContent = m || ''; a.hidden = !m; if (m) setTimeout(function () { if (a.textContent === m) a.hidden = true; }, 9000); }
+function encP(p) { return String(p).split('/').map(encodeURIComponent).join('/'); }
+
+// ---------- API GitHub ----------
+function api(chemin, o) {
+  o = o || {};
+  return fetch('https://api.github.com' + chemin, {
+    method: o.method || 'GET',
+    headers: Object.assign({ Authorization: 'Bearer ' + S.jeton, Accept: o.accept || 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, o.json ? { 'Content-Type': 'application/json' } : {}),
+    body: o.json ? JSON.stringify(o.json) : undefined
+  }).then(function (r) {
+    if (r.status === 401) throw new Error('Jeton refusé par GitHub : vérifie-le dans Réglages.');
+    if (!r.ok) throw new Error('GitHub a répondu ' + r.status + (r.status === 403 || r.status === 404 ? ' : le jeton a-t-il accès à ce dépôt, avec les bonnes permissions ?' : ''));
+    if (o.brut) return r.arrayBuffer();
+    if (o.texte) return r.text();
+    return r.status === 204 ? null : r.json();
+  });
+}
+var D = function () { return '/repos/' + S.depot; };
+
+// ---------- Rendu sûr (mini-Markdown) ----------
+function cheminDepot(u) {
+  var m = String(u).replace(/&amp;/g, '&').match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/blob\/[^/]+\/([^?#]+)/);
+  if (!m || m[1].toLowerCase() !== S.depot.toLowerCase()) return '';
+  try { return decodeURIComponent(m[2]); } catch (e) { return ''; }
+}
+function lien(u, texte) {
+  var p = cheminDepot(u);
+  if (p) return '<a href="#" class="fichier" data-p="' + esc(p) + '">' + (/\.html?$/i.test(p) ? 'Ouvrir ' : 'Télécharger ') + texte + '</a>';
+  return '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + texte + '</a>';
+}
+function enligne(t) {
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (m, txt, u) { return lien(u, txt); });
+  t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, function (m, a, u) { return a + lien(u, u); });
+  return t;
+}
+function rendre(md) {
+  var codes = [], imgs = [];
+  md = String(md || '').replace(/\u0001/g, '').replace(/<!--[\s\S]*?-->/g, '');
+  md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) { var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
+  md = md.replace(/```[^\n]*\n([\s\S]*?)```/g, function (m, c) { codes.push(c); return '\n\u0001C' + (codes.length - 1) + '\u0001\n'; });
+  var h = esc(md)
+    .replace(/&lt;details&gt;\s*&lt;summary&gt;([\s\S]*?)&lt;\/summary&gt;/g, '\n<details><summary>$1</summary>\n')
+    .replace(/&lt;\/details&gt;/g, '\n</details>\n')
+    .replace(/&lt;sub&gt;([\s\S]*?)&lt;\/sub&gt;/g, '<span class="petit">$1</span>');
+  var out = [], liste = false, table = false;
+  function clore() { if (liste) { out.push('</ul>'); liste = false; } if (table) { out.push('</table>'); table = false; } }
+  h.split('\n').forEach(function (l) {
+    var m;
+    if (/^<\/?details/.test(l)) { clore(); out.push(l); return; }
+    if (/^\s*\|.*\|\s*$/.test(l)) {
+      if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return;
+      if (!table) { clore(); out.push('<table>'); table = true; }
+      out.push('<tr>' + l.trim().slice(1, -1).split('|').map(function (c) { return '<td>' + enligne(c.trim()) + '</td>'; }).join('') + '</tr>');
+      return;
+    }
+    if ((m = l.match(/^\s*(?:[-*]|\d+\.)\s+(.*)$/))) { if (!liste) { clore(); out.push('<ul>'); liste = true; } out.push('<li>' + enligne(m[1]) + '</li>'); return; }
+    clore();
+    if ((m = l.match(/^#{1,4}\s+(.*)$/))) out.push('<h4>' + enligne(m[1]) + '</h4>');
+    else if ((m = l.match(/^&gt;\s?(.*)$/))) out.push('<blockquote>' + enligne(m[1]) + '</blockquote>');
+    else if (/^\s*$/.test(l)) out.push('<div class="vide"></div>');
+    else out.push('<div>' + enligne(l) + '</div>');
+  });
+  clore();
+  return out.join('')
+    .replace(/\u0001I(\d+)\u0001/g, function (m, n) { return imgs[n] ? '<img class="vue" alt="Aperçu" data-p="' + esc(imgs[n]) + '">' : ''; })
+    .replace(/\u0001C(\d+)\u0001/g, function (m, n) { return codes[n] == null ? '' : '<pre>' + esc(codes[n]) + '</pre>'; })
+    .replace(/(<div class="vide"><\/div>){2,}/g, '<div class="vide"></div>');
+}
+
+// ---------- Fichiers et images du dépôt (chargés avec le jeton) ----------
+var MIME = { html: 'text/html', htm: 'text/html', png: 'image/png', gif: 'image/gif', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', pdf: 'application/pdf', zip: 'application/zip', txt: 'text/plain', md: 'text/plain', json: 'application/json' };
+function blobDepot(p) {
+  if (S.blobs[p]) return Promise.resolve(S.blobs[p]);
+  return api(D() + '/contents/' + encP(p) + '?ref=' + encodeURIComponent(S.branche), { accept: 'application/vnd.github.raw+json', brut: true }).then(function (buf) {
+    var ext = (p.split('.').pop() || '').toLowerCase();
+    S.blobs[p] = URL.createObjectURL(new Blob([buf], { type: MIME[ext] || 'application/octet-stream' }));
+    return S.blobs[p];
+  });
+}
+function brancher(el) {
+  Array.prototype.forEach.call(el.querySelectorAll('img.vue[data-p]'), function (img) {
+    blobDepot(img.getAttribute('data-p')).then(function (u) { img.src = u; }).catch(function () { img.alt = 'Aperçu indisponible'; });
+  });
+}
+document.addEventListener('click', function (e) {
+  var a = e.target.closest ? e.target.closest('a.fichier') : null;
+  if (!a) return;
+  e.preventDefault();
+  var p = a.getAttribute('data-p'), html = /\.html?$/i.test(p);
+  var w = html ? window.open('', '_blank') : null;   // ouvert tout de suite : sinon iOS bloque la fenêtre
+  blobDepot(p).then(function (u) {
+    if (html) { if (w) w.location = u; else location.href = u; return; }
+    var l = document.createElement('a');
+    l.href = u; l.download = p.split('/').pop();
+    document.body.appendChild(l); l.click(); l.remove();
+  }).catch(function (x) { if (w) w.close(); alerte(x.message); });
+});
+
+// ---------- Conversations ----------
+function chargerConvs() {
+  return api(D() + '/issues?state=all&per_page=60&sort=updated&direction=desc').then(function (l) {
+    var sel = $('convs'), nb = 0;
+    sel.textContent = '';
+    var o0 = document.createElement('option'); o0.value = '0'; o0.textContent = 'Nouvelle conversation'; sel.appendChild(o0);
+    l.forEach(function (i) {
+      if (i.pull_request) return;
+      var noms = (i.labels || []).map(function (x) { return x.name; });
+      if (noms.indexOf('validation') >= 0) { if (i.state === 'open') nb++; return; }
+      var o = document.createElement('option');
+      o.value = String(i.number);
+      o.textContent = (noms.indexOf('planifiee') >= 0 ? '📅 ' : '') + String(i.title).slice(0, 60);
+      sel.appendChild(o);
+    });
+    sel.value = String(S.conv);
+    if (sel.value !== String(S.conv)) { S.conv = 0; sel.value = '0'; }
+    $('nbv').textContent = nb; $('nbv').hidden = !nb;
+    S.convsVues = Date.now();
+  });
+}
+function choisir(n) {
+  S.conv = n; mem.ecrire('si_conv', String(n));
+  S.els = {}; $('fil').textContent = ''; S.pret = false; S.attente = false;
+  $('convs').value = String(n);
+  boucle();
+}
+function tousCommentaires(n, page, acc) {
+  page = page || 1; acc = acc || [];
+  return api(D() + '/issues/' + n + '/comments?per_page=100&page=' + page).then(function (l) {
+    acc = acc.concat(l);
+    return l.length === 100 && page < 6 ? tousCommentaires(n, page + 1, acc) : acc;
+  });
+}
+function heure(d) {
+  var x = new Date(d), auj = new Date().toDateString() === x.toDateString();
+  return (auj ? '' : x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' ') + x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+function texteBrut(md) {
+  return String(md).replace(/<!--[\s\S]*?-->/g, '').replace(/<details>[\s\S]*?<\/details>/g, '').replace(/<sub>[\s\S]*?<\/sub>/g, '').replace(/<[^>]+>/g, '')
+    .replace(/```[\s\S]*?```/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '').replace(/[*_`#>|]/g, '').replace(/📎 Fichiers[\s\S]*$/, '').trim();
+}
+function majFil(items) {
+  var fil = $('fil'), vus = {}, bas = $('zone').scrollHeight - $('zone').scrollTop - $('zone').clientHeight < 140, ajout = false;
+  items.forEach(function (it) {
+    vus[it.cle] = 1;
+    var el = S.els[it.cle];
+    if (!el) {
+      el = S.els[it.cle] = document.createElement('article');
+      fil.appendChild(el); ajout = true;
+      if (S.pret && S.voix && it.genre === 'tx') dire(texteBrut(it.corps));
+    }
+    if (el._corps === it.corps) return;
+    el._corps = it.corps;
+    if (it.genre === 'moi' || it.genre === 'ordre') {
+      el.className = 'moi' + (it.genre === 'ordre' ? ' ordre' : '');
+      el.innerHTML = '<div class="corps">' + rendre(it.corps) + '</div><time>' + esc(heure(it.date)) + '</time>';
+    } else {
+      el.className = 'tx' + (it.genre === 'encours' ? ' encours' : it.genre === 'note' ? ' note' : '');
+      el.innerHTML = '<div class="qui"><b>SI</b><time>' + esc(heure(it.date)) + '</time></div><div class="corps">' + rendre(it.corps) + '</div>';
+    }
+    brancher(el);
+  });
+  Object.keys(S.els).forEach(function (k) { if (!vus[k]) { S.els[k].remove(); delete S.els[k]; } });
+  if (ajout && (bas || !S.pret)) $('zone').scrollTop = $('zone').scrollHeight;
+}
+function rafraichir() {
+  $('invite').hidden = !!S.conv;
+  if (!S.conv) { S.attente = false; $('stop').hidden = true; return Promise.resolve(); }
+  var n = S.conv;
+  return Promise.all([api(D() + '/issues/' + n), tousCommentaires(n)]).then(function (r) {
+    if (n !== S.conv) return;
+    var issue = r[0], items = [];
+    var titre = String(issue.title || ''), corps = String(issue.body || '');
+    items.push({ cle: 'i' + issue.number, genre: issue.user.type === 'Bot' ? 'tx' : 'moi', date: issue.created_at, corps: corps.indexOf(titre) === 0 ? corps : (corps ? '**' + titre + '**\n\n' + corps : titre) });
+    r[1].forEach(function (c) {
+      var b = String(c.body || ''), genre;
+      if (c.user.type === 'Bot') genre = b.indexOf('robot-progress') >= 0 ? 'encours' : b.indexOf('robot-commande') >= 0 ? 'note' : 'tx';
+      else genre = b.trim().charAt(0) === '/' ? 'ordre' : 'moi';
+      items.push({ cle: 'c' + c.id, genre: genre, date: c.created_at, corps: b });
+    });
+    var utiles = items.filter(function (i) { return i.genre !== 'ordre' && i.genre !== 'note'; });
+    var dernier = utiles[utiles.length - 1];
+    S.attente = !!dernier && (dernier.genre === 'moi' || dernier.genre === 'encours');
+    $('stop').hidden = !S.attente;
+    majFil(items);
+    S.pret = true;
+  });
+}
+function boucle() {
+  clearTimeout(S.minuteur);
+  if (!S.jeton || document.hidden) return;
+  var suite = function () { S.minuteur = setTimeout(boucle, S.attente ? 4000 : 20000); };
+  var p = rafraichir();
+  if (Date.now() - S.convsVues > 30000) p = p.then(chargerConvs);
+  p.then(function () { suite(); }, function (e) { alerte(e.message); suite(); });
+}
+document.addEventListener('visibilitychange', function () { if (!document.hidden) boucle(); });
+
+// ---------- Envoyer ----------
+function envoyer(texte) {
+  texte = String(texte || '').trim();
+  if (!texte) return Promise.resolve();
+  if (!S.conv && texte.charAt(0) === '/') { alerte('Ouvre d’abord une conversation : les commandes s’envoient dedans.'); return Promise.resolve(); }
+  $('envoyer').disabled = true;
+  var p = S.conv
+    ? api(D() + '/issues/' + S.conv + '/comments', { method: 'POST', json: { body: texte } })
+    : api(D() + '/issues', { method: 'POST', json: { title: texte.split('\n')[0].slice(0, 70), body: texte } }).then(function (i) {
+      S.conv = i.number; mem.ecrire('si_conv', String(i.number));
+      return chargerConvs();
+    });
+  return p.then(function () { $('envoyer').disabled = false; S.attente = true; boucle(); }, function (e) { $('envoyer').disabled = false; alerte(e.message); throw e; });
+}
+$('envoyer').onclick = function () {
+  var t = $('texte'), v = t.value;
+  envoyer(v).then(function () { if (t.value === v) { t.value = ''; taille(); } }, function () {});
+};
+function taille() { var t = $('texte'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, window.innerHeight * 0.38) + 'px'; }
+$('texte').addEventListener('input', taille);
+$('texte').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); $('envoyer').click(); }
+});
+$('stop').onclick = function () { envoyer('/stop'); };
+$('nouvelle').onclick = function () { choisir(0); onglet('chat'); $('texte').focus(); };
+$('convs').onchange = function () { choisir(Number(this.value) || 0); onglet('chat'); };
+
+// ---------- Voix ----------
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, enr = null;
+function etatMicro(actif, mode) {
+  $('micro').setAttribute('aria-pressed', actif ? 'true' : 'false');
+  $('micro').setAttribute('aria-label', actif ? 'Arrêter' : (mode === 'note' ? 'Enregistrer une note vocale' : 'Dicter'));
+}
+function dicter() {
+  var acquis = $('texte').value ? $('texte').value.replace(/\s*$/, ' ') : '';
+  rec = new SR();
+  rec.lang = 'fr-FR'; rec.interimResults = true; rec.continuous = true;
+  rec.onresult = function (e) {
+    var prov = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) acquis += e.results[i][0].transcript; else prov += e.results[i][0].transcript; }
+    $('texte').value = acquis + prov; taille();
+  };
+  rec.onerror = function (e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { S.note = true; mem.ecrire('si_note', '1'); $('rnote').checked = true; alerte('Dictée refusée par le navigateur : le micro enregistre maintenant des notes vocales.'); }
+  };
+  rec.onend = function () { rec = null; etatMicro(false); };
+  rec.start(); etatMicro(true);
+}
+function enregistrer() {
+  if (!navigator.mediaDevices || !window.MediaRecorder) { alerte('Ce navigateur ne sait pas enregistrer le micro. Utilise la dictée du clavier.'); return; }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
+    var morceaux = [];
+    enr = new MediaRecorder(flux);
+    enr.ondataavailable = function (e) { if (e.data && e.data.size) morceaux.push(e.data); };
+    enr.onstop = function () {
+      flux.getTracks().forEach(function (t) { t.stop(); });
+      var type = enr.mimeType || 'audio/mp4'; enr = null; etatMicro(false, 'note');
+      var ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
+      var lecteur = new FileReader();
+      lecteur.onload = function () {
+        var chemin = 'entree/vocal/' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
+        api(D() + '/contents/' + chemin, { method: 'PUT', json: { message: 'note vocale', content: String(lecteur.result).split(',')[1], branch: S.branche } })
+          .then(function () { return envoyer('🎤 Note vocale : ' + chemin); }).catch(function (e) { alerte(e.message); });
+      };
+      lecteur.readAsDataURL(new Blob(morceaux, { type: type }));
+    };
+    enr.start(); etatMicro(true, 'note');
+  }).catch(function () { alerte('Micro refusé : autorise-le dans les réglages du navigateur.'); });
+}
+$('micro').onclick = function () {
+  if (rec) { rec.stop(); return; }
+  if (enr) { enr.stop(); return; }
+  if (SR && !S.note) dicter(); else enregistrer();
+};
+function dire(t) {
+  if (!t || !window.speechSynthesis) return;
+  var u = new SpeechSynthesisUtterance(t.slice(0, 1500));
+  u.lang = 'fr-FR';
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+// ---------- Onglets ----------
+function onglet(o) {
+  S.onglet = o;
+  ['chat', 'valid', 'equipe', 'regl'].forEach(function (x) { $(x).hidden = x !== o; });
+  Array.prototype.forEach.call(document.querySelectorAll('#onglets button'), function (b) { b.setAttribute('aria-current', b.getAttribute('data-o') === o ? 'true' : 'false'); });
+  $('saisie').hidden = o !== 'chat';
+  if (o === 'valid') chargerValidations();
+  if (o === 'equipe') chargerEquipe();
+  if (o === 'chat') $('zone').scrollTop = $('zone').scrollHeight;
+}
+Array.prototype.forEach.call(document.querySelectorAll('#onglets button'), function (b) { b.onclick = function () { onglet(b.getAttribute('data-o')); }; });
+function el(nom, cls, texte) { var e = document.createElement(nom); if (cls) e.className = cls; if (texte != null) e.textContent = texte; return e; }
+
+function chargerValidations() {
+  var z = $('valid');
+  api(D() + '/issues?labels=validation&state=open&per_page=50').then(function (l) {
+    z.textContent = '';
+    if (!l.length) { z.appendChild(el('p', 'invite', 'Rien à valider. Quand un Bot veut envoyer, publier, écrire ailleurs ou supprimer, sa demande arrive ici.')); return; }
+    l.forEach(function (i) {
+      var bon = el('article', 'bon');
+      bon.appendChild(el('h3', '', String(i.title).replace(/^⏸️\s*Validation\s*:\s*/, '')));
+      var c = el('div', 'corps');
+      c.innerHTML = rendre(String(i.body || '').replace(/Réponds \*\*valider\*\*[^\n]*/, ''));
+      bon.appendChild(c);
+      var actes = el('div', 'actes');
+      [['Valider', 'valider', 'b1'], ['Refuser', 'refuser', 'b2']].forEach(function (a) {
+        var b = el('button', a[2], a[0]); b.type = 'button';
+        b.onclick = function () {
+          if (a[1] === 'valider' && !confirm('Valider cette action ? Elle sera exécutée.')) return;
+          Array.prototype.forEach.call(actes.children, function (x) { x.disabled = true; });
+          api(D() + '/issues/' + i.number + '/comments', { method: 'POST', json: { body: a[1] } }).then(function () {
+            actes.textContent = a[1] === 'valider' ? 'Validée. Le résultat arrive dans la conversation.' : 'Refusée.';
+            S.convsVues = 0;
+          }).catch(function (e) { alerte(e.message); });
+        };
+        actes.appendChild(b);
+      });
+      bon.appendChild(actes);
+      z.appendChild(bon);
+    });
+  }).catch(function (e) { alerte(e.message); });
+}
+
+function enteteFiche(t) {
+  var m = String(t).match(/^---\n([\s\S]*?)\n---/), o = {};
+  if (m) m[1].split('\n').forEach(function (l) { var k = l.indexOf(':'); if (k > 0) o[l.slice(0, k).trim()] = l.slice(k + 1).trim(); });
+  return o;
+}
+function fichierTexte(p) { return api(D() + '/contents/' + encP(p) + '?ref=' + encodeURIComponent(S.branche), { accept: 'application/vnd.github.raw+json', texte: true }); }
+function fiches(dossier) {
+  return api(D() + '/contents/' + dossier + '?ref=' + encodeURIComponent(S.branche)).then(function (l) {
+    return Promise.all(l.filter(function (f) { return /\.md$/.test(f.name) && !/\.carnet\.md$/.test(f.name); }).map(function (f) {
+      return fichierTexte(f.path).then(function (t) { return { nom: f.name.slice(0, -3), meta: enteteFiche(t) }; });
+    }));
+  }).catch(function () { return []; });
+}
+function chargerEquipe() {
+  var z = $('equipe');
+  if (!z.firstChild) z.appendChild(el('p', 'invite', 'Chargement de l’équipe.'));
+  Promise.all([fiches('bots'), fiches('competences'), fichierTexte('taches/planifiees.json').catch(function () { return '[]'; })]).then(function (r) {
+    z.textContent = '';
+    z.appendChild(el('h2', '', 'Bots'));
+    if (!r[0].length) z.appendChild(el('p', 'invite', 'Aucun Bot. Demande par exemple : « crée un Bot @veilleur qui suit l’actualité WebGL ».'));
+    r[0].forEach(function (b) {
+      var f = el('div', 'fiche');
+      f.appendChild(el('b', '', '@' + b.nom));
+      f.appendChild(el('p', '', b.meta.role || ''));
+      var bt = el('button', 'b2', 'Écrire à @' + b.nom); bt.type = 'button';
+      bt.onclick = function () { onglet('chat'); $('texte').value = '@' + b.nom + ' '; $('texte').focus(); };
+      f.appendChild(bt);
+      z.appendChild(f);
+    });
+    z.appendChild(el('h2', '', 'Compétences'));
+    if (!r[1].length) z.appendChild(el('p', 'invite', 'Aucune. Après une tâche réussie, dis « fais-en une compétence ».'));
+    r[1].forEach(function (c) { var f = el('div', 'fiche'); f.appendChild(el('b', '', c.nom)); f.appendChild(el('p', '', c.meta.description || '')); z.appendChild(f); });
+    z.appendChild(el('h2', '', 'Tâches planifiées'));
+    var t = []; try { t = JSON.parse(r[2]).filter(function (x) { return x.actif; }); } catch (e) { /* fichier absent */ }
+    if (!t.length) z.appendChild(el('p', 'invite', 'Aucune. Demande par exemple : « tous les lundis à 9 h, résume les nouveautés de Safari ».'));
+    t.forEach(function (x) {
+      var f = el('div', 'fiche');
+      f.appendChild(el('b', '', (x.type === 'veille' ? 'Veille : ' : '') + x.titre));
+      f.appendChild(el('p', '', 'Prochaine passe le ' + new Date(x.prochaine).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) + (x.cible ? ', sur ' + x.cible : '')));
+      z.appendChild(f);
+    });
+  }).catch(function (e) { alerte(e.message); });
+}
+
+// ---------- Réglages et connexion ----------
+ORDRES.forEach(function (o) {
+  var b = el('button', 'b2', o[1]); b.type = 'button';
+  b.onclick = function () { if (!S.conv) { alerte('Ouvre d’abord une conversation.'); return; } onglet('chat'); envoyer(o[0]); };
+  $('ordres').appendChild(b);
+});
+$('rvoix').checked = S.voix; $('rnote').checked = S.note || !SR;
+$('rvoix').onchange = function () { S.voix = this.checked; mem.ecrire('si_voix', S.voix ? '1' : '0'); if (S.voix) dire('Lecture activée.'); else if (window.speechSynthesis) speechSynthesis.cancel(); };
+$('rnote').onchange = function () { S.note = this.checked; mem.ecrire('si_note', S.note ? '1' : '0'); etatMicro(false, S.note || !SR ? 'note' : ''); };
+$('deco').onclick = function () { if (!confirm('Oublier le jeton sur cet appareil ?')) return; mem.oter('si_jeton'); S.jeton = ''; clearTimeout(S.minuteur); accueil(''); };
+function accueil(erreur) { $('adepot').value = S.depot; $('ajeton').value = ''; $('aerreur').textContent = erreur || ''; $('accueil').hidden = false; }
+function demarrer() {
+  return Promise.all([api('/user'), api(D())]).then(function (r) {
+    S.moi = r[0].login; S.branche = r[1].default_branch || 'main';
+    $('quisuisje').textContent = 'Relié à ' + S.depot + ' en tant que ' + S.moi + '.';
+    $('accueil').hidden = true;
+    etatMicro(false, S.note || !SR ? 'note' : '');
+    return chargerConvs();
+  }).then(function () { boucle(); });
+}
+$('relier').onclick = function () {
+  S.depot = $('adepot').value.trim().replace(/^https:\/\/github\.com\//, '').replace(/\/+$/, '');
+  S.jeton = $('ajeton').value.trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(S.depot) || !S.jeton) { $('aerreur').textContent = 'Indique le dépôt sous la forme propriétaire/nom, et le jeton.'; return; }
+  $('aerreur').textContent = 'Vérification.';
+  demarrer().then(function () { mem.ecrire('si_depot', S.depot); mem.ecrire('si_jeton', S.jeton); }, function (e) { S.jeton = ''; $('aerreur').textContent = e.message; });
+};
+if (S.depot && S.jeton) demarrer().catch(function (e) { accueil(e.message); });
+else accueil('');
+})();
+</script>
+</body>
+</html>
