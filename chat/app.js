@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-12';
+var BUILD = '20261111-13';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -301,7 +301,7 @@ function majFil(items) {
   var bas = fil.scrollHeight - fil.scrollTop - fil.clientHeight < 140;
   var ajout = false, vus = {};
   /* les messages du serveur s’insèrent avant les envois encore en file */
-  var ancre = fil.querySelector('.msg.local');
+  var ancre = fil.querySelector('.msg.local, .msg.rapide');
   items.forEach(function (it) {
     vus[it.cle] = 1;
     if (it.cache) return;
@@ -348,6 +348,7 @@ function majFil(items) {
     node.dataset.cle = it.cle;
     node.dataset.qui = moi ? 'me' : 'bot';
     brancher(node);
+    if (!moi && window.LauraRapide) LauraRapide.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
     piedMessage(node, it);
   });
   Object.keys(S.els).forEach(function (k) {
@@ -458,6 +459,7 @@ function rafraichir() {
     r[1].forEach(function (c) {
       var b = String(c.body || ''), genre;
       if (c.user && c.user.type === 'Bot') genre = b.indexOf('robot-progress') >= 0 ? 'encours' : b.indexOf('robot-commande') >= 0 ? 'note' : 'tx';
+      else if (b.indexOf('<!-- fsm-laura') >= 0) genre = 'tx';
       else genre = b.trim().charAt(0) === '/' ? 'ordre' : 'moi';
       if (genre === 'encours' || genre === 'note') {
         /* indicateur dédié plutôt qu’une bulle de statut */
@@ -482,7 +484,8 @@ function rafraichir() {
     });
     var utiles = items.filter(function (i) { return i.genre !== 'ordre'; });
     var dernier = utiles[utiles.length - 1];
-    var attend = (!!dernier && dernier.genre === 'moi') || S.file.length > 0;
+    var attend = (!!dernier && (dernier.genre === 'moi' || (dernier.genre === 'tx' && dernier.corps.indexOf('<!-- fsm-laura tache') >= 0))) || S.file.length > 0;
+    S.items = items;
     S.attente = attend;
     majFil(items);
     S.pret = true;
@@ -637,7 +640,48 @@ function envoyer(texte) {
   var job = { id: bulleLocale(texte), texte: texte, conv: S.conv, suitCreation: !S.conv || creationDevant, essais: 0 };
   S.attente = true;
   if (!S.runEtat) etatLigne('S’en occupe');
-  return new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
+  var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
+  /* Voie rapide en parallèle de l’envoi : Laura répond tout de suite ; sa réponse est postée après le message de Tom. */
+  if (texte.charAt(0) !== '/') repondreVite(texte, envoi);
+  return envoi;
+}
+/* Voie rapide : Worker fsm-si-proxy toujours allumé. Laura répond tout de suite, même pendant une tâche.
+   Réponse postée avec le marqueur fsm-laura ; « fsm-laura tache » demande au robot GitHub de faire le travail.
+   En cas d’échec, rien n’est posté : le robot GitHub répond comme avant. */
+function texteLeger(md) {
+  return String(md || '').replace(/<!--[\s\S]*?-->/g, '').replace(/<details>[\s\S]*?<\/details>/g, '').replace(/<sub>[\s\S]*?<\/sub>/g, '').trim().slice(0, 6000);
+}
+function repondreVite(texte, envoiTom) {
+  if (!window.LauraRapide || !S.jeton) return;
+  var conv0 = S.conv;
+  var hist = (S.items || []).filter(function (i) { return (i.genre === 'moi' || i.genre === 'tx') && !i.cache; }).slice(-16).map(function (i) {
+    return { role: i.genre === 'tx' ? 'assistant' : 'user', content: texteLeger(i.corps) };
+  });
+  if (!conv0) hist = [];
+  var moiTxt = texteLeger(texte);
+  if (!hist.length || hist[hist.length - 1].content !== moiTxt) hist.push({ role: 'user', content: moiTxt });
+  var encours = S.runEtat && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
+  var node = null;
+  var nettoyer = function () { if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null; };
+  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours }, function (txt) {
+    if (conv0 && S.conv !== conv0) return;
+    if (!node) {
+      node = document.createElement('article'); node.className = 'msg bot rapide neuf';
+      node.innerHTML = '<div class="bubble"></div>';
+      $('fil').appendChild(node); S._rapideNode = node; etatLigne('');
+    }
+    node.querySelector('.bubble').innerHTML = rendre(txt.replace(/\[\[TACHE\]\]/g, ''));
+    var fil = $('fil'); fil.scrollTop = fil.scrollHeight;
+  }).then(function (r) {
+    window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
+    var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->';
+    if (r.fin.tache) S._tacheEnCours = moiTxt.slice(0, 200);
+    return envoiTom.then(function () {
+      var conv = conv0 || S.conv;
+      if (!conv) throw new Error('sans conversation');
+      return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } });
+    }).then(function () { return rafraichir(); });
+  }).then(nettoyer, function () { nettoyer(); if (S.attente) etatLigne('S’en occupe'); });
 }
 function pomper() {
   if (S.envoi || !S.file.length) return;
