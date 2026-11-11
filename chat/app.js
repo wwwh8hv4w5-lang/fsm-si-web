@@ -9,7 +9,7 @@ var mem = {
 };
 var S = {
   depot: mem.lire('si_depot'), jeton: mem.lire('si_jeton'),
-  conv: (function () { var c = mem.lire('si_conv'); if (c && c.charAt(0) === 'L') return c; return Number(c) || 0; })(),
+  conv: (function () { var u = /[?&]conv=(\d+)/.exec(location.search || ''); if (u) mem.ecrire('si_conv', u[1]); var c = mem.lire('si_conv'); if (c && c.charAt(0) === 'L') return c; return Number(c) || 0; })(),
   voix: mem.lire('si_voix') === '1', note: mem.lire('si_note') === '1',
   hap: mem.lire('si_hap') !== '0', tzauto: mem.lire('si_tzauto') !== '0',
   notif: mem.lire('si_notif') === '1',
@@ -21,9 +21,12 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-48';
+var BUILD = '20261111-49';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
+/* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
+window.SI_ouvrirConv = function (n) { if (n && S.pret) choisir(Number(n)); };
+window.SI_rafraichir = function () { return rafraichir(); };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
    Boîte d’envoi locale (si_boite), brouillon par conversation (si_brouillon:<n>), position du fil (si_fil:<n>),
    écran ouvert (si_ecran) et réponse rapide en cours (si_rapide). Tout reste dans ce navigateur. */
@@ -1017,7 +1020,7 @@ function repondreVite(texte, envoiTom, images) {
     if (!S._quitte && (Reprise.lire('si_rapide', {}) || {}).id === marque) mem.oter('si_rapide');
   };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
-  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, images: images && images.length ? images : undefined }, function (txt) {
+  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, conv: typeof conv0 === 'number' && conv0 > 0 ? conv0 : undefined, images: images && images.length ? images : undefined }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
     if (lect) lect.pousser(txt.replace(/\[\[TACHE\]\]/g, ''));
     if (!node) {
@@ -3197,8 +3200,10 @@ $('notifToggle').onclick = function () {
     Notification.requestPermission().then(function (p) {
       S.notif = p === 'granted'; mem.ecrire('si_notif', S.notif ? '1' : '0'); majCompteUI();
       if (!S.notif) alerte('Notifications refusées par le navigateur.');
+      /* build 49 : notifications push des tâches de fond, même appli fermée */
+      else if (window.LauraTaches && LauraTaches.pushPossible()) LauraTaches.activerPush(false).then(function () { alerte('Notifications activées : je te préviens quand une tâche est finie, même appli fermée.'); }, function (e) { alerte(String(e && e.message || e)); });
     });
-  } else { S.notif = false; mem.ecrire('si_notif', '0'); majCompteUI(); }
+  } else { S.notif = false; mem.ecrire('si_notif', '0'); majCompteUI(); if (window.LauraTaches) LauraTaches.desactiverPush(); }
   hap();
 };
 $('deco').onclick = function () {
@@ -3761,6 +3766,9 @@ if ('serviceWorker' in navigator) {
     });
   }).catch(function () {});
 }
+/* build 49 : notification touchée → ouvrir sa conversation ; abonnement push rafraîchi à l'ouverture */
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'fsm-ouvrir-conv' && e.data.conv && S.pret) { choisir(Number(e.data.conv)); } if (e.data && e.data.type === 'fsm-ouvrir-conv' && window.LauraTaches) LauraTaches.relire(); });
+setTimeout(function () { if (S.notif && window.LauraTaches && LauraTaches.pushPossible() && Notification.permission === 'granted') LauraTaches.activerPush(true).catch(function () {}); }, 4000);
 if ($('buildTag')) $('buildTag').textContent = BUILD;
 fetch(PROXY + '/session', { cache: 'no-store', credentials: 'include' }).then(function (r) { return r.json(); }).then(function (e) {
   if (e && e.ok) {

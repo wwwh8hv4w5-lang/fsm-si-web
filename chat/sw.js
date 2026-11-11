@@ -1,7 +1,7 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v48';
-const BUILD = '20261111-48';
-const SHELL = ['./', './index.html', './style.css?v=20261111-48', './app.js?v=20261111-48', './stt-flux.js?v=20261111-48', './stt-flux-worklet.js?v=20261111-48', './coffre.js?v=20261111-48', './laura-rapide.js?v=20261111-48', './mode.js?v=20261111-48', './ordinateur.js?v=20261111-48', './bot-shapes.js?v=20261111-48', './create-bot.js?v=20261111-48', './pc.js?v=20261111-48', './gmail.js?v=20261111-48',
+const C = 'laura-fsm-chat-v49';
+const BUILD = '20261111-49';
+const SHELL = ['./', './index.html', './style.css?v=20261111-49', './app.js?v=20261111-49', './stt-flux.js?v=20261111-49', './stt-flux-worklet.js?v=20261111-49', './coffre.js?v=20261111-49', './laura-rapide.js?v=20261111-49', './mode.js?v=20261111-49', './ordinateur.js?v=20261111-49', './bot-shapes.js?v=20261111-49', './create-bot.js?v=20261111-49', './pc.js?v=20261111-49', './gmail.js?v=20261111-49', './taches.js?v=20261111-49',
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
   './icons/fsm-si-logo.png', './icons/icon-192.png', './icons/icon-180.png', './icons/icon-512.png',
@@ -22,7 +22,7 @@ self.addEventListener('activate', (e) => {
 function estEnveloppe(u) {
   const p = u.pathname.replace(/\/+$/, '') || '/';
   return /\/chat$/.test(p) || /\/chat\/index\.html$/.test(p) ||
-    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p) || /\/chat\/coffre\.js$/.test(p) || /\/chat\/laura-rapide\.js$/.test(p) || /\/chat\/mode\.js$/.test(p) || /\/chat\/ordinateur\.js$/.test(p) || /\/chat\/bot-shapes\.js$/.test(p) || /\/chat\/create-bot\.js$/.test(p);
+    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p) || /\/chat\/coffre\.js$/.test(p) || /\/chat\/laura-rapide\.js$/.test(p) || /\/chat\/mode\.js$/.test(p) || /\/chat\/ordinateur\.js$/.test(p) || /\/chat\/bot-shapes\.js$/.test(p) || /\/chat\/create-bot\.js$/.test(p) || /\/chat\/taches\.js$/.test(p);
 }
 
 self.addEventListener('fetch', (e) => {
@@ -55,4 +55,23 @@ self.addEventListener('fetch', (e) => {
       return res;
     }).catch(() => r))
   );
+});
+
+/* ---------- Web Push (build 49) : notification quand une tâche de fond se termine ----------
+   Le serveur envoie un push sans contenu ; on relit /taches/notif (session de Tom, même origine) pour le texte. */
+self.addEventListener('push', (e) => {
+  e.waitUntil(fetch('/taches/notif', { credentials: 'include', cache: 'no-store' }).then((r) => r.json()).then((d) => {
+    const l = (d && d.notifs) || [];
+    if (!l.length) return self.registration.showNotification('Laura F.S.M', { body: 'Une tâche vient de se terminer.', icon: './icons/laura-192.png', badge: './icons/favicon-32.png', tag: 'fsm-tache' });
+    return Promise.all(l.map((n) => self.registration.showNotification(n.titre || 'Laura F.S.M', { body: n.corps || '', icon: './icons/laura-192.png', badge: './icons/favicon-32.png', tag: 'fsm-tache-' + (n.tache || n.quand), data: { conv: n.conv || 0 } })));
+  }).catch(() => self.registration.showNotification('Laura F.S.M', { body: 'Une tâche vient de se terminer.', icon: './icons/laura-192.png', tag: 'fsm-tache' })));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const conv = e.notification.data && e.notification.data.conv;
+  const cible = new URL('./' + (conv ? '?conv=' + conv : ''), self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    for (const c of cs) if (c.url.startsWith(self.registration.scope)) { c.postMessage({ type: 'fsm-ouvrir-conv', conv }); return c.focus(); }
+    return self.clients.openWindow(cible);
+  }));
 });

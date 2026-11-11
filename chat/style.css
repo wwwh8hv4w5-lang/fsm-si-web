@@ -2123,3 +2123,17 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 .resume-appel .ra-texte p { margin: 0 0 6px; }
 .resume-appel .ra-texte p:last-child { margin: 0; }
 .resume-appel .ra-attente { color: #8E8E93; }
+
+/* build 49 : bandeau des tâches de fond */
+#tachesBar { position: absolute; top: calc(52px + var(--safe-top, 0px)); left: 12px; right: 12px; z-index: 6; margin: 0; background: rgba(28,28,28,.92); border: 1px solid #2a2a2a; border-radius: 14px; color: #ececec; font-size: .88rem; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+#tachesBar[hidden] { display: none; }
+#tachesBar .tb-tete { width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: .55rem .8rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tachesBar .tb-liste { max-height: 45vh; overflow: auto; border-top: 1px solid #2a2a2a; }
+#tachesBar .tb-tache { padding: .55rem .8rem; border-bottom: 1px solid #222; }
+#tachesBar .tb-l1 { color: #9a9a9a; font-size: .78rem; }
+#tachesBar .tb-dem { margin: .2rem 0; }
+#tachesBar ul { margin: .2rem 0 .2rem 1rem; padding: 0; color: #b3b3b3; }
+#tachesBar .tb-res { color: #cfcfcf; margin: .25rem 0; }
+#tachesBar .tb-act { display: flex; gap: .5rem; margin-top: .35rem; }
+#tachesBar .tb-act button { background: #2a2a2a; color: #ececec; border: 0; border-radius: 10px; padding: .35rem .8rem; font: inherit; cursor: pointer; }
+#tachesBar .tb-act button[data-a="ouvrir"] { background: #C24E00; color: #fff; }
