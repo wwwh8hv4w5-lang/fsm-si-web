@@ -266,7 +266,7 @@ function rappelsFlux() {
   return {
     ferme: function () { return !A.on || A.muet || A.etat === 'speak'; },
     bargeIn: function () { var v = A.bargeIn; A.bargeIn = false; return v; },
-    partiel: function (x) { if (A.on && A.etat === 'listen' && x && $('avCaption')) $('avCaption').textContent = x; },
+    partiel: function () {},   /* jamais affiché : la parole de la personne n'est pas écrite à l'écran (statut seul, comme Grok Bot) */
     final: function (texte, info) {
       if (!A.on || A.muet || A.etat === 'speak' || A.etat === 'wait') return;   /* pendant la réflexion : seule la détection locale décide */
       var rec = A.mr; if (!rec || !rec._fluxFin) return;
@@ -298,7 +298,7 @@ function direct(blob, type, texteSeul, source) {
   var meta = Object.assign({}, A.o.meta ? A.o.meta() : {});
   if (texteSeul) { meta.texte = texteSeul; meta.stt = source === 'flux' ? 'flux' : 'texte'; }
   V.appel(A.o.jeton || 'cookie', texteSeul ? null : blob, meta, {
-    entendu: function (x) { entendu = x; tt.tom = String(x || '').trim(); if (x && $('avCaption')) $('avCaption').textContent = x; },
+    entendu: function (x) { entendu = x; tt.tom = String(x || '').trim(); },   /* gardé pour l'historique, jamais affiché */
     texte: function (x) { tt.laura = String(x || '').trim(); if (parlait && $('avCaption')) $('avCaption').textContent = x; },
     parle: function () {
       if (parlait || !A.appel || tour !== A.tour) return;
