@@ -9,6 +9,31 @@ var mem = {
   ecrire: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   oter: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
 };
+/* Ménage unique, LAURA seulement (accord de Tom, 11/11 15:33) : retire de si_local_bots le doublon de Laura créé
+   le 11/11/2026 entre 15:15 et 15:35 heure de Paris (14:15–14:35 UTC), avec ses messages locaux. Tout autre Bot local reste.
+   Les entrées retirées sont gardées à part dans si_local_bots_retires (filet de sécurité, invisible). Une seule fois (drapeau). */
+(function () {
+  var DRAPEAU = 'si_menage_doublon_20261111';
+  if (location.hostname === 'bot.fsmsibot.app' || mem.lire(DRAPEAU)) return;
+  var DEBUT = Date.UTC(2026, 10, 11, 14, 15), FIN = Date.UTC(2026, 10, 11, 14, 35);
+  var l; try { l = JSON.parse(mem.lire('si_local_bots') || '[]') || []; } catch (e) { return; }
+  if (!Array.isArray(l)) return;
+  function quand(b) {
+    var t = b && b.created ? Date.parse(b.created) : NaN;
+    if (isNaN(t) && b && /^L[0-9a-z]+$/.test(String(b.id))) t = parseInt(String(b.id).slice(1, -4), 36);
+    return t;
+  }
+  var garder = [], retires = [];
+  l.forEach(function (b) { var t = quand(b); if (t >= DEBUT && t <= FIN) retires.push(b); else garder.push(b); });
+  if (retires.length) {
+    var vieux; try { vieux = JSON.parse(mem.lire('si_local_bots_retires') || '[]') || []; } catch (e) { vieux = []; }
+    mem.ecrire('si_local_bots_retires', JSON.stringify(vieux.concat(retires)));
+    mem.ecrire('si_local_bots', JSON.stringify(garder));
+    var c = mem.lire('si_conv');
+    if (retires.some(function (b) { return b.id === c; })) mem.ecrire('si_conv', mem.lire('si_conv_laura') || '0');
+  }
+  mem.ecrire(DRAPEAU, new Date().toISOString() + ' · ' + retires.length + ' retiré(s)');
+})();
 var S = {
   depot: mem.lire('si_depot'), jeton: mem.lire('si_jeton'),
   conv: (function () { var u = /[?&]conv=(\d+)/.exec(location.search || ''); if (u) mem.ecrire('si_conv', u[1]); var c = mem.lire('si_conv'); if (c && c.charAt(0) === 'L') return c; return Number(c) || 0; })(),
@@ -23,7 +48,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-62';
+var BUILD = '20261111-63';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */

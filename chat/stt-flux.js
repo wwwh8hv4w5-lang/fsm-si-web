@@ -120,7 +120,7 @@
       src.connect(sp); sp.connect(muet); F.noeud = sp; noter('capture ScriptProcessor');
     };
     if (ac.audioWorklet && window.AudioWorkletNode) {
-      ac.audioWorklet.addModule(new URL('stt-flux-worklet.js?v=20261111-62', BASE).href).then(function () {
+      ac.audioWorklet.addModule(new URL('stt-flux-worklet.js?v=20261111-63', BASE).href).then(function () {
         if (F.src !== src) return;
         var n = new AudioWorkletNode(ac, 'stt-flux-pcm', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 });
         n.port.onmessage = function (e) { bloc(e.data); };
