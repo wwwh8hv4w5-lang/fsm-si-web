@@ -3,9 +3,10 @@
    jamais dans le fil, jamais dans GitHub, jamais montrées au modèle. */
 (function () {
 'use strict';
-var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
+/* FSM SI BOT : window.SI_PROXY_VOIX = origine + '/bot' (même moteur d'appel, routes du BOT : /bot/voix, /bot/tts) */
+var PROXY = (typeof window !== 'undefined' && window.SI_PROXY_VOIX) || ((typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
-  : 'https://fsm-si-proxy.fsmdev66.workers.dev';
+  : 'https://fsm-si-proxy.fsmdev66.workers.dev');
 
 function discuter(jeton, corps, surTexte, surEtat) {
   var t0 = performance.now(), premier = 0;
@@ -357,7 +358,10 @@ function appel(jeton, blob, meta, h) {
   var delai = setTimeout(function () { if (!premierPcm) { horsDelai = true; try { ctl.abort(); } catch (e) {} } }, 15000);
   V.trous = 0; V.trouMs = 0;
   return fetch(PROXY + '/voix', { credentials: 'include',  method: 'POST', headers: { Authorization: 'Bearer ' + jeton }, body: fd, signal: ctl.signal }).then(function (r) {
-    if (!r.ok || !r.body) throw new Error('voix ' + r.status);
+    if (!r.ok || !r.body) return r.json().catch(function () { return {}; }).then(function (d) {
+      /* quota, plafond ou vocal coupé (FSM SI BOT) : message lisible, pas de nouvel essai */
+      var e = new Error((d && d.erreur) || ('voix ' + r.status)); if (r.status === 429 || r.status === 503) e.etape = 'quota'; throw e;
+    });
     var rd = r.body.getReader(), dec = new TextDecoder(), buf = '';
     function pompe() {
       return rd.read().then(function (x) {

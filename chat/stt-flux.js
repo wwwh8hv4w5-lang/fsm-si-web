@@ -5,6 +5,7 @@
 (function () {
   'use strict';
   var PROXY = window.SI_PROXY_FLUX || (window.LauraRapide && LauraRapide.PROXY) || ((location.hostname === 'laura.fsmsibot.app') ? location.origin : 'https://fsm-si-proxy.fsmdev66.workers.dev');
+  var BASE = (document.currentScript && document.currentScript.src) || location.href;   /* worklet à côté de ce fichier (aussi depuis la page du BOT) */
   var TRAME = 1600;                 /* 100 ms à 16 kHz */
   var F = { ws: null, pret: false, ferme: true, echecs: 0, jeton: '', langue: 'fr', h: {}, ac: null, src: null, noeud: null, muet: null,
             pos: 0, prec: 0, tampon: new Int16Array(TRAME), n: 0, anneau: [], fermeAvant: false, finDemandee: 0, dernier: 0, journal: [] };
@@ -12,7 +13,7 @@
   function ticket() {
     /* 8 s au plus : une requête gelée par iOS en arrière-plan ne doit pas bloquer la reconnexion pour toujours */
     var ctl = window.AbortController ? new AbortController() : null, lim = setTimeout(function () { if (ctl) ctl.abort(); }, 8000);
-    return fetch(PROXY + '/stt-flux/ticket', { method: 'POST', credentials: 'include', headers: { Authorization: 'Bearer ' + F.jeton }, signal: ctl ? ctl.signal : undefined })
+    return fetch(window.SI_FLUX_TICKET || (PROXY + '/stt-flux/ticket'), { method: 'POST', credentials: 'include', headers: { Authorization: 'Bearer ' + F.jeton }, signal: ctl ? ctl.signal : undefined })
       .finally(function () { clearTimeout(lim); })
       .then(function (r) { if (!r.ok) throw new Error('ticket ' + r.status); return r.json(); })
       .then(function (d) { if (!d.ticket) throw new Error('ticket vide'); return d.ticket; });
@@ -119,7 +120,7 @@
       src.connect(sp); sp.connect(muet); F.noeud = sp; noter('capture ScriptProcessor');
     };
     if (ac.audioWorklet && window.AudioWorkletNode) {
-      ac.audioWorklet.addModule('./stt-flux-worklet.js?v=20261111-55').then(function () {
+      ac.audioWorklet.addModule(new URL('stt-flux-worklet.js?v=20261111-56', BASE).href).then(function () {
         if (F.src !== src) return;
         var n = new AudioWorkletNode(ac, 'stt-flux-pcm', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 });
         n.port.onmessage = function (e) { bloc(e.data); };
