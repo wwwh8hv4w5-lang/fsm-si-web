@@ -2063,8 +2063,9 @@ function vocalEcouterMedia(pendantParole, propre) {
       if (niv > (parle ? 0.10 : 0.18)) { if (!parle) debutParole = Date.now(); parle = true; silencieux = 0; if (niv > 0.18) fort++; S._vocalFinParole = performance.now(); }
       else if (parle) {
         silencieux++;
-        /* fin de parole : 0,6 s ; 0,9 s après une longue phrase (les pauses de respiration ne coupent pas) */
-        if (silencieux >= (Date.now() - debutParole > 2500 ? 9 : 6)) {
+        /* fin de parole : 0,5 s ; 0,7 s après une longue phrase */
+        /* 0,5 s (0,7 s après une longue phrase) : si Tom reprend, la réponse en route est annulée et la phrase repart entière */
+        if (silencieux >= (Date.now() - debutParole > 2500 ? 7 : 5)) {
           if (fort < 3) { parle = false; silencieux = 0; fort = 0; }   /* bruit bref : ignoré */
           else envoyerTour();
         }
