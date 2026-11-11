@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-45';
+var BUILD = '20261111-47';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
@@ -904,7 +904,7 @@ function envoyer(texte, opts) {
   }
   if (!S.conv && texte.charAt(0) === '/') { alerte('Ouvre d’abord une conversation : les commandes s’envoient dedans.'); return Promise.resolve(); }
   var creationDevant = S.file.some(function (j) { return !j.conv; });
-  /* le mode actif (Laura FSM SI / Laura · Grok) voyage avec le message : le robot prend le même cerveau */
+  /* le cerveau (Laura FSM SI) voyage avec le message : le robot prend le même */
   var uid = Reprise.uid();
   var job = { id: bulleLocale(texte), texte: (window.LauraMode ? LauraMode.marquer(texte) : texte) + '\n<!-- fsm-uid: ' + uid + ' -->', conv: S.conv, suitCreation: !S.conv || creationDevant, essais: 0, uid: uid };
   Reprise.garder({ uid: uid, conv: S.conv, texte: texte, corps: job.texte, t: Date.now() });
@@ -2680,13 +2680,6 @@ function ouvrirMenu() {
   item('Partager la conversation', share, function () { fermerMenu(); partagerConv(); });
   if (window.Ordinateur) item('Ordinateur de Laura', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>', function () { fermerMenu(); Ordinateur.ouvrir({ jeton: S.jeton, envoyer: envoyer }); });
   if (window.PCTom && PCTom.visible()) item('PC de Tom', '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M7 21h10M12 16v5M6 8l3 2-3 2M11 12h4"/></svg>', function () { fermerMenu(); PCTom.ouvrir(); });
-  if (window.LauraMode) {
-    /* une seule ligne discrète : Laura · Grok, coche si actif ; toucher bascule (effet dès le message suivant) */
-    var grok = LauraMode.actif() === 'grok';
-    var coche = '<svg viewBox="0 0 24 24" class="mode-coche' + (grok ? '' : ' off') + '"><path d="M5 12.5l4.2 4.2L19 7"/></svg>';
-    item('Laura · Grok', coche, function () { LauraMode.choisir(grok ? 'fsmsi' : 'grok'); setTimeout(fermerMenu, 160); var c = pop.querySelector('.mode-coche'); if (c) c.classList.toggle('off', grok); });
-    pop.lastChild.classList.add('mode-row');
-  }
   var btn = $('menuBtn').getBoundingClientRect();
   pop.style.top = (btn.bottom + 6) + 'px';
   pop.style.right = (window.innerWidth - btn.right) + 'px';
@@ -2695,7 +2688,7 @@ function ouvrirMenu() {
   $('overlay').hidden = false;
 }
 $('menuBtn').onclick = function (e) { e.stopPropagation(); if ($('menuPop').hidden) ouvrirMenu(); else fermerMenu(); };
-/* appui long sur la pastille du nom : même menu (bascule de mode à portée de pouce) */
+/* appui long sur la pastille du nom : même menu */
 (function () {
   var w = $('chatWho'), tm = 0;
   if (!w) return;
