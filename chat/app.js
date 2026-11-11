@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-40';
+var BUILD = '20261111-41';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
@@ -1613,7 +1613,7 @@ function vocalCouperMicro() {
   }
 }
 
-/* ---------- Appel vocal en arrière-plan (build 20261111-40) ----------
+/* ---------- Appel vocal en arrière-plan (build 20261111-41) ----------
    L’appel continue quand la fenêtre perd le focus, est cachée ou réduite : rien ne coupe le micro sur blur/hidden.
    - Minuteries fiables : un petit Worker cadence la détection de parole (100 ms) et l’attente des réponses,
      car le navigateur ralentit setTimeout/setInterval des onglets cachés (1 s, puis 1 min après 5 min sur Chrome).
