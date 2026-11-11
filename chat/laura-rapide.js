@@ -90,10 +90,16 @@ function noterFait(k) { var f = lireFaits(); f[k] = Date.now(); try { localStora
 function e(nom, cls, txt) { var x = document.createElement(nom); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; }
 function ico(nom) { var s = document.createElement('span'); s.style.display = 'contents'; s.innerHTML = IC[nom]; return s.firstChild; }
 
-function ranger(jeton, nom, valeur, libelle, description) {
-  return fetch(PROXY + '/coffre/' + encodeURIComponent(nom), { credentials: 'include', 
+function ranger(jeton, nom, valeur, libelle, description, extra) {
+  extra = extra || {};
+  var corps = { valeur: valeur, libelle: libelle, description: description };
+  if (extra.hotes) corps.hotes = extra.hotes;
+  if (extra.type) corps.type = extra.type;
+  if (extra.sous != null) corps.sous = extra.sous;
+  var url = PROXY + '/coffre/' + encodeURIComponent(nom);
+  return fetch(url, { credentials: 'include', 
     method: 'PUT', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ valeur: valeur, libelle: libelle, description: description })
+    body: JSON.stringify(corps)
   }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d && d.erreur || 'coffre ' + r.status); return d; }); });
 }
 
@@ -101,20 +107,31 @@ function ranger(jeton, nom, valeur, libelle, description) {
    Rendu : bloc = carte + petite note « Stocké de façon sécurisée… » sous la carte. */
 function carte(spec, o) {
   style();
+  var estConnexion = spec.type === 'connexion';
+  var estCode = spec.type === 'code';
   var estSecret = spec.type === 'secret';
-  var cleFaite = o.cle + ':' + (spec.nom || spec.titre || '');
+  if (estConnexion && !(spec.champs && spec.champs.length)) {
+    spec.champs = [
+      { nom: spec.identifiant_nom || 'identifiant', libelle: 'Identifiant', secret: false, coffre: true, valeur: spec.identifiant || '' },
+      { nom: spec.mdp_nom || 'mot_de_passe', libelle: 'Mot de passe', secret: true, coffre: true }
+    ];
+  }
+  if (estCode && !(spec.champs && spec.champs.length)) {
+    spec.champs = [{ nom: spec.nom || 'code_2fa', libelle: 'Code de vérification', secret: true, coffre: true }];
+  }
+  var cleFaite = o.cle + ':' + (spec.nom || spec.titre || spec.hote || '');
   var bloc = e('div', 'si-bloc');
   var c = e('div', 'si-carte'); bloc.appendChild(c);
   ['click', 'touchstart', 'touchend', 'mousedown', 'contextmenu'].forEach(function (t) { bloc.addEventListener(t, function (ev) { ev.stopPropagation(); }); });
   var champs = estSecret ? [{ nom: spec.nom, libelle: spec.libelle || spec.nom, secret: true }] : (spec.champs || []);
-  var aSecret = champs.some(function (ch) { return ch.secret; });
+  var aSecret = champs.some(function (ch) { return ch.secret; }) || estConnexion || estCode;
   var tete = e('div', 'si-tete'), boite = e('span', 'si-ico'); boite.appendChild(ico(estSecret || aSecret ? 'cle' : 'form')); tete.appendChild(boite);
-  tete.appendChild(e('span', '', estSecret || aSecret ? 'Secrets' : 'Formulaire')); c.appendChild(tete);
-  c.appendChild(e('h5', '', estSecret ? (spec.libelle || spec.nom) : (spec.titre || 'Formulaire')));
+  tete.appendChild(e('span', '', estConnexion ? 'Connexion' : estCode ? 'Vérification' : (estSecret || aSecret ? 'Secrets' : 'Formulaire'))); c.appendChild(tete);
+  c.appendChild(e('h5', '', estSecret ? (spec.libelle || spec.nom) : (spec.titre || (estConnexion ? 'Connexion' : 'Formulaire'))));
   if (spec.description) c.appendChild(e('p', 'si-desc', spec.description));
   if (aSecret) {
     var note = e('div', 'si-note'); note.appendChild(ico('bouclier'));
-    note.appendChild(e('span', '', 'Stocké de façon sécurisée, jamais montré à Laura.')); bloc.appendChild(note);
+    note.appendChild(e('span', '', estConnexion || estCode ? 'Stocké de façon sécurisée, jamais écrit dans la discussion.' : 'Stocké de façon sécurisée, jamais montré à Laura.')); bloc.appendChild(note);
   }
   var pied = e('div', 'si-pied');
   var b = e('button', 'si-btn', 'Enregistrer'); b.type = 'button';
@@ -138,6 +155,7 @@ function carte(spec, o) {
     i.autocomplete = ch.secret ? 'new-password' : 'off'; i.setAttribute('autocapitalize', 'off'); i.setAttribute('autocorrect', 'off'); i.spellcheck = false;
     i.placeholder = ch.libelle || ch.nom; i.setAttribute('aria-label', ch.libelle || ch.nom);
     i.setAttribute('data-lpignore', 'true'); i.setAttribute('data-1p-ignore', 'true');
+    if (ch.valeur && !ch.secret) i.value = ch.valeur;
     z.appendChild(i);
     if (ch.secret) {
       var oe = e('button', 'si-oeil'); oe.type = 'button'; oe.setAttribute('aria-label', 'Afficher'); oe.appendChild(ico('oeil'));
@@ -158,18 +176,24 @@ function carte(spec, o) {
   b.onclick = function () {
     if (ins.some(function (x) { return !x.i.value.trim(); })) return;
     b.disabled = true; err.hidden = true; b.textContent = 'Enregistrement…';
-    var secrets = ins.filter(function (x) { return x.ch.secret; });
-    var textes = ins.filter(function (x) { return !x.ch.secret; });
+    var secrets = ins.filter(function (x) { return x.ch.secret || x.ch.coffre || estConnexion || estCode; });
+    var textes = ins.filter(function (x) { return !x.ch.secret && !x.ch.coffre && !estConnexion && !estCode; });
+    var identifiant = '';
+    ins.forEach(function (x) { if (!x.ch.secret && (estConnexion || x.ch.coffre)) identifiant = x.i.value.trim(); });
     Promise.all(secrets.map(function (x) {
-      return ranger(o.jeton, x.ch.nom, x.i.value.trim(), x.ch.libelle || x.ch.nom, spec.description || '');
+      var extra = { type: estCode ? 'identifiant' : 'identifiant', sous: identifiant };
+      if (spec.hote) extra.hotes = [spec.hote];
+      return ranger(o.jeton, x.ch.nom, x.i.value.trim(), x.ch.libelle || x.ch.nom, spec.description || '', extra);
     })).then(function () {
-      /* la valeur secrète ne quitte jamais la carte : seul le nom part dans le fil */
-      ins.forEach(function (x) { if (x.ch.secret) x.i.value = ''; });
+      /* aucune valeur (identifiant, mot de passe ou code) ne quitte la carte : seul un accusé part dans le fil */
+      ins.forEach(function (x) { if (x.ch.secret || x.ch.coffre || estConnexion || estCode) x.i.value = ''; });
       noterFait(cleFaite);
-      var msg = estSecret
+      var msg = (estConnexion || estCode)
+        ? 'C’est rangé dans le coffre.'
+        : (estSecret
         ? '🔐 Secret ' + spec.nom + ' enregistré dans le coffre.'
         : '📝 ' + (spec.titre || 'Formulaire') + '\n' + textes.map(function (x) { return '- ' + (x.ch.libelle || x.ch.nom) + ' : ' + x.i.value.trim(); }).join('\n') +
-          (secrets.length ? '\n' + secrets.map(function (x) { return '- 🔐 secret ' + x.ch.nom + ' enregistré'; }).join('\n') : '');
+          (secrets.length ? '\n' + secrets.map(function (x) { return '- 🔐 secret ' + x.ch.nom + ' enregistré'; }).join('\n') : ''));
       etatFait();
       if (o.envoyer) o.envoyer(msg);
     }, function () { b.textContent = 'Enregistrer'; maj(); err.textContent = 'Le coffre n’a pas répondu, réessaie.'; err.hidden = false; });
@@ -177,7 +201,7 @@ function carte(spec, o) {
   return bloc;
 }
 function specs(corps) {
-  var out = [], re = /<!--\s*fsm-(secret|formulaire):\s*([\s\S]*?)-->/g, m;
+  var out = [], re = /<!--\s*fsm-(secret|formulaire|connexion|code):\s*([\s\S]*?)-->/g, m;
   while ((m = re.exec(String(corps || '')))) {
     try { var j = JSON.parse(m[2]); j.type = m[1]; out.push(j); } catch (x) {}
   }
@@ -402,6 +426,6 @@ function transcrire(jeton, blob) {
     .then(function (r) { return r.json().then(function (d) { if (!r.ok || typeof d.texte !== 'string') throw new Error('stt ' + r.status); return d.texte; }); });
 }
 
-window.LauraRapide = { PROXY: PROXY, transcrire: transcrire, discuter: discuter, cartes: cartes, specs: specs, ranger: ranger,
+window.LauraRapide = { PROXY: PROXY, transcrire: transcrire, discuter: discuter, cartes: cartes, carte: carte, specs: specs, ranger: ranger,
   voix: { niveau: niveau, sessionAppel: sessionAppel, contexte: ctxAudio, reveiller: reveiller, debloquer: debloquer, lecteur: lecteur, parler: parler, appel: appel, stop: stop, occupe: occupe, mesures: function () { return V; } } };
 })();

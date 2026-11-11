@@ -1,3 +1,4 @@
+window.SI_VERSION = window.SI_VERSION || 'V2.0';
 /* Double tap : jamais de zoom de la page au double tap (iOS, appli installée). Le pincement reste toujours permis
    (v70 : v69 verrouillait le viewport maximum-scale=1 / user-scalable=no et bloquait gesturestart → plus aucun zoom sur les images). */
 (function(){var dT=0,dX=0,dY=0;function libre(t){return t&&t.closest&&t.closest('input,textarea,select,[contenteditable],#lightbox,.lightbox,.visionneuse');}
@@ -53,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-74';
+var BUILD = '20261111-75';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -4420,6 +4421,7 @@ if ('serviceWorker' in navigator) {
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'fsm-ouvrir-conv' && e.data.conv && S.pret) { choisir(Number(e.data.conv)); } if (e.data && e.data.type === 'fsm-ouvrir-conv' && window.LauraTaches) LauraTaches.relire(); });
 setTimeout(function () { if (S.notif && window.LauraTaches && LauraTaches.pushPossible() && Notification.permission === 'granted') LauraTaches.activerPush(true).catch(function () {}); }, 4000);
 if ($('buildTag')) $('buildTag').textContent = BUILD;
+  if ($('homeVer')) $('homeVer').textContent = window.SI_VERSION || 'V2.0';
 /* copie locale tout de suite, avant /session (pas d’appel HUB /api/me sur ce GET) */
 (function peindreAuPlusTot() {
   if (window.FSM_BLOQUEE) return;
