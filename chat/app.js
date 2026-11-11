@@ -54,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-75';
+var BUILD = '20261111-76';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -453,7 +453,7 @@ function montrerChat(viaMorph) {
   champsFocusables([$('texte')]);
   themeColor('#141414');
   if (!viaMorph) resetCard();
-  setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 40);
+  setTimeout(function () { lancerColle(); }, 40);
 }
 
 /* ---------- Conversations ---------- */
@@ -731,21 +731,7 @@ function majFil(items) {
   majEspacesReact();
   if (ajout && (bas || !S.pret)) {
     if (S.pret) requestAnimationFrame(function () { fil.scrollTo({ top: fil.scrollHeight, behavior: 'smooth' }); });
-    else {
-      /* premier rendu : les tailles réelles des bulles (content-visibility) n’arrivent qu’après coup ;
-         on recolle en bas quelques fois tant que Tom n’a pas touché au fil */
-      var pos = Reprise.lire('si_fil:' + S.conv, null);
-      var placer = function () {
-        var a = pos && !pos.bas && S.els[pos.cle];
-        if (a) fil.scrollTop = Math.max(0, a.getBoundingClientRect().top - fil.getBoundingClientRect().top + fil.scrollTop - (pos.off || 0));
-        else fil.scrollTop = fil.scrollHeight;
-      };
-      placer();
-      S._colle = Date.now();
-      [80, 250, 600, 1200].forEach(function (t) {
-        setTimeout(function () { if (S._colle && Date.now() - S._colle < 1600) { placer(); majScrollBtn(); } }, t);
-      });
-    }
+    else lancerColle();
   }
   majScrollBtn();
 }
@@ -934,11 +920,49 @@ function boucle() {
   if (Date.now() - S.convsVues > 30000) p = p.then(chargerConvs);
   p.then(function () { suite(); }, function (e) { if (e && e.status === 401) alerte(e.message); else if (!S._errVue || Date.now() - S._errVue > 30000) { S._errVue = Date.now(); alerte(e.message); } suite(); });
 }
-document.addEventListener('visibilitychange', function () { if (!document.hidden) boucle(); });
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) return;
+  boucle();
+  if (S.ecran === 'chat' && $('chatView') && !$('chatView').hidden) lancerColle();
+});
 ['touchstart', 'wheel', 'pointerdown'].forEach(function (ev) { var f = $('fil'); if (f) f.addEventListener(ev, function () { S._colle = 0; }, { passive: true }); });
+function filAuBas(f) {
+  f = f || $('fil');
+  return !f || (f.scrollHeight - f.scrollTop - f.clientHeight < 140);
+}
+function allerEnBas() {
+  var f = $('fil'); if (!f) return;
+  f.scrollTop = f.scrollHeight;
+  majScrollBtn();
+}
+/* Ouverture et retour dans l’appli : toujours les derniers messages, sans restaurer une ancienne
+   position (souvent 0, parce que le défilement avait eu lieu avant la mise en page ou hors écran).
+   On recolle tant que la hauteur change (content-visibility, images) et que Tom n’a pas touché au fil. */
+function lancerColle() {
+  var f = $('fil'); if (!f) return;
+  S._colle = Date.now();
+  allerEnBas();
+  var last = -1, stable = 0, n = 0;
+  var tick = function () {
+    if (!S._colle) return;
+    allerEnBas();
+    var h = f.scrollHeight, ok = f.clientHeight > 0 && filAuBas(f);
+    if (h === last && ok) stable++; else { stable = 0; last = h; }
+    if (stable >= 4 || ++n > 50) return;
+    requestAnimationFrame(function () { setTimeout(tick, 40); });
+  };
+  requestAnimationFrame(function () { allerEnBas(); requestAnimationFrame(tick); });
+  if (!f._colleObs && typeof ResizeObserver !== 'undefined') {
+    try { f._colleObs = new ResizeObserver(function () { if (S._colle) allerEnBas(); }); f._colleObs.observe(f); } catch (e) {}
+  }
+  if (!f._colleImg) {
+    f._colleImg = true;
+    f.addEventListener('load', function (e) { if (S._colle && e.target && e.target.tagName === 'IMG') allerEnBas(); }, true);
+  }
+}
 function noterFil() {
   var f = $('fil');
-  if (!f || !S.pret || !S.conv || estLocal() || S.ecran !== 'chat' || $('chatView').hidden) return;
+  if (!f || !S.pret || S._colle || !S.conv || estLocal() || S.ecran !== 'chat' || $('chatView').hidden) return;
   var bas = f.scrollHeight - f.scrollTop - f.clientHeight < 140, top = f.getBoundingClientRect().top, cle = '', off = 0;
   if (!bas) {
     var l = f.querySelectorAll('article[data-cle]');
@@ -958,7 +982,13 @@ function noterBrouillon() {
 $('texte').addEventListener('input', noterBrouillon);
 window.addEventListener('pagehide', function () { S._quitte = true; noterFil(); noterBrouillon(); });
 window.addEventListener('beforeunload', function () { S._quitte = true; });
-window.addEventListener('pageshow', function (e) { S._quitte = false; if (e.persisted || !document.hidden) boucle(); });
+window.addEventListener('pageshow', function (e) {
+  S._quitte = false;
+  if (e.persisted || !document.hidden) {
+    boucle();
+    if (S.ecran === 'chat' && $('chatView') && !$('chatView').hidden) lancerColle();
+  }
+});
 document.addEventListener('visibilitychange', function () { if (document.hidden) { noterFil(); noterBrouillon(); } });
 /* Après le premier rendu d’une conversation : renvoyer ce qui n’est jamais parti, relancer une réponse coupée. */
 function reprendreConv(n, commentaires, items) {
@@ -3558,7 +3588,7 @@ function ouvrirChatMorph() {
     if (c) { c.classList.remove('nav-anim', 'carding', 'nav-slide'); c._carding = false; }
     if (h) h.classList.remove('nav-anim');
     $('chatView').hidden = false;
-    setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 30);
+    setTimeout(function () { lancerColle(); }, 30);
   });
 }
 function revenirCarte() {
@@ -3760,24 +3790,49 @@ $('btnSettings').onclick = ouvrirSettings;
 $('settingsClose').onclick = fermerSettings;
 $('settingsBackdrop').onclick = fermerSettings;
 (function () {
-  var y0 = 0, on = false, sh = $('settingsSheet');
-  sh.addEventListener('touchstart', function (e) {
-    if (!e.touches[0]) return;
-    if ($('settingsBody').scrollTop > 0 && e.target.closest('.sheet-scroll')) return;
-    y0 = e.touches[0].clientY; on = true; sh._dy = 0;
-  }, { passive: true });
-  sh.addEventListener('touchmove', function (e) {
-    if (!on) return;
-    var dy = e.touches[0].clientY - y0;
-    if (dy > 0) { sh._dy = dy; sh.style.transition = 'none'; sh.style.transform = 'translateY(' + dy + 'px)'; }
-  }, { passive: true });
-  sh.addEventListener('touchend', function () {
-    if (!on) return; on = false;
-    sh.style.transition = '';
-    var dy = sh._dy || 0; sh.style.transform = '';
-    if (dy > 110) fermerSettings();
+  var sh = $('settingsSheet'); if (!sh) return;
+  var body = $('settingsBody'), on = false, y0 = 0, dy = 0, pid = 0;
+  function peut(e) {
+    var t = e.target;
+    if (t && t.closest && t.closest('button, input, textarea, select, a')) return !!(t.closest && t.closest('.sheet-grab'));
+    if (t && t.closest && t.closest('.sheet-grab')) return true;
+    var r = sh.getBoundingClientRect();
+    if (e.clientY - r.top <= 56) return true;
+    if (body && body.scrollTop <= 0) return true;
+    return false;
+  }
+  sh.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (!peut(e)) return;
+    on = true; y0 = e.clientY; dy = 0; pid = e.pointerId;
+    try { sh.setPointerCapture(e.pointerId); } catch (err) {}
+    sh.classList.add('drag');
   });
+  sh.addEventListener('pointermove', function (e) {
+    if (!on || e.pointerId !== pid) return;
+    dy = e.clientY - y0;
+    if (dy > 0) {
+      sh.style.transform = 'translateY(' + dy + 'px)';
+      if (e.cancelable) e.preventDefault();
+    }
+  });
+  function fin(e) {
+    if (!on || (e.pointerId != null && e.pointerId !== pid)) return;
+    on = false; sh.classList.remove('drag'); sh.style.transform = '';
+    if (dy > 90) fermerSettings();
+    dy = 0;
+  }
+  sh.addEventListener('pointerup', fin);
+  sh.addEventListener('pointercancel', fin);
 })();
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  if ($('lightbox') && !$('lightbox').hidden) return;
+  if ($('iosAlert') && !$('iosAlert').hidden) return;
+  if ($('reactSheet') && !$('reactSheet').hidden) return;
+  if ($('push') && !$('push').hidden) return;
+  if ($('settingsSheet') && !$('settingsSheet').hidden) { e.preventDefault(); fermerSettings(); }
+});
 
 function majCompteUI() {
   $('accName').textContent = S.moiNom || S.moi || '—';
@@ -4431,6 +4486,7 @@ if ($('buildTag')) $('buildTag').textContent = BUILD;
   montrerHome(true);
   montrerChat(false);
   Hist.peindre(S.conv);
+  lancerColle();
 })();
 fetch(PROXY + '/session', { cache: 'no-store', credentials: 'include' }).then(function (r) { return r.json(); }).then(function (e) {
   if (e && e.ok) {
