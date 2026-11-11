@@ -227,7 +227,7 @@ function programmer(buf, gen) {
   if (V.fin && c.currentTime + 0.005 > V.fin) { V.trous = (V.trous || 0) + 1; V.trouMs = (V.trouMs || 0) + Math.round((c.currentTime + avance - V.fin) * 1000); }
   s.start(t); V.fin = t + buf.duration;
   V.sources.push(s);
-  if (!V.premierSon) V.premierSon = performance.now() + (t - c.currentTime) * 1000;
+  if (!V.premierSon) { V.premierSon = performance.now() + (t - c.currentTime) * 1000; V.debutCtx = t; }
   s.onended = function () { var i = V.sources.indexOf(s); if (i >= 0) V.sources.splice(i, 1); verifierFin(gen); };
 }
 function verifierFin(gen) {

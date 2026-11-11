@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-21';
+var BUILD = '20261111-22';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -733,6 +733,14 @@ function histoireRapide() {
       l.push({ role: i.genre === 'tx' ? 'assistant' : 'user', content: texteLeger(i.corps) });
     }
   });
+  /* tours d’appel gardés à l’instant mais pas encore relus depuis GitHub */
+  var vus = {};
+  (S.items || []).forEach(function (i) { if (i.genre === 'appel') vus[i.appel.tom + '\u0001' + i.appel.laura] = 1; });
+  S._vocalLocaux = (S._vocalLocaux || []).filter(function (t) { return !vus[t.tom + '\u0001' + t.laura]; });
+  S._vocalLocaux.forEach(function (t) {
+    l.push({ role: 'user', content: '🎤 (au téléphone) ' + t.tom });
+    l.push({ role: 'assistant', content: t.laura });
+  });
   return l.slice(-16);
 }
 /* Tour d’appel vocal : commentaire 100 % invisible (commentaire HTML), lu par le robot et par la voie rapide. */
@@ -1412,11 +1420,31 @@ function garderTourVocal(corps, essai) {
     if ((essai || 0) < 2) return new Promise(function (ok) { setTimeout(ok, 1500); }).then(function () { return garderTourVocal(corps, (essai || 0) + 1); });
   });
 }
+/* Ce que Laura a vraiment eu le temps de dire (proportion du son joué), pour un tour coupé par Tom. */
+function texteDejaDit(texte) {
+  try {
+    var V = LauraRapide.voix.mesures(), c = V.ctx;
+    if (!c || V.debutCtx == null || !V.fin || V.fin <= V.debutCtx) return texte;
+    var f = Math.max(0, Math.min(1, (c.currentTime - V.debutCtx) / (V.fin - V.debutCtx)));
+    var n = Math.round(texte.length * f), coupe = texte.slice(0, n);
+    var esp = coupe.lastIndexOf(' ');
+    return (esp > 0 && n < texte.length ? coupe.slice(0, esp) : coupe).trim();
+  } catch (e) { return texte; }
+}
+function sauverTourVocal(tt, coupe) {
+  if (!tt || tt.sauve || !tt.tom) return Promise.resolve();
+  tt.sauve = true;
+  var laura = coupe ? (texteDejaDit(tt.laura) + ' … [coupée par Tom]').trim() : tt.laura;
+  if (!laura) return Promise.resolve();
+  (S._vocalLocaux = S._vocalLocaux || []).push({ tom: tt.tom, laura: laura });
+  return garderTourVocal(corpsAppel({ tom: tt.tom, laura: laura, tache: tt.tache }, modeVoix()));
+}
 function vocalDirect(blob, type) {
   var finParole = S._vocalFinParole || performance.now();
   vocalEtatUI('wait', '');
   S._vocalAppel = true;
   var entendu = '', parlait = false;
+  var tt = S._vocalEnCours = { tom: '', laura: '', tache: false, final: false, sauve: false, audioFini: false };
   var mesure = { fin_parole: Math.round(finParole), debut_envoi: Math.round(performance.now()) };
   var tour = S._vocalTour = (S._vocalTour || 0) + 1;
   var hist = histoireRapide();
@@ -1430,8 +1458,8 @@ function vocalDirect(blob, type) {
   var meta = { messages: hist, encours: encours };
   if (modeVoix()) meta.mode = modeVoix();
   LauraRapide.voix.appel(S.jeton, blob, meta, {
-    entendu: function (t) { entendu = t; if (t && $('voiceCaption')) $('voiceCaption').textContent = t; },
-    texte: function (txt) { if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
+    entendu: function (t) { entendu = t; tt.tom = String(t || '').trim(); if (t && $('voiceCaption')) $('voiceCaption').textContent = t; },
+    texte: function (txt) { tt.laura = String(txt || '').replace(/\[\[TACHE\]\]/g, '').trim(); if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
     parle: function () {
       if (parlait || !S._vocalAppel || tour !== S._vocalTour) return;
       parlait = true;
@@ -1445,7 +1473,11 @@ function vocalDirect(blob, type) {
       mesure.fin_parole_vers_son_ms = mesure.premier_son - mesure.fin_parole;
       window.SI_VOIX = mesure;
     },
-    surFinAudio: function () { if (!S._vocalAppel || tour !== S._vocalTour) return; S._vocalAppel = false; relancer(); }
+    surFinAudio: function () {
+      if (!S._vocalAppel || tour !== S._vocalTour) return;
+      tt.audioFini = true; if (tt.final) sauverTourVocal(tt, false);
+      S._vocalAppel = false; relancer();
+    }
   }).then(function (r) {
     if (tour !== S._vocalTour) return;   /* Tom a repris la parole : ce tour est remplacé */
     if (!parlait) vocalStopMediaRec(true); /* pas de son joué : on ne renvoie jamais l’ancienne phrase */
@@ -1454,8 +1486,11 @@ function vocalDirect(blob, type) {
     if (!entendu.trim() || (r.fin && r.fin.vide) || !r.texte.trim()) { S._vocalAppel = false; relancer(); return; }
     var tache = !!(r.fin && r.fin.tache);
     if (tache) S._tacheEnCours = entendu.slice(0, 200);
-    var corps = corpsAppel({ tom: entendu.trim(), laura: r.texte.replace(/\[\[TACHE\]\]/g, '').trim(), tache: tache }, modeVoix());
-    return garderTourVocal(corps);
+    tt.tom = entendu.trim(); tt.laura = r.texte.replace(/\[\[TACHE\]\]/g, '').trim(); tt.tache = tache; tt.final = true;
+    /* Le tour est gardé quand Laura a fini de parler (ou quand Tom la coupe : on garde alors ce qu’elle a eu le temps de dire).
+       Une tâche part tout de suite, pour que le robot commence sans attendre. */
+    if (tache || tt.audioFini || !parlait) return sauverTourVocal(tt, false);
+    setTimeout(function () { sauverTourVocal(tt, false); }, 90000);
   }).catch(function (e) {
     if (!S.modeVocal || tour !== S._vocalTour) return;
     S._vocalAppel = false;
@@ -1590,6 +1625,7 @@ function vocalEcouterMedia(pendantParole, propre) {
           (window.SI_VOIX_COUPURES = window.SI_VOIX_COUPURES || []).push(Date.now());
           fond = [];
           S._vocalAppel = false; S._vocalCoupe = true;
+          sauverTourVocal(S._vocalEnCours, true);
           if (window.LauraRapide) LauraRapide.voix.stop();
           vocalEtatUI('listen', '');
         }
@@ -1934,6 +1970,8 @@ document.addEventListener('visibilitychange', function () {
   if (S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait' && !S.vocalMuet) { vocalCouperMicro(); vocalEtatUI('listen', ''); vocalEcouter(); }
 });
 function fermerModeVocal() {
+  var enCours = S._vocalEnCours;
+  if (enCours && !enCours.sauve && enCours.laura) sauverTourVocal(enCours, !enCours.audioFini && S.vocalEtat === 'speak');
   S.modeVocal = false;
   S._vocalAppel = false;
   if (window.LauraRapide) { LauraRapide.voix.stop(); if (LauraRapide.voix.sessionAppel) LauraRapide.voix.sessionAppel(false); }
