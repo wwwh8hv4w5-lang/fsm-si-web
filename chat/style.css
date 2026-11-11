@@ -2137,3 +2137,12 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 #tachesBar .tb-act { display: flex; gap: .5rem; margin-top: .35rem; }
 #tachesBar .tb-act button { background: #2a2a2a; color: #ececec; border: 0; border-radius: 10px; padding: .35rem .8rem; font: inherit; cursor: pointer; }
 #tachesBar .tb-act button[data-a="ouvrir"] { background: #C24E00; color: #fff; }
+
+/* build 50 : carte « Active les notifications » */
+#notifCarte { position: fixed; left: 12px; right: 12px; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 60; max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: center; background: rgba(26,26,26,.97); border: 1px solid #2c2c2c; border-radius: 18px; padding: 14px; color: #ececec; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+#notifCarte img { width: 48px; height: 48px; border-radius: 12px; background: #141414; object-fit: contain; }
+#notifCarte .nc-t b { display: block; font-size: 1rem; margin-bottom: 2px; }
+#notifCarte .nc-t span { color: #a8a8a8; font-size: .88rem; }
+#notifCarte .nc-b { grid-column: 1 / -1; display: flex; gap: 8px; }
+#notifCarte .nc-b button { flex: 1; border: 0; border-radius: 12px; padding: 11px; font: inherit; font-weight: 600; cursor: pointer; background: #2a2a2a; color: #ececec; }
+#notifCarte .nc-b .nc-oui { background: #C24E00; color: #fff; }
