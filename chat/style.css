@@ -954,40 +954,40 @@ html, body, #chatView, #fil, #home {
   margin: 8px 0 0;
 }
 .voice-state, .voice-caption { display: none !important; }
+/* Réglages de l’appel, plein écran (relevé Grok Bot) */
 .voice-prefs {
-  position: absolute; inset: 0;
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: calc(var(--safe-top) + 130px) 20px 20px;
-  background: rgba(0,0,0,.28);
+  position: fixed; inset: 0; z-index: 40;
+  background: #000; color: #fff;
+  display: flex; flex-direction: column; align-items: center;
+  padding: calc(var(--safe-top) + 10px) 20px calc(env(safe-area-inset-bottom, 0px) + 22px);
   pointer-events: auto;
-  z-index: 2;
+  animation: vp-in .22s ease-out;
 }
+@keyframes vp-in { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
 .voice-prefs[hidden] { display: none !important; }
-.voice-prefs-card {
-  width: min(360px, 100%);
-  background: #1C1C1E;
-  border-radius: 16px;
-  padding: 16px 16px 12px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.5);
-}
-.voice-prefs-card h3 { margin: 0 0 12px; font-size: 17px; font-weight: 700; }
-.vp-row {
-  display: flex; align-items: center; gap: 10px;
-  margin: 0 0 12px; font-size: 15px; color: #fff;
-}
-.vp-row span:first-child { width: 64px; flex: none; color: #8E8E93; }
-.vp-row select, .vp-row input[type="range"] { flex: 1; min-width: 0; }
-.vp-row select {
-  background: #2C2C2E; color: #fff; border: 0; border-radius: 10px;
-  padding: 8px 10px; font-size: 15px;
-}
-.vp-row input[type="range"] { accent-color: #FF4B8A; }
-#voiceRateVal { width: 48px; flex: none; text-align: right; color: #8E8E93; font-size: 14px; }
-.vp-ok {
-  display: block; width: 100%; margin-top: 6px;
-  border-radius: 12px; padding: 10px;
-  background: #2C2C2E; color: #fff; font-size: 17px; font-weight: 600;
-}
+.vp-replier { align-self: flex-start; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: transparent; }
+.vp-replier svg { width: 24px; height: 24px; }
+.vp-tete { display: flex; flex-direction: column; align-items: center; margin-top: 8vh; }
+.vp-av { width: 92px; height: 92px; border-radius: 50%; overflow: hidden; }
+.vp-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vp-nom { margin-top: 16px; font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
+.vp-duree { margin-top: 4px; font-size: 15px; color: #8E8E93; font-variant-numeric: tabular-nums; }
+.vp-carte { width: min(420px, 100%); margin-top: 34px; background: #1C1C1E; border-radius: 22px; overflow: hidden; }
+.vp-ligne { position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 18px; font-size: 17px; }
+.vp-ligne + .vp-ligne { border-top: .5px solid rgba(255,255,255,.1); }
+.vp-lab { color: #fff; }
+.vp-val { display: flex; align-items: center; gap: 8px; color: #8E8E93; }
+.vp-ch { width: 10px; height: 15px; }
+.vp-ligne select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.vp-bas { margin-top: auto; width: min(420px, 100%); display: flex; align-items: center; justify-content: space-between; }
+.vp-gauche { display: flex; gap: 14px; }
+.vp-rond { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: #2C2C2E; color: #fff; }
+.vp-rond svg { width: 22px; height: 22px; }
+.vp-rond.actif { background: #fff; color: #000; }
+.vp-rond.muted { background: #3A3A3C; color: #FF453A; }
+.vp-rond.raccrocher { background: #FF453A; color: #fff; }
+.vp-rond.raccrocher svg { width: 26px; height: 26px; }
+.vp-rond .hidden { display: none !important; }
 
 /* ===== Tablette / iPad : tailles proportionnées, contenu centré ===== */
 @media (min-width: 735px) and (min-height: 700px) {
@@ -1106,8 +1106,6 @@ html, body, #chatView, #fil, #home {
   .voice-btn svg { width: 22px; height: 22px; }
   .voice-btn.hang svg { width: 26px; height: 26px; }
   .voice-grab { width: 44px; height: 5px; margin: 10px 0 0; }
-  .voice-prefs { padding-top: calc(var(--safe-top) + 150px); }
-  .voice-prefs-card { width: min(420px, 100%); }
 }
 
 /* iPad paysage : avatar un peu plus compact, héros toujours centré */
@@ -2117,3 +2115,11 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
   #createSheet .shape-cell:active,
   #createSheet .swatch:active { transform: none; }
 }
+/* Résumé d’appel vocal (carte compacte, relevé Grok Bot) */
+.msg.bot .bubble.resume-appel { background: #1C1C1E; border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 10px 14px 12px; max-width: min(520px, 86%); }
+.resume-appel .ra-tete { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #8E8E93; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.resume-appel .ra-tete svg { width: 14px; height: 14px; }
+.resume-appel .ra-texte { font-size: 15px; line-height: 1.4; color: #fff; }
+.resume-appel .ra-texte p { margin: 0 0 6px; }
+.resume-appel .ra-texte p:last-child { margin: 0; }
+.resume-appel .ra-attente { color: #8E8E93; }

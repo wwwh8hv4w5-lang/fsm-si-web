@@ -215,13 +215,24 @@ function sessionAppel(on) {
   V.actif = !!on;
   try { if (navigator.audioSession) navigator.audioSession.type = on ? 'play-and-record' : 'auto'; } catch (e) {}
 }
+/* Sortie de la voix de Laura par un analyseur : la vague de la barre d’appel suit le vrai niveau joué. */
+function sortie(c) {
+  if (V.an && V.anCtx === c) return V.an;
+  try { V.an = c.createAnalyser(); V.an.fftSize = 1024; V.an.smoothingTimeConstant = 0.3; V.an.connect(c.destination); V.anCtx = c; V.anData = new Uint8Array(V.an.fftSize); return V.an; }
+  catch (e) { return c.destination; }
+}
+function niveau() {
+  if (!V.an || !V.anData || !V.sources.length) return 0;
+  try { V.an.getByteTimeDomainData(V.anData); var x = 0; for (var i = 0; i < V.anData.length; i++) { var v = (V.anData[i] - 128) / 128; x += v * v; } return Math.min(1, Math.sqrt(x / V.anData.length) * 5.5); }
+  catch (e) { return 0; }
+}
 function debloquer() {
   var c = ctxAudio(); if (!c) return;
   try { var b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } catch (e) {}
 }
 function programmer(buf, gen) {
   var c = ctxAudio(); if (!c || gen !== V.gen) return;
-  var s = c.createBufferSource(); s.buffer = buf; s.connect(c.destination);
+  var s = c.createBufferSource(); s.buffer = buf; s.connect(sortie(c));
   /* File audio sans trou : les morceaux sont collés bout à bout sur l’horloge audio. Au premier morceau (ou après
      un vrai manque de données) on garde 120 ms d’avance pour absorber les à-coups du réseau. */
   var avance = 0.12;
@@ -283,7 +294,7 @@ function lecteur(jeton, surFin) {
   function phrase(p) {
     var t = nettoyerVoix(p); if (!t) return;
     V.enAttente++;
-    var req = fetch(PROXY + '/tts', { credentials: 'include',  method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' }, body: JSON.stringify({ texte: t }) })
+    var req = fetch(PROXY + '/tts', { credentials: 'include',  method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ texte: t }, window.SI_PREFS_VOIX ? window.SI_PREFS_VOIX() : {})) })
       .then(function (r) { if (!r.ok) throw new Error('tts ' + r.status); return r.arrayBuffer(); })
       .then(function (a) { var c = ctxAudio(); if (!c) throw new Error('audio'); return new Promise(function (ok, ko) { c.decodeAudioData(a, ok, ko); }); });
     file = file.then(function () { return req; }).then(function (buf) {
@@ -363,5 +374,5 @@ function transcrire(jeton, blob) {
 }
 
 window.LauraRapide = { PROXY: PROXY, transcrire: transcrire, discuter: discuter, cartes: cartes, specs: specs, ranger: ranger,
-  voix: { sessionAppel: sessionAppel, contexte: ctxAudio, debloquer: debloquer, lecteur: lecteur, parler: parler, appel: appel, stop: stop, occupe: occupe, mesures: function () { return V; } } };
+  voix: { niveau: niveau, sessionAppel: sessionAppel, contexte: ctxAudio, debloquer: debloquer, lecteur: lecteur, parler: parler, appel: appel, stop: stop, occupe: occupe, mesures: function () { return V; } } };
 })();
