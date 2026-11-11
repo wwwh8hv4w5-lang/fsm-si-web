@@ -7,7 +7,7 @@
   --btn: #171717;
   --surface: #1C1C1E;
   --bulle-bot: #202020;
-  --bulle-moi: #F25C05;
+  --bulle-moi: #C24E00;
   --texte: #FFFFFF;
   --texte-moi: #FFF8F3;
   --muted: #8E8E93;
@@ -15,7 +15,7 @@
   --vert: #34C759;
   --lien: #0A84FF;
   --danger: #FF453A;
-  --accent: #F25C05;
+  --accent: #C24E00;
   --toggle-off: #39393D;
   --toggle-on: #FF9F0A;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -727,7 +727,7 @@ mark.hit.cur { background: #FFD60A; }
 
 .msg .bubble { font-size: 17px; line-height: 1.35; padding: 10px 14px; }
 .msg.bot .bubble { background: var(--bulle-bot); border-radius: 18px; border-bottom-left-radius: 8px; }
-.msg.me .bubble { background: #F25C05; border-radius: 18px; border-bottom-right-radius: 8px; }
+.msg.me .bubble { background: #C24E00; border-radius: 18px; border-bottom-right-radius: 8px; }
 .msg time { display: none; }
 .msg .bubble details { display: none !important; }
 .msg .bubble blockquote {
@@ -791,7 +791,7 @@ mark.hit.cur { background: #FFD60A; }
   display: grid; place-items: center; flex: none; margin-bottom: 0;
 }
 .pill-ico svg { width: 16px; height: 16px; }
-.pill-ico.accent { width: 36px; height: 36px; background: #F25C05; color: #fff; }
+.pill-ico.accent { width: 36px; height: 36px; background: #C24E00; color: #fff; }
 .pill-ico.accent svg { width: 16px; height: 16px; }
 .expand-btn { color: #8E8E93; width: 28px; height: 36px; }
 #sendBtn .ico-wave, #sendBtn .ico-send { display: block; }
@@ -1504,3 +1504,162 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 }
 #scrollDown.show { transform: translateX(-50%) translateY(-4px) scale(1); }
 #scrollDown svg { width: 16px; height: 16px; stroke-width: 2.4; }
+
+/* ===== Build 20261111-21 : relevés image par image sur l’enregistrement Grok Bot de Tom ===== */
+/* Marges latérales du fil : 16 px comme Grok Bot */
+@media (max-width: 734px) { #fil { padding-left: 16px; padding-right: 16px; } }
+
+/* Ligne d’état « ••• Avance pas à pas » : 3 points gris qui s’allument tour à tour (montée franche, extinction lente),
+   boucle 1,07 s, décalage 0,23 s ; texte gris #676767 balayé par un reflet blanc de gauche à droite. */
+#typing { gap: 0; padding: 0; height: 32px; margin: 0 0 18px -7px; align-items: center; }
+#typing .dots { gap: 4px; width: 23px; height: 5px; margin-right: 17px; flex: none; }
+#typing .dots i {
+  width: 5px; height: 5px; border-radius: 50%; background: #8E8E93;
+  transform: none !important; will-change: opacity;
+  animation: grok-point 1.07s linear infinite;
+}
+#typing .dots i:nth-child(1) { animation-delay: -0.84s; }
+#typing .dots i:nth-child(2) { animation-delay: -0.61s; }
+#typing .dots i:nth-child(3) { animation-delay: -0.38s; }
+@keyframes grok-point {
+  0% { opacity: .85; }
+  35% { opacity: .74; }
+  65% { opacity: .62; }
+  85% { opacity: .48; }
+  99.9% { opacity: .33; }
+  100% { opacity: .85; }
+}
+#typing .typing-stack { min-width: 0; overflow: visible; }
+#typing .typing-stack em, #typing em {
+  font-size: 17px; font-weight: 400; line-height: 22px; color: #676767;
+}
+#typing .typing-stack em.cur {
+  color: transparent;
+  background: linear-gradient(90deg, #676767 0%, #676767 35%, #FFFFFF 50%, #676767 65%, #676767 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  animation: etat-in .22s ease both, grok-reflet 1.07s linear -0.07s infinite;
+}
+@keyframes grok-reflet {
+  0% { background-position: 97% 0; }
+  84% { background-position: 3% 0; }
+  100% { background-position: 3% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #typing .typing-stack em.cur { animation: none !important; color: #676767; background: none; }
+  #typing .dots i { animation: none !important; opacity: .7; }
+}
+
+/* Glissement chat ↔ accueil : translation pure, ni coins ni ombre (comme Grok Bot) */
+#chatView.carding { border-radius: 0 !important; box-shadow: none !important; overflow: visible; }
+#home.sous-chat { will-change: transform; }
+
+/* Boutons ronds du composeur : gris Grok #2E2E31, icônes #9F9FA6 */
+.pill-ico { background: #2E2E31; color: #EBEBF0; }
+#attachBtn { color: #BABAC2; }
+#micBtn { color: #9F9FA6; }
+
+/* Appui long sur Laura (accueil) : aperçu + menu contextuel iOS, comme Grok Bot */
+#homeCtx { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0); transition: background .25s ease; -webkit-tap-highlight-color: transparent; }
+#homeCtx[hidden] { display: none !important; }
+#homeCtx.on { background: rgba(0,0,0,.08); }
+#homeCtx .hc-col { position: absolute; left: 0; right: 0; top: var(--hc-top, 79px); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+#homeCtx .hc-preview, #homeCtx .hc-menu, #homeCtx .hc-sous { pointer-events: auto; }
+.hc-preview {
+  width: 318px; max-width: calc(100% - 72px); padding: 0 0 0;
+  transform-origin: 50% 0; opacity: 0; transform: scale(.82);
+  transition: transform .42s var(--ease-spring), opacity .18s ease;
+}
+.hc-head { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 15px; border-bottom: 0; }
+.hc-head .av { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex: none; }
+.hc-head .av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hc-head b { font-size: 17px; font-weight: 600; color: #fff; letter-spacing: -.1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-preview::after { content: ""; display: block; height: 1px; background: #222222; margin-top: -1px; }
+.hc-head { margin-bottom: 12px; }
+.hc-bulle {
+  margin: 17px 0 0 16px; max-width: 258px; width: fit-content;
+  background: #1D1D1D; color: #fff; border-radius: 18px;
+  padding: 8px 13px; font-size: 17px; line-height: 24px;
+  display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden;
+  word-wrap: break-word;
+}
+.hc-preview { display: flex; flex-direction: column; }
+.hc-preview::after { order: 1; }
+.hc-head { order: 0; }
+.hc-bulle { order: 2; }
+.hc-menu, .hc-sous {
+  width: 248px; background: #111014; border: 1px solid #34333D; border-radius: 30px;
+  padding: 8px 0; box-shadow: 0 18px 50px rgba(0,0,0,.55);
+  transform-origin: 50% 0; opacity: 0; transform: scale(.55);
+  transition: transform .42s var(--ease-spring), opacity .18s ease, filter .25s ease;
+}
+.hc-menu { margin-top: 34px; position: relative; }
+.hc-row {
+  display: flex; align-items: center; width: 100%; text-align: left;
+  padding: 11px 24px 11px 0; min-height: 42px;
+  font-size: 17px; line-height: 20px; color: #fff; font-weight: 400;
+  transition: color .2s ease, opacity .2s ease;
+}
+.hc-row > svg:first-child { width: 20px; height: 20px; flex: none; margin: 0 14px 0 29px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.hc-row span { flex: 1; min-width: 0; }
+.hc-row .chev { width: 16px; height: 16px; flex: none; margin-right: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hc-row.danger { color: #FF4046; }
+.hc-row:active { background: rgba(255,255,255,.06); }
+.hc-sous { position: absolute; left: 50%; margin-left: -124px; background: #141315; border-color: #2B2A32; padding: 6px 0; transform: scale(.92); transform-origin: 50% 100%; pointer-events: none; }
+.hc-sous .hc-plus { font-weight: 600; }
+.hc-sep { height: 1px; background: #222125; margin: 6px 22px; }
+#homeCtx.on .hc-preview, #homeCtx.on .hc-menu { opacity: 1; transform: none; }
+#homeCtx.plus .hc-menu { transform: scale(.97); }
+#homeCtx.plus .hc-menu .hc-row { color: rgba(255,255,255,.42); }
+#homeCtx.plus .hc-menu .hc-row.danger { color: rgba(255,64,70,.45); }
+#homeCtx.plus .hc-menu .hc-plus { opacity: 0; }
+#homeCtx.plus .hc-sous { opacity: 1; transform: none; pointer-events: auto; }
+#homeCtx.sortie .hc-preview, #homeCtx.sortie .hc-menu, #homeCtx.sortie .hc-sous { opacity: 0; transform: scale(.82); transition: transform .24s ease, opacity .18s ease; }
+#homeAv, #homeName { transition: opacity .18s ease, transform .42s var(--ease-spring); }
+#home.ctx-on #homeAv, #home.ctx-on #homeName { opacity: 0; transform: scale(.9); transition: opacity .12s ease, transform .2s ease; }
+#home.ctx-retour #homeAv { animation: hc-retour .42s var(--ease-spring) both; }
+@keyframes hc-retour { from { transform: scale(1.25); opacity: .2; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hc-preview, .hc-menu, .hc-sous { transition: none !important; } }
+#homeAvatar, #homeAvatar img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
+
+/* Composeur avec média joint : la pilule devient une carte arrondie, vignette 105×105 en haut à gauche (photo de Tom) */
+.pill.big #attachments { display: none; }
+.pill.big:has(#attachments:not(.hidden):not(:empty)) {
+  flex-wrap: wrap; align-items: center; border-radius: 26px;
+  padding: 10px 8px 7px; row-gap: 8px;
+}
+.pill.big:has(#attachments:not(.hidden):not(:empty)) #attachments {
+  display: flex; flex: 0 0 100%; order: -1; gap: 8px; padding: 0 0 0 2px; margin: 0; overflow-x: auto; scrollbar-width: none;
+}
+.pill.big #attachments::-webkit-scrollbar { display: none; }
+.pill.big #attachments .att {
+  width: 105px; height: 105px; max-width: none; flex: none;
+  border-radius: 14px; overflow: hidden; background: #2A2A2C; position: relative;
+}
+.pill.big #attachments .att img, .pill.big #attachments .att video { width: 100%; height: 100%; max-height: none; object-fit: cover; display: block; }
+.pill.big #attachments .att .play { display: none; }
+.pill.big #attachments .att .dur {
+  left: 7px; bottom: 6px; background: none; padding: 0; gap: 4px; border-radius: 0;
+  font-size: 13px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  font-variant-numeric: tabular-nums;
+}
+.pill.big #attachments .att .dur::before { border-width: 5px 0 5px 8px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.pill.big #attachments .att .apercu-nom { font-size: 12px; color: #EBEBF0; padding: 10px !important; word-break: break-all; }
+.pill.big #attachments .att .rm {
+  top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(28,28,30,.78); color: #fff; font-size: 0; box-shadow: none;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.pill.big #attachments .att .rm::before, .pill.big #attachments .att .rm::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 1.8px; border-radius: 1px; background: #fff;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.pill.big #attachments .att .rm::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.pill.big:has(#attachments:not(.hidden):not(:empty)) #expandBtn { display: none !important; }
+#homeCtx:not(.plus) .hc-sous { pointer-events: none; }
+.hc-menu .hc-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-row > svg:first-child { width: 22px; height: 22px; margin: 0 13px 0 28px; stroke-width: 1.8; }
+.hc-row .chev { stroke-width: 2.2; color: #fff; }
+.hc-sous { padding: 8px 0; }
+.hc-sous .hc-row { min-height: 46px; }
+.hc-sous .hc-sep { margin: 6px 22px; }
