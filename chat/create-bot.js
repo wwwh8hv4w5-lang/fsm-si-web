@@ -22,6 +22,8 @@
     return l;
   }
   function sauverBots(l) {
+    /* garde-fou : sur LAURA, aucun Bot de plus que ceux déjà gardés (jamais de création) */
+    if (VERROU && l.length > lireBotsBruts().length) return;
     try { localStorage.setItem(CLE, JSON.stringify(l)); } catch (e) {}
   }
   function estLocal(c) {
@@ -155,17 +157,24 @@
       if (back) { back.hidden = true; back.classList.remove('hide'); }
     }, wait);
   }
+  /* LAURA (cause racine du doublon de Tom, 11/11 ~15:2x) : « Créer » poussait quand même un nouveau Bot local
+     (si_local_bots, id « L… ») affiché en Laura = deuxième Laura à l’accueil. Sur LAURA, rien n’est jamais créé :
+     la feuille se ferme et on retombe sur la Laura existante (sa conversation, son historique). */
+  function allerLaura() {
+    fermer();
+    if (typeof window.ouvrirLaura === 'function') window.ouvrirLaura();
+  }
   function creer() {
-    var nom = VERROU ? LAURA.nom : ($('botName') && $('botName').value || '').trim();
+    if (VERROU) { allerLaura(); return; }
+    var nom = ($('botName') && $('botName').value || '').trim();
     if (!nom) return;
     var id = 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var gre = 'Bonjour, je suis ' + nom + '. Comment puis-je t’aider ?';
     var bot = {
       id: id,
       name: nom,
-      shape: VERROU ? DEF_SHAPE : sel.shape,
-      color: VERROU ? DEF_COLOR : sel.color,
-      laura: VERROU || undefined,
+      shape: sel.shape,
+      color: sel.color,
       created: new Date().toISOString(),
       messages: [{ cle: 'g' + id, genre: 'tx', corps: gre, date: new Date().toISOString() }]
     };

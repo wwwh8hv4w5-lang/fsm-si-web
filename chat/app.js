@@ -446,6 +446,7 @@ function chargerConvs() {
 function choisir(n, opts) {
   opts = opts || {};
   S.conv = n; mem.ecrire('si_conv', String(n));
+  if (n && !estLocal(n)) mem.ecrire('si_conv_laura', String(n));
   S.els = {}; $('fil').textContent = ''; S.pret = false; S.attente = false;
   if (!opts.sansEcran) mem.ecrire('si_ecran', 'chat');
   if (n && !estLocal(n)) { var br = mem.lire('si_brouillon:' + n); if (br && !$('texte').value.trim()) { $('texte').value = br; taille(); } }
@@ -3528,9 +3529,21 @@ function revenirCarte() {
   if (p <= 0) { resetCard(); return; }
   animerNav(p, 0, function () { resetCard(); });
 }
+/* La Laura existante : sa dernière conversation GitHub (jamais un Bot local « L… »). */
+function convLaura() {
+  if (S.conv && !estLocal(S.conv)) return S.conv;
+  var m = Number(mem.lire('si_conv_laura')) || 0;
+  return m || (S.convs[0] && S.convs[0].number) || 0;
+}
+window.ouvrirLaura = function () {
+  if (!S.jeton) return;
+  var n = convLaura();
+  if (n) choisir(n, { morph: false });
+  else { S.conv = 0; mem.ecrire('si_conv', '0'); if (window.CreateBot) CreateBot.entete(); montrerChat(false); }
+};
 $('homeAvatar').addEventListener('click', function () {
   if (!S.jeton) return;
-  var n = S.conv || (S.convs[0] && S.convs[0].number) || 0;
+  var n = (window.CreateBot && CreateBot.verrou) ? convLaura() : (S.conv || (S.convs[0] && S.convs[0].number) || 0);
   if (n) choisir(n, { morph: true });
   else { montrerChat(true); ouvrirChatMorph(); }
 });
