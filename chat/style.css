@@ -466,7 +466,7 @@ mark.hit.cur { background: #FFD60A; }
   padding-bottom: var(--safe-bot);
 }
 .sheet-up.open { transform: translateY(0); }
-.sheet-grab { padding: 10px 16px 4px; display: flex; align-items: center; }
+.sheet-grab { padding: 10px 16px 4px; display: flex; align-items: center; touch-action: none; cursor: grab; }
 .close-x { background: #2C2C2E; }
 .close-x svg { width: 14px; height: 14px; }
 .sheet-scroll {
