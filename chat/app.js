@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-19';
+var BUILD = '20261111-20';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -334,6 +334,8 @@ function memorerTranscriptionVocale(texte) {
   S._dernVocal = texte;
 }
 function transcriptionPourNote(corps) {
+  var m = String(corps || '').match(/Note vocale\s*:\s*«\s*([\s\S]*?)\s*»/);
+  if (m) return m[1];
   return S._dernVocal || '';
 }
 function bulleNoteVocale(transcription) {
@@ -351,7 +353,10 @@ function majFil(items) {
   var ancre = fil.querySelector('.msg.local, .msg.rapide');
   items.forEach(function (it) {
     vus[it.cle] = 1;
-    if (it.cache) return;
+    if (it.cache) {
+      if (it.direAppel && S.pret && S.modeVocal && !(S._dits = S._dits || {})[it.cle]) { S._dits[it.cle] = 1; vocalSurReponse(it); }
+      return;
+    }
     var node = S.els[it.cle];
     if (!node) {
       node = S.els[it.cle] = document.createElement('article');
@@ -360,7 +365,7 @@ function majFil(items) {
       ajout = true;
       if (S.pret && it.genre === 'tx') {
         if (S.modeVocal) vocalSurReponse(it);
-        else if (S.voix) dire(textePourVoix(it.corps));
+        else if (S.voix && it.corps.indexOf('<!-- fsm-laura') < 0) dire(textePourVoix(it.corps));
       }
       if (S.pret && it.genre === 'tx' && it.cle !== S.lastBotCle && S.ecran !== 'chat') {
         bannerBot(it.corps);
@@ -515,6 +520,12 @@ function rafraichir() {
     r[1].forEach(function (c) { ids[String(c.id)] = 1; });
     r[1].forEach(function (c) {
       var b = String(c.body || ''), genre;
+      /* Appel vocal : jamais de bulle dans le chat, mais gardé pour la continuité (historique, robot). */
+      var ap = appelDe(b);
+      if (ap || /<!--\s*fsm-appel-lent/.test(b)) {
+        items.push({ cle: 'c' + c.id, genre: 'appel', cache: true, date: c.created_at, corps: b, appel: ap || { tom: '', laura: '', tache: true, lent: true } });
+        return;
+      }
       if (c.user && c.user.type === 'Bot') genre = b.indexOf('robot-progress') >= 0 ? 'encours' : b.indexOf('robot-commande') >= 0 ? 'note' : 'tx';
       else if (b.indexOf('<!-- fsm-laura') >= 0) genre = 'tx';
       else genre = b.trim().charAt(0) === '/' ? 'ordre' : 'moi';
@@ -532,6 +543,7 @@ function rafraichir() {
         });
         if (corpsVisibleVide(b)) it.cache = true;
       }
+      if (genre === 'tx' && b.indexOf('fsm-appel-reponse') >= 0) { it.cache = true; it.direAppel = true; }
       reactionsGithub(c.reactions).forEach(function (em) { ajR('c' + c.id, em); });
       items.push(it);
     });
@@ -539,9 +551,9 @@ function rafraichir() {
       var l = reacts[it.cle] || [], vu = {};
       it.react = l.filter(function (em) { var k = normEmo(em); if (vu[k]) return false; vu[k] = 1; return true; });
     });
-    var utiles = items.filter(function (i) { return i.genre !== 'ordre'; });
+    var utiles = items.filter(function (i) { return i.genre !== 'ordre' && !(i.genre === 'appel' && !i.appel.tache); });
     var dernier = utiles[utiles.length - 1];
-    var attend = (!!dernier && (dernier.genre === 'moi' || (dernier.genre === 'tx' && dernier.corps.indexOf('<!-- fsm-laura tache') >= 0))) || S.file.length > 0;
+    var attend = (!!dernier && (dernier.genre === 'moi' || dernier.genre === 'appel' || (dernier.genre === 'tx' && dernier.corps.indexOf('<!-- fsm-laura tache') >= 0))) || S.file.length > 0;
     S.items = items;
     S.attente = attend;
     majFil(items);
@@ -701,7 +713,7 @@ function envoyer(texte, opts) {
   if (!S.runEtat) etatLigne('S’en occupe');
   var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
   /* Voie rapide en parallèle de l’envoi : Laura répond tout de suite ; sa réponse est postée après le message de Tom. */
-  if (texte.charAt(0) !== '/') repondreVite(texte, envoi, opts && opts.images);
+  if (texte.charAt(0) !== '/' && !(opts && opts.sansRapide)) repondreVite(texte, envoi, opts && opts.images);
   return envoi;
 }
 /* Voie rapide : Worker fsm-si-proxy toujours allumé. Laura répond tout de suite, même pendant une tâche.
@@ -710,21 +722,44 @@ function envoyer(texte, opts) {
 function texteLeger(md) {
   return String(md || '').replace(/<!--[\s\S]*?-->/g, '').replace(/<details>[\s\S]*?<\/details>/g, '').replace(/<sub>[\s\S]*?<\/sub>/g, '').trim().slice(0, 6000);
 }
+function histoireRapide() {
+  if (!S.conv) return [];
+  var l = [];
+  (S.items || []).forEach(function (i) {
+    if (i.genre === 'appel') {
+      if (i.appel.tom) l.push({ role: 'user', content: '🎤 (au téléphone) ' + i.appel.tom });
+      if (i.appel.laura) l.push({ role: 'assistant', content: i.appel.laura });
+    } else if ((i.genre === 'moi' || i.genre === 'tx') && (!i.cache || i.direAppel)) {
+      l.push({ role: i.genre === 'tx' ? 'assistant' : 'user', content: texteLeger(i.corps) });
+    }
+  });
+  return l.slice(-16);
+}
+/* Tour d’appel vocal : commentaire 100 % invisible (commentaire HTML), lu par le robot et par la voie rapide. */
+function appelDe(b) {
+  var m = String(b || '').match(/<!--\s*fsm-appel\s+(\{[\s\S]*?\})\s*-->/);
+  if (!m) return null;
+  try { var o = JSON.parse(m[1]); return { tom: String(o.tom || ''), laura: String(o.laura || ''), tache: !!o.tache }; } catch (e) { return null; }
+}
+function corpsAppel(o, mode) {
+  var j = JSON.stringify(o).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/--/g, '-\\u002d');
+  return '<!-- fsm-appel ' + j + ' -->' + (o.tache ? '' : '\n<!-- fsm-laura vocal -->') + (mode ? '\n<!-- fsm-mode: ' + mode + ' -->' : '');
+}
 function repondreVite(texte, envoiTom, images) {
   if (!window.LauraRapide || !S.jeton) return;
   var conv0 = S.conv;
-  var hist = (S.items || []).filter(function (i) { return (i.genre === 'moi' || i.genre === 'tx') && !i.cache; }).slice(-16).map(function (i) {
-    return { role: i.genre === 'tx' ? 'assistant' : 'user', content: texteLeger(i.corps) };
-  });
-  if (!conv0) hist = [];
+  var hist = histoireRapide();
   var moiTxt = images && images.length ? (texteLeger(piecesDe(texte).reste) || (images.length > 1 ? 'Regarde ces images.' : 'Regarde cette image.')) : texteLeger(texte);
   if (!hist.length || hist[hist.length - 1].content !== moiTxt) hist.push({ role: 'user', content: moiTxt });
   var encours = S.runEtat && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
   var node = null;
+  /* Lecture à voix haute (réglage « voix ») : la première phrase part pendant que le texte s’écrit encore. */
+  var lect = S.voix && !S.modeVocal && LauraRapide.voix ? LauraRapide.voix.lecteur(S.jeton) : null;
   var nettoyer = function () { if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null; };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
   LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, images: images && images.length ? images : undefined }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
+    if (lect) lect.pousser(txt.replace(/\[\[TACHE\]\]/g, ''));
     if (!node) {
       node = document.createElement('article'); node.className = 'msg bot rapide neuf';
       node.innerHTML = '<div class="bubble"></div>';
@@ -740,6 +775,7 @@ function repondreVite(texte, envoiTom, images) {
     });
   }).then(function (r) {
     window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
+    if (lect) lect.finir();
     var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->' +
       '\n<!-- fsm-par: ' + (r.fin.mode === 'grok' || (!r.fin.mode && modeLaura === 'grok') ? 'grok' : 'fsmsi') + ' ' + String(r.fin.modele || '').replace(/[^\w./:-]/g, '') + ' -->';
     if (r.fin.tache) S._tacheEnCours = moiTxt.slice(0, 200);
@@ -748,7 +784,7 @@ function repondreVite(texte, envoiTom, images) {
       if (!conv) throw new Error('sans conversation');
       return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } });
     }).then(function () { return rafraichir(); });
-  }).then(nettoyer, function () { nettoyer(); if (S.attente) etatLigne('S’en occupe'); });
+  }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne('S’en occupe'); });
 }
 function pomper() {
   if (S.envoi || !S.file.length) return;
@@ -1083,24 +1119,38 @@ function enregistrer() {
       afficherVoix(false);
       if (S._annulerVoix) { S._annulerVoix = false; enr = null; return; }
       var type = enr.mimeType || 'audio/mp4'; enr = null;
-      var ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
-      var lecteur = new FileReader();
-      lecteur.onload = function () {
-        var chemin = 'entree/vocal/' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
-        api(D() + '/contents/' + encP(chemin), { method: 'PUT', json: { message: 'note vocale', content: String(lecteur.result).split(',')[1], branch: S.branche } })
-          .then(function () { return envoyer('🎤 Note vocale : ' + chemin); }).catch(function (e) { alerte(e.message); });
-      };
-      lecteur.readAsDataURL(new Blob(morceaux, { type: type }));
+      if (window.LauraRapide && S.jeton) {
+        var blobQ = new Blob(morceaux, { type: type });
+        etatLigne('Écoute ta note');
+        LauraRapide.transcrire(S.jeton, blobQ).then(function (t) {
+          t = String(t || '').trim();
+          if (!t) { etatLigne(''); alerte('Je n’ai rien entendu, tu peux répéter ?'); return; }
+          return envoyer('🎤 Note vocale : « ' + t.replace(/[«»]/g, '"') + ' »');
+        }).catch(function () { envoyerNoteLente(morceaux, type); });
+        return;
+      }
+      envoyerNoteLente(morceaux, type);
     };
     enr.start();
     afficherVoix(true);
     onde(flux);
   }).catch(function () { alerte('Micro refusé : autorise-le dans les réglages du navigateur.'); });
 }
+function envoyerNoteLente(morceaux, type) {
+  var ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
+  var lecteur = new FileReader();
+  lecteur.onload = function () {
+    var chemin = 'entree/vocal/' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
+    api(D() + '/contents/' + encP(chemin), { method: 'PUT', json: { message: 'note vocale', content: String(lecteur.result).split(',')[1], branch: S.branche } })
+      .then(function () { return envoyer('🎤 Note vocale : ' + chemin); }).catch(function (e) { alerte(e.message); });
+  };
+  lecteur.readAsDataURL(new Blob(morceaux, { type: type }));
+}
 function dicterOuEnregistrer() {
   if (rec) { rec.stop(); return; }
   if (enr) { enr.stop(); return; }
-  if (SR && !S.note) dicter(); else enregistrer();
+  /* Micro de qualité (transcription /stt) par défaut ; la dictée du navigateur ne sert que sans enregistreur. */
+  if (navigator.mediaDevices && window.MediaRecorder) enregistrer(); else if (SR) dicter(); else enregistrer();
 }
 $('voiceStop').onclick = function () { S._annulerVoix = true; if (enr) enr.stop(); };
 $('voiceSend').onclick = function () { if (enr) enr.stop(); };
@@ -1119,7 +1169,9 @@ function tauxVoix() {
   return isFinite(n) ? Math.max(0.7, Math.min(1.5, n)) : 1.02;
 }
 function dire(t) {
-  if (!t || !window.speechSynthesis) return;
+  if (!t) return;
+  if (window.LauraRapide && S.jeton) { LauraRapide.voix.parler(S.jeton, t); return; }
+  if (!window.speechSynthesis) return;
   var u = new SpeechSynthesisUtterance(t.slice(0, 1500));
   u.lang = 'fr-FR';
   u.rate = tauxVoix();
@@ -1235,6 +1287,17 @@ function vocalBarres(niveau) {
   ctx.globalAlpha = 1;
 }
 
+/* niveau du micro (0..1), lu directement sur l’analyseur : indépendant de l’animation */
+function niveauMic() {
+  var an = S._vocalAnV || S._vocalAn, data = S._vocalAnV ? S._vocalDataV : S._vocalData;
+  if (!an || !data) return S._vocalNiveauMic || 0;
+  try {
+    an.getByteTimeDomainData(data);
+    var sum = 0;
+    for (var i = 0; i < data.length; i++) { var v = (data[i] - 128) / 128; sum += v * v; }
+    return Math.min(1, Math.sqrt(sum / data.length) * 4.2);
+  } catch (e) { return 0; }
+}
 function vocalAnimer(on) {
   cancelAnimationFrame(S._vocalAnim);
   if (!on) { S._vocalNiveau = 0; vocalBarres(0.16); return; }
@@ -1249,12 +1312,13 @@ function vocalAnimer(on) {
           var v = (data[i] - 128) / 128;
           sum += v * v;
         }
-        cible = Math.max(cible, Math.min(1, Math.sqrt(sum / data.length) * 4.2));
+        S._vocalNiveauMic = Math.min(1, Math.sqrt(sum / data.length) * 4.2);
+        cible = Math.max(cible, S._vocalNiveauMic);
       } catch (e) {}
     }
     S._vocalNiveau += (cible - S._vocalNiveau) * 0.32;
     vocalBarres(S._vocalNiveau);
-    if (S.vocalEtat === 'speak' && !S.vocalMuet && S._vocalSpeakAt && (performance.now() - S._vocalSpeakAt > 550)) {
+    if (S.vocalEtat === 'speak' && !S.vocalMuet && !S._vocalMr && S._vocalSpeakAt && (performance.now() - S._vocalSpeakAt > 550)) {
       if (S._vocalNiveau > 0.42) {
         S._vocalHaut += 1;
         if (S._vocalHaut > 10) { S._vocalHaut = 0; vocalInterrompre(); }
@@ -1267,8 +1331,9 @@ function vocalAnimer(on) {
 }
 
 function vocalCouperMicro() {
-  if (S._vocalAc && S._vocalAc.close) try { S._vocalAc.close(); } catch (e) {}
-  S._vocalAc = null; S._vocalAn = null; S._vocalData = null; S._vocalFreq = null;
+  if (S._vocalSrc) { try { S._vocalSrc.disconnect(); } catch (e) {} S._vocalSrc = null; }
+  if (S._vocalAc && S._vocalAc.close && !S._vocalAcPartage) try { S._vocalAc.close(); } catch (e) {}
+  S._vocalAc = null; S._vocalAn = null; S._vocalData = null; S._vocalFreq = null; S._vocalAnV = null; S._vocalDataV = null;
   if (S._vocalFlux) {
     S._vocalFlux.getTracks().forEach(function (t) { t.stop(); });
     S._vocalFlux = null;
@@ -1288,6 +1353,7 @@ function dicteeNavigateurOk() {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note;
 }
 function debloquerAudio() {
+  if (window.LauraRapide) LauraRapide.voix.debloquer();
   try {
     if (window.speechSynthesis) {
       var u = new SpeechSynthesisUtterance('\u200B');
@@ -1323,11 +1389,85 @@ function vocalStopMediaRec(annuler) {
   clearInterval(S._vocalSilInt);
   var rec = S._vocalMr;
   if (!rec) return;
-  S._vocalAnnuleMr = !!annuler;
+  clearInterval(rec._int);
+  rec._annule = !!annuler;
   S._vocalMr = null;
   try { rec.stop(); } catch (e) {}
 }
+/* Appel vocal instantané : audio → /voix (transcription, Laura, voix phrase par phrase), sans passer par GitHub.
+   L’échange est ensuite posté dans la conversation (note vocale de Tom + réponse fsm-laura). */
 function vocalEnvoyerAudio(blob, type) {
+  if (window.LauraRapide && S.jeton && !S._voixLente) return vocalDirect(blob, type);
+  return vocalEnvoyerAudioLent(blob, type);
+}
+function modeVoix() { return window.LauraMode ? LauraMode.actif() : ''; }
+/* Le tour est gardé dans la conversation (invisible) ; si un envoi écrit est en cours, on attend son tour pour garder l’ordre. */
+function garderTourVocal(corps, essai) {
+  var n = S.conv;
+  if (!n) return Promise.resolve();
+  return api(D() + '/issues/' + n + '/comments', { method: 'POST', json: { body: corps } }).then(function (c) {
+    if (c && c.id) S._vocalDernier = 'c' + c.id;
+    return rafraichir();
+  }, function (e) {
+    if ((essai || 0) < 2) return new Promise(function (ok) { setTimeout(ok, 1500); }).then(function () { return garderTourVocal(corps, (essai || 0) + 1); });
+  });
+}
+function vocalDirect(blob, type) {
+  var finParole = S._vocalFinParole || performance.now();
+  vocalEtatUI('wait', '');
+  S._vocalAppel = true;
+  var entendu = '', parlait = false;
+  var mesure = { fin_parole: Math.round(finParole), debut_envoi: Math.round(performance.now()) };
+  var tour = S._vocalTour = (S._vocalTour || 0) + 1;
+  var hist = histoireRapide();
+  var encours = S.runEtat && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
+  var relancer = function () {
+    if (!S.modeVocal) return;
+    vocalEtatUI('listen', '');
+    if (S._vocalMr && S._vocalMr._propre) return;   /* l’écoute (enregistrement neuf) tourne déjà */
+    if (!S.vocalMuet) vocalEcouter();
+  };
+  var meta = { messages: hist, encours: encours };
+  if (modeVoix()) meta.mode = modeVoix();
+  LauraRapide.voix.appel(S.jeton, blob, meta, {
+    entendu: function (t) { entendu = t; if (t && $('voiceCaption')) $('voiceCaption').textContent = t; },
+    texte: function (txt) { if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
+    parle: function () {
+      if (parlait || !S._vocalAppel || tour !== S._vocalTour) return;
+      parlait = true;
+      S._vocalSpeakAt = performance.now();
+      S._vocalCible = 0.3;
+      vocalEtatUI('speak', '');
+      vocalStopMediaRec(true);   /* la phrase de Tom est partie : enregistrement neuf pour l’écoute pendant que Laura parle */
+      vocalEcouterMedia(true, true);
+      var m = LauraRapide.voix.mesures();
+      mesure.premier_son = Math.round(m.premierSon || performance.now());
+      mesure.fin_parole_vers_son_ms = mesure.premier_son - mesure.fin_parole;
+      window.SI_VOIX = mesure;
+    },
+    surFinAudio: function () { if (!S._vocalAppel || tour !== S._vocalTour) return; S._vocalAppel = false; relancer(); }
+  }).then(function (r) {
+    if (tour !== S._vocalTour) return;   /* Tom a repris la parole : ce tour est remplacé */
+    if (!parlait) vocalStopMediaRec(true); /* pas de son joué : on ne renvoie jamais l’ancienne phrase */
+    Object.assign(mesure, { serveur: r.fin, client: r.mesures, entendu: entendu, reessai: !!blob._reessai });
+    (window.SI_VOIX_LOG = window.SI_VOIX_LOG || []).push(mesure);
+    if (!entendu.trim() || (r.fin && r.fin.vide) || !r.texte.trim()) { S._vocalAppel = false; relancer(); return; }
+    var tache = !!(r.fin && r.fin.tache);
+    if (tache) S._tacheEnCours = entendu.slice(0, 200);
+    var corps = corpsAppel({ tom: entendu.trim(), laura: r.texte.replace(/\[\[TACHE\]\]/g, '').trim(), tache: tache }, modeVoix());
+    return garderTourVocal(corps);
+  }).catch(function (e) {
+    if (!S.modeVocal || tour !== S._vocalTour) return;
+    S._vocalAppel = false;
+    if (e && e.name === 'AbortError') return;
+    if (e && e.etape === 'stt') { vocalEtatUI('listen', e.message); if (!S.vocalMuet) vocalEcouter(); return; }
+    /* Coupure réseau passagère : un nouvel essai, puis l’ancien chemin. */
+    if (!blob._reessai) { blob._reessai = true; setTimeout(function () { if (S.modeVocal) vocalDirect(blob, type); }, 600); return; }
+    /* Voie rapide indisponible : on repasse par l’ancien chemin (note vocale + robot). */
+    vocalEnvoyerAudioLent(blob, type);
+  });
+}
+function vocalEnvoyerAudioLent(blob, type) {
   type = type || blob.type || 'audio/mp4';
   var ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
   var chemin = 'entree/vocal/' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
@@ -1341,7 +1481,7 @@ function vocalEnvoyerAudio(blob, type) {
       return;
     }
     api(D() + '/contents/' + encP(chemin), { method: 'PUT', json: { message: 'note vocale', content: b64, branch: S.branche } })
-      .then(function () { return envoyer('🎤 Note vocale : ' + chemin); })
+      .then(function () { return garderTourVocal('<!-- fsm-appel-lent 🎤 Note vocale : ' + chemin + ' -->' + (modeVoix() ? '\n<!-- fsm-mode: ' + modeVoix() + ' -->' : '')); })
       .then(function () {
         if (S.modeVocal && S.attente) { clearTimeout(S.minuteur); boucle(); }
       }, function (e) {
@@ -1352,63 +1492,138 @@ function vocalEnvoyerAudio(blob, type) {
   };
   lecteur.readAsDataURL(blob);
 }
-function vocalEcouterMedia() {
+/* Écoute (micro de qualité) : le micro reste ouvert pendant tout l’appel (pas de nouvelle demande d’accès à chaque tour),
+   et l’écoute continue pendant que Laura parle : si Tom parle par-dessus, sa voix coupe Laura (barge-in)
+   sans perdre ses premiers mots. Fin de parole : ≈ 0,6 s de silence ; un bruit bref est ignoré. */
+function vocalEcouterMedia(pendantParole, propre) {
   if (!S.modeVocal || S.vocalMuet) return;
-  if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') return;
+  if (!pendantParole && (S.vocalEtat === 'speak' || S.vocalEtat === 'wait')) return;
+  if (S._vocalMr) return; /* déjà à l’écoute */
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     S._sttRepliNavigateur = true;
     if ((window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note) vocalEcouter();
     return;
   }
-  vocalStopRec();
-  vocalStopMediaRec(true);
-  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(function (flux) {
-    if (!S.modeVocal || S.vocalMuet) { flux.getTracks().forEach(function (tr) { tr.stop(); }); return; }
-    vocalCouperMicro();
-    S._vocalFlux = flux;
-    try {
-      var ac = new (window.AudioContext || window.webkitAudioContext)();
-      if (ac.state === 'suspended' && ac.resume) ac.resume();
-      var src = ac.createMediaStreamSource(flux);
-      var an = ac.createAnalyser();
-      an.fftSize = 256;
-      an.smoothingTimeConstant = 0.55;
-      src.connect(an);
-      S._vocalAc = ac; S._vocalAn = an;
-      S._vocalData = new Uint8Array(an.fftSize);
-      S._vocalFreq = new Uint8Array(an.frequencyBinCount);
-    } catch (e) {}
+  var vivant = S._vocalFlux && S._vocalFlux.getAudioTracks().some(function (t) { return t.readyState === 'live' && t.enabled; });
+  var obtenir = vivant ? Promise.resolve(S._vocalFlux)
+    : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  obtenir.then(function (flux) {
+    if (!S.modeVocal || S.vocalMuet) { if (flux !== S._vocalFlux) flux.getTracks().forEach(function (tr) { tr.stop(); }); return; }
+    if (S._vocalMr) return;
+    if (flux !== S._vocalFlux) {
+      vocalCouperMicro();
+      S._vocalFlux = flux;
+      try {
+        /* un seul contexte audio pour la voix de Laura et l’analyse du micro (iPhone : deux contextes se disputent la session) */
+        var partage = window.LauraRapide && LauraRapide.voix.contexte ? LauraRapide.voix.contexte() : null;
+        var ac = partage || new (window.AudioContext || window.webkitAudioContext)();
+        S._vocalAcPartage = !!partage;
+        if (ac.state === 'suspended' && ac.resume) ac.resume();
+        var src = ac.createMediaStreamSource(flux);
+        S._vocalSrc = src;
+        var an = ac.createAnalyser();
+        an.fftSize = 256;
+        an.smoothingTimeConstant = 0.55;
+        src.connect(an);
+        /* analyseur dédié à la détection de parole : fenêtre ≈ 43 ms (un instantané de 5 ms tombe parfois entre deux syllabes) */
+        var anV = ac.createAnalyser(); anV.fftSize = 2048; anV.smoothingTimeConstant = 0; src.connect(anV);
+        S._vocalAnV = anV; S._vocalDataV = new Uint8Array(anV.fftSize);
+        S._vocalAc = ac; S._vocalAn = an;
+        S._vocalData = new Uint8Array(an.fftSize);
+        S._vocalFreq = new Uint8Array(an.frequencyBinCount);
+      } catch (e) {}
+    } else if (S._vocalAc && S._vocalAc.state === 'suspended' && S._vocalAc.resume) S._vocalAc.resume();
     var mime = typeEnregistrement();
     var morceaux = [];
     var rec;
     try { rec = mime ? new MediaRecorder(flux, { mimeType: mime }) : new MediaRecorder(flux); }
     catch (err) { rec = new MediaRecorder(flux); }
     S._vocalMr = rec;
+    rec._propre = !!propre;
     rec.ondataavailable = function (e) { if (e.data && e.data.size) morceaux.push(e.data); };
     rec.onstop = function () {
-      if (S._vocalMr && S._vocalMr !== rec) return;
-      S._vocalMr = null;
-      clearInterval(S._vocalSilInt);
+      if (S._vocalMr === rec) S._vocalMr = null;
+      clearInterval(rec._int);
       var typ = rec.mimeType || mime || 'audio/mp4';
-      if (S._vocalAnnuleMr) { S._vocalAnnuleMr = false; return; }
-      if (!morceaux.length) {
-        if (S.modeVocal && !S.vocalMuet && S.vocalEtat === 'listen') setTimeout(function () { vocalEcouter(); }, 220);
+      if (rec._annule) return;
+      if (!morceaux.length || rec._bruit) {
+        if (S.modeVocal && !S.vocalMuet && S.vocalEtat !== 'wait') setTimeout(function () { vocalEcouterMedia(S.vocalEtat === 'speak'); }, 60);
         return;
       }
       vocalEnvoyerAudio(new Blob(morceaux, { type: typ }), typ);
     };
-    try { rec.start(); } catch (err) { return; }
-    vocalEtatUI('listen', '');
-    var parle = false, silencieux = 0, debut = Date.now();
-    S._vocalSilInt = setInterval(function () {
-      if (!S.modeVocal || S._vocalMr !== rec) { clearInterval(S._vocalSilInt); return; }
-      var niv = S._vocalNiveau || 0;
-      if (niv > 0.18) { parle = true; silencieux = 0; }
+    try { rec.start(250); } catch (err) { S._vocalMr = null; return; }
+    if (!pendantParole) vocalEtatUI('listen', '');
+    var parle = false, silencieux = 0, fort = 0, debut = Date.now(), debutParole = 0, haut = 0, fond = [], voixPendant = 0, etaitLaura = false, reprise = 0, envoi = false;
+    /* Fin de parole : on envoie ce qui a été dit SANS arrêter l’enregistrement. Si Tom reprend la parole avant que
+       Laura réponde (simple pause), la réponse en route est annulée et la phrase entière repart d’un bloc. */
+    var envoyerTour = function () {
+      envoi = true; rec._propre = false;
+      try { rec.requestData(); } catch (e) {}
+      setTimeout(function () {
+        envoi = false;
+        if (S._vocalMr !== rec || !S.modeVocal) return;
+        var typ = rec.mimeType || mime || 'audio/mp4';
+        parle = false; silencieux = 0; fort = 0;
+        vocalEnvoyerAudio(new Blob(morceaux.slice(), { type: typ }), typ);
+      }, 40);
+    };
+    rec._int = setInterval(function () {
+      if (!S.modeVocal || S._vocalMr !== rec) { clearInterval(rec._int); return; }
+      var niv = niveauMic();
+      var laura = S.vocalEtat === 'speak';
+      /* Laura vient de finir sans avoir été coupée, mais Tom parlait déjà : on garde ce qu’il a dit. */
+      if (etaitLaura && !laura && voixPendant >= 3 && !parle) { parle = true; fort = 3; silencieux = 0; debutParole = Date.now(); S._vocalFinParole = performance.now(); }
+      if (!laura && etaitLaura) voixPendant = 0;
+      etaitLaura = laura;
+      /* Pendant que Laura parle : seuil plus haut (l’écho résiduel ne coupe pas Laura), et 0,3 s de voix franche. */
+      if (laura) {
+        /* seuil adaptatif : au-dessus de l’écho résiduel mesuré pendant que Laura parle */
+        fond.push(niv); if (fond.length > 30) fond.shift();
+        var tri = fond.slice().sort(function (a, b) { return a - b; });
+        var plancher = tri[Math.floor(tri.length / 2)] || 0;
+        var seuil = Math.max(0.2, Math.min(0.6, plancher * 1.8 + 0.06));
+        if (niv > seuil && fond.length >= 4) { haut++; } else haut = Math.max(0, haut - 1);
+        if (niv > 0.18) voixPendant++;
+        if (haut >= 3) {
+          haut = 0; parle = true; fort = 3; silencieux = 0; debutParole = Date.now(); S._vocalFinParole = performance.now();
+          (window.SI_VOIX_COUPURES = window.SI_VOIX_COUPURES || []).push(Date.now());
+          fond = [];
+          S._vocalAppel = false; S._vocalCoupe = true;
+          if (window.LauraRapide) LauraRapide.voix.stop();
+          vocalEtatUI('listen', '');
+        }
+        return;
+      }
+      if (envoi) return;
+      if (S.vocalEtat === 'wait') {
+        if (niv > 0.18) reprise++; else reprise = Math.max(0, reprise - 1);
+        if (reprise >= 3) {
+          /* Tom continue sa phrase : on annule la réponse en route, on reprend l’écoute du même enregistrement */
+          reprise = 0;
+          S._vocalTour = (S._vocalTour || 0) + 1;
+          S._vocalAppel = false;
+          if (window.LauraRapide) LauraRapide.voix.stop();
+          (window.SI_VOIX_REPRISES = window.SI_VOIX_REPRISES || []).push(Date.now());
+          parle = true; fort = 3; silencieux = 0; S._vocalFinParole = performance.now();
+          vocalEtatUI('listen', '');
+        }
+        return;
+      }
+      reprise = 0;
+      /* hystérésis : il faut 0,18 pour commencer à parler, mais on reste « en parole » tant que le niveau dépasse 0,10 */
+      if (niv > (parle ? 0.10 : 0.18)) { if (!parle) debutParole = Date.now(); parle = true; silencieux = 0; if (niv > 0.18) fort++; S._vocalFinParole = performance.now(); }
       else if (parle) {
         silencieux++;
-        if (silencieux >= 9) { try { rec.stop(); } catch (e2) {} clearInterval(S._vocalSilInt); }
+        /* fin de parole : 0,6 s ; 0,9 s après une longue phrase (les pauses de respiration ne coupent pas) */
+        if (silencieux >= (Date.now() - debutParole > 2500 ? 9 : 6)) {
+          if (fort < 3) { parle = false; silencieux = 0; fort = 0; }   /* bruit bref : ignoré */
+          else envoyerTour();
+        }
       }
-      if (Date.now() - debut > 30000) { try { rec.stop(); } catch (e2) {} clearInterval(S._vocalSilInt); }
+      if (parle && Date.now() - debutParole > 30000) { envoyerTour(); }
+      /* longue écoute silencieuse : on recommence un enregistrement neuf (mémoire, et début propre) */
+      if (!parle && Date.now() - debut > 20000) { rec._annule = true; clearInterval(rec._int); try { rec.stop(); } catch (e2) {} S._vocalMr = null; vocalEcouterMedia(false); }
     }, 100);
   }).catch(function () {
     /* Cannot record: fall back to the browser recognizer if it exists. */
@@ -1417,7 +1632,7 @@ function vocalEcouterMedia() {
       vocalEcouter();
       return;
     }
-    vocalEtatUI('idle', '');
+    vocalEtatUI('idle', 'Micro indisponible : touche pour réessayer.');
   });
 }
 
@@ -1563,6 +1778,13 @@ function decouperVoix(t, max) {
 
 function vocalParler(texte, fin) {
   texte = String(texte || '').trim();
+  if (texte && window.LauraRapide && S.jeton) {
+    S._vocalCoupe = false;
+    S._vocalSpeakAt = performance.now();
+    if ($('voiceCaption')) $('voiceCaption').textContent = texte;
+    LauraRapide.voix.parler(S.jeton, texte, function () { if (fin) fin(); });
+    return;
+  }
   if (!texte || !window.speechSynthesis) { if (fin) fin(); return; }
   speechSynthesis.cancel();
   clearInterval(S._vocalKeep);
@@ -1605,6 +1827,7 @@ function vocalSurReponse(it) {
   if (!S.modeVocal || !it) return;
   if (S._vocalDernier === it.cle) return;
   S._vocalDernier = it.cle;
+  if (String(it.corps).indexOf('<!-- fsm-laura') >= 0) return; /* déjà dite en direct */
   var t = textePourVoix(it.corps);
   if (!t) {
     vocalEtatUI('listen', '');
@@ -1624,8 +1847,10 @@ function vocalSurReponse(it) {
 
 function vocalInterrompre() {
   if (!S.modeVocal) return;
-  if (S.vocalEtat === 'speak') {
+  if (S.vocalEtat === 'speak' || S._vocalAppel) {
     S._vocalCoupe = true;
+    S._vocalAppel = false;
+    if (window.LauraRapide) LauraRapide.voix.stop();
     try { speechSynthesis.cancel(); } catch (e) {}
     vocalEtatUI('listen', '');
     if (!S.vocalMuet) vocalEcouter();
@@ -1673,6 +1898,7 @@ function fermerVoixPrefs() {
 function ouvrirModeVocal() {
   if (!S.jeton) return;
   if ($('composer').classList.contains('full')) setFullCompose(false);
+  if (window.LauraRapide && LauraRapide.voix.sessionAppel) LauraRapide.voix.sessionAppel(true);
   debloquerAudio();
   S.modeVocal = true;
   S.vocalMuet = false;
@@ -1697,8 +1923,20 @@ function ouvrirModeVocal() {
   if (S.attente) { clearTimeout(S.minuteur); boucle(); }
 }
 
+document.addEventListener('visibilitychange', function () {
+  if (!S.modeVocal) return;
+  if (document.hidden) {
+    /* app en arrière-plan : micro entièrement libéré (pastille orange d’iPhone éteinte) ; repris au retour */
+    vocalStopRec(); vocalStopMediaRec(true); vocalCouperMicro();
+    return;
+  }
+  debloquerAudio();
+  if (S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait' && !S.vocalMuet) { vocalCouperMicro(); vocalEtatUI('listen', ''); vocalEcouter(); }
+});
 function fermerModeVocal() {
   S.modeVocal = false;
+  S._vocalAppel = false;
+  if (window.LauraRapide) { LauraRapide.voix.stop(); if (LauraRapide.voix.sessionAppel) LauraRapide.voix.sessionAppel(false); }
   S._vocalCoupe = true;
   vocalStopRec();
   vocalCouperMicro();

@@ -192,5 +192,172 @@ function cartes(node, corps, o) {
   });
 }
 
-window.LauraRapide = { PROXY: PROXY, discuter: discuter, cartes: cartes, specs: specs, ranger: ranger };
+/* ---------- Voix de qualité (Worker /tts et /voix) ----------
+   Lecture par AudioContext : PCM 24 kHz diffusé morceau par morceau (appel vocal), ou mp3 phrase par phrase (/tts).
+   Repli sur la voix du navigateur seulement si /tts échoue. */
+var V = { ctx: null, sources: [], fin: 0, gen: 0, surFin: null, minuteur: 0, ctl: null };
+function ctxAudio() {
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!V.ctx) {
+    try { V.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { V.ctx = new AC(); }
+    /* iPhone : un appel entrant, Siri ou le changement de route audio « interrompt » le contexte ; on le relance aussitôt */
+    V.ctx.onstatechange = function () { if (V.ctx && V.ctx.state !== 'running' && V.ctx.state !== 'closed' && V.actif) try { V.ctx.resume(); } catch (e) {} };
+  }
+  if (V.ctx.state !== 'running' && V.ctx.state !== 'closed' && V.ctx.resume) try { V.ctx.resume(); } catch (e) {}
+  return V.ctx;
+}
+/* Session audio d’appel (Safari 16.4+) : fixée AVANT d’ouvrir le micro, pour qu’iOS ne bascule pas de mode
+   en pleine phrase (c’est ce basculement qui coupait la voix). */
+function sessionAppel(on) {
+  V.actif = !!on;
+  try { if (navigator.audioSession) navigator.audioSession.type = on ? 'play-and-record' : 'auto'; } catch (e) {}
+}
+function debloquer() {
+  var c = ctxAudio(); if (!c) return;
+  try { var b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } catch (e) {}
+}
+function programmer(buf, gen) {
+  var c = ctxAudio(); if (!c || gen !== V.gen) return;
+  var s = c.createBufferSource(); s.buffer = buf; s.connect(c.destination);
+  /* File audio sans trou : les morceaux sont collés bout à bout sur l’horloge audio. Au premier morceau (ou après
+     un vrai manque de données) on garde 120 ms d’avance pour absorber les à-coups du réseau. */
+  var avance = 0.12;
+  var t = V.fin > c.currentTime + 0.005 ? V.fin : c.currentTime + avance;
+  if (V.fin && c.currentTime + 0.005 > V.fin) { V.trous = (V.trous || 0) + 1; V.trouMs = (V.trouMs || 0) + Math.round((c.currentTime + avance - V.fin) * 1000); }
+  s.start(t); V.fin = t + buf.duration;
+  V.sources.push(s);
+  if (!V.premierSon) V.premierSon = performance.now() + (t - c.currentTime) * 1000;
+  s.onended = function () { var i = V.sources.indexOf(s); if (i >= 0) V.sources.splice(i, 1); verifierFin(gen); };
+}
+function verifierFin(gen) {
+  clearTimeout(V.minuteur);
+  if (gen !== V.gen) return;
+  V.minuteur = setTimeout(function () {
+    if (gen !== V.gen) return;
+    if (!V.sources.length && V.fluxFini && !V.enAttente) { var f = V.surFin; V.surFin = null; if (f) f(); }
+  }, 60);
+}
+function pcmVersBuffer(b64, rate) {
+  var c = ctxAudio(); if (!c) return null;
+  var bin = atob(b64), n = bin.length >> 1;
+  var buf = c.createBuffer(1, n, rate || 24000), d = buf.getChannelData(0);
+  for (var i = 0; i < n; i++) { var v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; d[i] = v / 32768; }
+  return buf;
+}
+function stop() {
+  V.gen++; V.fluxFini = true; V.enAttente = 0; V.surFin = null;
+  V.sources.forEach(function (s) { try { s.onended = null; s.stop(); } catch (e) {} });
+  V.sources = []; V.fin = 0;
+  if (V.ctl) { try { V.ctl.abort(); } catch (e) {} V.ctl = null; }
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+}
+function occupe() { return V.sources.length > 0 || !V.fluxFini; }
+function nettoyerVoix(t) {
+  return String(t || '').replace(/<!--[\s\S]*?-->/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '')
+    .replace(/[*_`#>|~]/g, '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '').replace(/\s+/g, ' ').trim();
+}
+function couper(tampon, toutFini) {
+  var out = [], re = /[^.!?…\n]*?[.!?…]+["»)\]]?(?=\s)|[^\n]+?\n/g, m, fin = 0;
+  while ((m = re.exec(tampon))) { var p = m[0].trim(); fin = re.lastIndex; if (p) out.push(p); }
+  var reste = tampon.slice(fin);
+  if (toutFini && reste.trim()) { out.push(reste.trim()); reste = ''; }
+  return [out, reste];
+}
+function voixNavigateur(t, gen, ok) {
+  if (!window.speechSynthesis) { ok(); return; }
+  var u = new SpeechSynthesisUtterance(t); u.lang = 'fr-FR'; u.rate = 1.02;
+  var vs = speechSynthesis.getVoices() || [];
+  var v = vs.find(function (x) { return /^fr/i.test(x.lang) && /(amelie|amélie|audrey|aurelie|marie|julie|female|femme|google)/i.test(x.name); }) || vs.find(function (x) { return /^fr/i.test(x.lang); });
+  if (v) u.voice = v;
+  u.onend = u.onerror = function () { if (gen === V.gen) ok(); };
+  speechSynthesis.speak(u);
+}
+/* Lecteur de phrases (mp3 via /tts) : pousser(texteCumulé) au fil du flux, finir() à la fin. */
+function lecteur(jeton, surFin) {
+  stop();
+  var gen = V.gen, dit = 0, tampon = '', file = Promise.resolve();
+  V.fluxFini = false; V.enAttente = 0; V.surFin = surFin || null; V.premierSon = 0;
+  function phrase(p) {
+    var t = nettoyerVoix(p); if (!t) return;
+    V.enAttente++;
+    var req = fetch(PROXY + '/tts', { method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' }, body: JSON.stringify({ texte: t }) })
+      .then(function (r) { if (!r.ok) throw new Error('tts ' + r.status); return r.arrayBuffer(); })
+      .then(function (a) { var c = ctxAudio(); if (!c) throw new Error('audio'); return new Promise(function (ok, ko) { c.decodeAudioData(a, ok, ko); }); });
+    file = file.then(function () { return req; }).then(function (buf) {
+      if (gen !== V.gen) return;
+      programmer(buf, gen);
+    }, function () {
+      if (gen !== V.gen) return;
+      /* Repli : voix du navigateur, après ce qui est déjà programmé. */
+      return new Promise(function (ok) {
+        var c = V.ctx, attente = c ? Math.max(0, (V.fin - c.currentTime) * 1000) : 0;
+        setTimeout(function () { voixNavigateur(t, gen, ok); }, attente);
+      });
+    }).then(function () { V.enAttente--; verifierFin(gen); });
+  }
+  return {
+    pousser: function (total) {
+      if (gen !== V.gen) return;
+      tampon += String(total).slice(dit); dit = String(total).length;
+      var r = couper(tampon, false); tampon = r[1]; r[0].forEach(phrase);
+    },
+    finir: function () {
+      if (gen !== V.gen) return;
+      couper(tampon, true)[0].forEach(phrase); tampon = '';
+      V.fluxFini = true; verifierFin(gen);
+    }
+  };
+}
+function parler(jeton, texte, surFin) { var l = lecteur(jeton, surFin); l.pousser(String(texte || '') + '\n'); l.finir(); }
+
+/* Appel vocal : audio → /voix (transcription, Laura, voix en PCM dans une seule réponse). */
+function appel(jeton, blob, meta, h) {
+  stop();
+  var gen = V.gen; V.fluxFini = false; V.enAttente = 0; V.surFin = h.surFinAudio || null; V.premierSon = 0; V.trous = 0; V.trouMs = 0; if (!V.sources.length) V.fin = 0;
+  var ctl = new AbortController(); V.ctl = ctl;
+  var fd = new FormData();
+  fd.append('audio', blob, 'parole.' + (/webm/.test(blob.type) ? 'webm' : /ogg/.test(blob.type) ? 'ogg' : /mpeg|mp3/.test(blob.type) ? 'mp3' : 'm4a'));
+  fd.append('meta', JSON.stringify(meta || {}));
+  var t0 = performance.now(), texte = '', fin = null, premierPcm = 0;
+  var horsDelai = false;
+  var delai = setTimeout(function () { if (!premierPcm) { horsDelai = true; try { ctl.abort(); } catch (e) {} } }, 15000);
+  V.trous = 0; V.trouMs = 0;
+  return fetch(PROXY + '/voix', { method: 'POST', headers: { Authorization: 'Bearer ' + jeton }, body: fd, signal: ctl.signal }).then(function (r) {
+    if (!r.ok || !r.body) throw new Error('voix ' + r.status);
+    var rd = r.body.getReader(), dec = new TextDecoder(), buf = '';
+    function pompe() {
+      return rd.read().then(function (x) {
+        if (x.done) {
+          clearTimeout(delai);
+          V.fluxFini = true; verifierFin(gen);
+          return { texte: texte, fin: fin, mesures: { premier_pcm_ms: Math.round(premierPcm), premier_son_ms: V.premierSon ? Math.round(V.premierSon - t0) : 0, trous_entre_morceaux: V.trous, trous_ms: V.trouMs } };
+        }
+        buf += dec.decode(x.value, { stream: true });
+        var i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          var bloc = buf.slice(0, i).replace(/^data:\s*/, ''); buf = buf.slice(i + 2);
+          var j; try { j = JSON.parse(bloc); } catch (e) { continue; }
+          if (gen !== V.gen) continue;
+          if (j.entendu != null && h.entendu) h.entendu(j.entendu, j);
+          if (j.t) { texte += j.t; if (h.texte) h.texte(texte); }
+          if (j.pcm) { if (!premierPcm) premierPcm = performance.now() - t0; var b = pcmVersBuffer(j.pcm, j.rate); if (b) programmer(b, gen); if (h.parle) h.parle(); }
+          if (j.audio_echec) { V.enAttente++; voixNavigateur(j.phrase, gen, function () { V.enAttente--; verifierFin(gen); }); }
+          if (j.fin) fin = j;
+          if (j.erreur) { var e = new Error(j.erreur); e.etape = j.etape; throw e; }
+        }
+        return pompe();
+      });
+    }
+    return pompe();
+  }).catch(function (e) { clearTimeout(delai); if (horsDelai) throw new Error('délai voix'); throw e; });
+}
+
+function transcrire(jeton, blob) {
+  return fetch(PROXY + '/stt', { method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': blob.type || 'audio/mp4' }, body: blob })
+    .then(function (r) { return r.json().then(function (d) { if (!r.ok || typeof d.texte !== 'string') throw new Error('stt ' + r.status); return d.texte; }); });
+}
+
+window.LauraRapide = { PROXY: PROXY, transcrire: transcrire, discuter: discuter, cartes: cartes, specs: specs, ranger: ranger,
+  voix: { sessionAppel: sessionAppel, contexte: ctxAudio, debloquer: debloquer, lecteur: lecteur, parler: parler, appel: appel, stop: stop, occupe: occupe, mesures: function () { return V; } } };
 })();
