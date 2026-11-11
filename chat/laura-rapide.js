@@ -202,13 +202,32 @@ var V = { ctx: null, sources: [], fin: 0, gen: 0, surFin: null, minuteur: 0, ctl
 function ctxAudio() {
   var AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
+  /* contexte fermé (le système l'a libéré) : on en recrée un ; l'appli rebranche le micro dessus (V.generation change) */
+  if (V.ctx && V.ctx.state === 'closed') { V.ctx = null; V.an = null; V.anCtx = null; }
   if (!V.ctx) {
     try { V.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { V.ctx = new AC(); }
+    V.generation = (V.generation || 0) + 1;
     /* iPhone : un appel entrant, Siri ou le changement de route audio « interrompt » le contexte ; on le relance aussitôt */
-    V.ctx.onstatechange = function () { if (V.ctx && V.ctx.state !== 'running' && V.ctx.state !== 'closed' && V.actif) try { V.ctx.resume(); } catch (e) {} };
+    V.ctx.onstatechange = function () { if (V.ctx && V.ctx.state !== 'running' && V.ctx.state !== 'closed' && V.actif && !document.hidden) relancerCtx(V.ctx); };
   }
-  if (V.ctx.state !== 'running' && V.ctx.state !== 'closed' && V.ctx.resume) try { V.ctx.resume(); } catch (e) {}
+  if (V.ctx.state !== 'running' && V.ctx.state !== 'closed' && !document.hidden) relancerCtx(V.ctx);
   return V.ctx;
+}
+/* WebKit (iOS 17.4+, bug 276016) : après l'arrière-plan le contexte reste « interrupted » et resume() seul n'y fait rien ;
+   il faut suspend() PUIS resume(). Sans ça, la voix de Laura ne sort plus, ses morceaux ne « finissent » jamais
+   (appel bloqué sur « Laura parle… ») et le micro, branché sur ce même contexte, n'est plus analysé. */
+function relancerCtx(c) {
+  if (!c || c._relance) return c && c._relance;
+  var etat = c.state;
+  var p = (etat === 'interrupted' && c.suspend) ? Promise.resolve(c.suspend()).catch(function () {}).then(function () { return c.resume(); }) : Promise.resolve(c.resume && c.resume());
+  c._relance = p.catch(function () {}).then(function () { c._relance = null; return c.state === 'running'; });
+  return c._relance;
+}
+/* Réveil complet au retour au premier plan : vrai si le contexte tourne (au besoin recréé). */
+function reveiller() {
+  var c = ctxAudio(); if (!c) return Promise.resolve(false);
+  if (c.state === 'running') return Promise.resolve(true);
+  return Promise.race([relancerCtx(c) || Promise.resolve(false), new Promise(function (ok) { setTimeout(function () { ok(c.state === 'running'); }, 700); })]);
 }
 /* Session audio d’appel (Safari 16.4+) : fixée AVANT d’ouvrir le micro, pour qu’iOS ne bascule pas de mode
    en pleine phrase (c’est ce basculement qui coupait la voix). */
@@ -376,5 +395,5 @@ function transcrire(jeton, blob) {
 }
 
 window.LauraRapide = { PROXY: PROXY, transcrire: transcrire, discuter: discuter, cartes: cartes, specs: specs, ranger: ranger,
-  voix: { niveau: niveau, sessionAppel: sessionAppel, contexte: ctxAudio, debloquer: debloquer, lecteur: lecteur, parler: parler, appel: appel, stop: stop, occupe: occupe, mesures: function () { return V; } } };
+  voix: { niveau: niveau, sessionAppel: sessionAppel, contexte: ctxAudio, reveiller: reveiller, debloquer: debloquer, lecteur: lecteur, parler: parler, appel: appel, stop: stop, occupe: occupe, mesures: function () { return V; } } };
 })();

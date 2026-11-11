@@ -1,7 +1,8 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v52';
-const BUILD = '20261111-52';
-const SHELL = ['./', './index.html', './style.css?v=20261111-52', './app.js?v=20261111-52', './stt-flux.js?v=20261111-52', './stt-flux-worklet.js?v=20261111-52', './coffre.js?v=20261111-52', './laura-rapide.js?v=20261111-52', './mode.js?v=20261111-52', './ordinateur.js?v=20261111-52', './bot-shapes.js?v=20261111-52', './create-bot.js?v=20261111-52', './pc.js?v=20261111-52', './gmail.js?v=20261111-52', './taches.js?v=20261111-52',
+const C = 'laura-fsm-chat-v53';
+const BUILD = '20261111-53';
+const Q = '?v=' + BUILD;   /* mêmes adresses que index.html (avant : SHELL restait sur ?v=…-50 pendant que la page chargeait ?v=…-51) */
+const SHELL = ['./', './index.html', './style.css' + Q, './app.js' + Q, './stt-flux.js' + Q, './stt-flux-worklet.js' + Q, './coffre.js' + Q, './laura-rapide.js' + Q, './mode.js' + Q, './ordinateur.js' + Q, './bot-shapes.js' + Q, './create-bot.js' + Q, './pc.js' + Q, './gmail.js' + Q, './taches.js' + Q,
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
   './icons/fsm-si-logo.png', './icons/icon-192.png', './icons/icon-180.png', './icons/icon-512.png',
@@ -19,15 +20,20 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+/* build 52 : seuls les fichiers de l'appli (sous la portée du service worker, /chat/) passent par ici.
+   Avant, TOUTE requête GET de la même origine était servie depuis le cache dès la 2e fois — or depuis le build 29 l'API
+   est sur la même origine (laura.fsmsibot.app) : /session, la liste des conversations, /issues/N, l'activité du robot
+   (/gh/…/actions/runs), /taches… restaient figés jusqu'à la version suivante, et chaque relecture du fil (…&_=heure)
+   ajoutait une entrée au cache. L'API ne passe plus jamais par le cache. */
+const PORTEE = new URL(self.registration.scope).pathname;
 function estEnveloppe(u) {
-  const p = u.pathname.replace(/\/+$/, '') || '/';
-  return /\/chat$/.test(p) || /\/chat\/index\.html$/.test(p) ||
-    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p) || /\/chat\/coffre\.js$/.test(p) || /\/chat\/laura-rapide\.js$/.test(p) || /\/chat\/mode\.js$/.test(p) || /\/chat\/ordinateur\.js$/.test(p) || /\/chat\/bot-shapes\.js$/.test(p) || /\/chat\/create-bot\.js$/.test(p) || /\/chat\/taches\.js$/.test(p);
+  const p = u.pathname;
+  return p === PORTEE || p === PORTEE + 'index.html' || /\.(js|css|html|webmanifest)$/.test(p);
 }
 
 self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.origin !== self.location.origin) return;
+  if (e.request.method !== 'GET' || u.origin !== self.location.origin || !u.pathname.startsWith(PORTEE)) return;
   if (estEnveloppe(u)) {
     /* réseau d’abord, mais jamais plus de 4 s : sur un réseau lent, l’app s’ouvre depuis le cache */
     const reseau = fetch(e.request, { cache: 'no-store' }).then((res) => {

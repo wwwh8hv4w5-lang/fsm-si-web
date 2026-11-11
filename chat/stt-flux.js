@@ -10,20 +10,36 @@
             pos: 0, prec: 0, tampon: new Int16Array(TRAME), n: 0, anneau: [], fermeAvant: false, finDemandee: 0, dernier: 0, journal: [] };
   function noter(m) { F.journal.push([Date.now(), m]); if (F.journal.length > 40) F.journal.shift(); }
   function ticket() {
-    return fetch(PROXY + '/stt-flux/ticket', { method: 'POST', credentials: 'include', headers: { Authorization: 'Bearer ' + F.jeton } })
+    /* 8 s au plus : une requête gelée par iOS en arrière-plan ne doit pas bloquer la reconnexion pour toujours */
+    var ctl = window.AbortController ? new AbortController() : null, lim = setTimeout(function () { if (ctl) ctl.abort(); }, 8000);
+    return fetch(PROXY + '/stt-flux/ticket', { method: 'POST', credentials: 'include', headers: { Authorization: 'Bearer ' + F.jeton }, signal: ctl ? ctl.signal : undefined })
+      .finally(function () { clearTimeout(lim); })
       .then(function (r) { if (!r.ok) throw new Error('ticket ' + r.status); return r.json(); })
       .then(function (d) { if (!d.ticket) throw new Error('ticket vide'); return d.ticket; });
   }
+  /* Reconnexion (build 52) : jamais d'essai pendant que l'appli est en arrière-plan (iPhone : réseau et minuteries gelés,
+     chaque essai échouait en < 1 s et, au 4e, la transcription en continu était abandonnée pour TOUT le reste de l'appel).
+     Après 4 échecs au premier plan : nouvel essai toutes les 15 s au lieu d'un abandon définitif. Au retour : session neuve. */
+  function planifier() {
+    clearTimeout(F.minuteur); F.minuteur = 0;
+    if (F.ferme || document.hidden) return;
+    F.minuteur = setTimeout(connecter, F.echecs >= 4 ? 15000 : Math.min(4000, 400 * F.echecs));
+  }
   function connecter() {
-    if (F.ferme || F.ws) return;
-    if (F.echecs >= 4) { noter('abandon : ancien chemin pour la suite de l’appel'); return; }
+    clearTimeout(F.minuteur); F.minuteur = 0;
+    if (F.ferme || F.ws || F.connexion) return;
+    if (document.hidden) { noter('en attente du retour au premier plan'); return; }
+    if (F.echecs === 4) noter('4 échecs : nouvel essai toutes les 15 s, ancien chemin en attendant');
+    F.connexion = true;
     ticket().then(function (t) {
+      F.connexion = false;
       if (F.ferme || F.ws) return;
       var ws = new WebSocket(PROXY.replace(/^http/, 'ws') + '/stt-flux?t=' + encodeURIComponent(t) + '&langue=' + encodeURIComponent(F.langue));
       ws.binaryType = 'arraybuffer';
       F.ws = ws; F.pret = false;
       var ouvert = Date.now();
       ws.onmessage = function (e) {
+        if (F.ws !== ws) return;
         var d; try { d = JSON.parse(e.data); } catch (x) { return; }
         F.dernier = Date.now();
         if (d.type === 'transcript.created') { F.pret = true; F.echecs = 0; noter('prêt en ' + (Date.now() - ouvert) + ' ms'); return; }
@@ -39,16 +55,34 @@
         if (d.type === 'error') noter('erreur xAI : ' + String(d.message || '').slice(0, 80));
       };
       ws.onclose = function (e) {
-        if (F.ws === ws) { F.ws = null; F.pret = false; }
         noter('fermé ' + e.code);
-        if (!F.ferme) { F.echecs++; setTimeout(connecter, Math.min(4000, 400 * F.echecs)); }
+        if (F.ws !== ws) return;   /* ancienne session remplacée au retour : rien à relancer */
+        F.ws = null; F.pret = false;
+        if (!F.ferme) { if (!document.hidden) F.echecs++; planifier(); }
       };
       ws.onerror = function () { noter('erreur WebSocket'); };
     }).catch(function (e) {
+      F.connexion = false;
       noter(String(e && e.message || e));
-      if (!F.ferme) { F.echecs++; setTimeout(connecter, Math.min(4000, 400 * F.echecs)); }
+      if (!F.ferme) { if (!document.hidden) F.echecs++; planifier(); }
     });
   }
+  /* Retour au premier plan : la session d'avant (gelée par iOS, souvent à moitié morte sans évènement « close »)
+     est remplacée par une neuve, compteur d'échecs remis à zéro. */
+  function relancer(pourquoi) {
+    if (F.ferme) return;
+    noter('relance : ' + (pourquoi || ''));
+    F.echecs = 0;
+    var ancien = F.ws;
+    if (ancien) { F.ws = null; F.pret = false; try { ancien.close(1000, 'retour au premier plan'); } catch (e) {} }
+    connecter();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (F.ferme) return;
+    if (document.hidden) { F.cacheDepuis = Date.now(); clearTimeout(F.minuteur); F.minuteur = 0; return; }
+    var absent = F.cacheDepuis ? Date.now() - F.cacheDepuis : 0; F.cacheDepuis = 0;
+    if (absent > 2500 || !F.ws) relancer('retour après ' + Math.round(absent / 1000) + ' s');
+  });
   function envoyer(trame) {
     if (F.pret && F.ws && F.ws.readyState === 1) { try { F.ws.send(trame.buffer); } catch (e) {} }
   }
@@ -85,7 +119,7 @@
       src.connect(sp); sp.connect(muet); F.noeud = sp; noter('capture ScriptProcessor');
     };
     if (ac.audioWorklet && window.AudioWorkletNode) {
-      ac.audioWorklet.addModule('./stt-flux-worklet.js?v=20261111-52').then(function () {
+      ac.audioWorklet.addModule('./stt-flux-worklet.js?v=20261111-53').then(function () {
         if (F.src !== src) return;
         var n = new AudioWorkletNode(ac, 'stt-flux-pcm', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 });
         n.port.onmessage = function (e) { bloc(e.data); };
@@ -103,10 +137,11 @@
     ouvrir: function (jeton, langue, h) {
       if (!window.WebSocket) return;
       F.jeton = jeton; F.langue = /^[a-z]{2}$/.test(langue || '') ? langue : 'fr'; F.h = h || {};
-      if (!F.ferme && (F.ws || F.echecs)) return;
+      if (!F.ferme && (F.ws || F.connexion || F.minuteur)) return;   /* déjà ouverte ou reconnexion prévue */
       F.ferme = false; F.echecs = 0; connecter();
     },
     brancher: brancher,
+    relancer: relancer,
     /* fin de tour demandée par l'app : on pousse la fin de trame en cours puis « finalize » (texte final ≈ 0,1 s après) */
     finir: function () {
       if (!this.sain()) return false;
@@ -118,7 +153,7 @@
     sain: function () { return !!(F.pret && F.ws && F.ws.readyState === 1 && F.noeud); },
     echec: function (pourquoi) { noter('repli : ' + pourquoi); },
     fermer: function () {
-      F.ferme = true; F.pret = false;
+      F.ferme = true; F.pret = false; clearTimeout(F.minuteur); F.minuteur = 0; F.connexion = false;
       if (F.ws) { try { F.ws.send(JSON.stringify({ type: 'audio.done' })); } catch (e) {} try { F.ws.close(1000, 'fin d’appel'); } catch (e) {} F.ws = null; }
       debrancher(); F.echecs = 0;
     },

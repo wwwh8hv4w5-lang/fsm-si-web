@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-52';
+var BUILD = '20261111-53';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -1787,11 +1787,56 @@ var ArrierePlan = (function () {
     try { if (S._vocalAc && S._vocalAc.state !== 'running' && S._vocalAc.state !== 'closed') S._vocalAc.resume(); } catch (e) {}
     try { if (S._voixCtx && S._voixCtx.state === 'suspended') S._voixCtx.resume(); } catch (e) {}
   }
+  /* Retour au premier plan (build 52). Avant : resume() seul (sans effet sur un contexte iOS « interrupted »), et chaque
+     évènement (visible, pageshow, resume, unmute) relançait sa propre ouverture du micro en parallèle (pistes orphelines).
+     Maintenant : une seule reprise à la fois ; le contexte audio partagé est vraiment réveillé (ou recréé) ; s'il ne repart pas,
+     la voix en file est arrêtée (sinon « Laura parle… » pour toujours) et un toucher suffit pour reprendre. */
+  var enReprise = false, rejouer = '';
   function reprise(pourquoi) {
     if (!S.modeVocal) return;
     note('reprise:' + pourquoi);
-    relancerAudio();
     garderEcran();
+    if (enReprise) { rejouer = pourquoi; return; }
+    enReprise = true;
+    var LR = window.LauraRapide && LauraRapide.voix;
+    var gen0 = LR ? LR.mesures().generation : 0;
+    try { if (S._vocalAc && !S._vocalAcPartage && S._vocalAc.state !== 'running' && S._vocalAc.state !== 'closed') S._vocalAc.resume(); } catch (e) {}
+    try { if (S._voixCtx && S._voixCtx.state === 'suspended') S._voixCtx.resume(); } catch (e) {}
+    var reveil = LR && LR.reveiller ? LR.reveiller() : Promise.resolve(true);
+    reveil.then(function (ok) {
+      if (!S.modeVocal) { enReprise = false; return; }
+      if (!ok && LR) {
+        /* contexte toujours bloqué : on le ferme, un neuf est créé (iOS peut exiger un toucher pour le démarrer) */
+        note('contexte bloqué : recréé');
+        try { LR.mesures().ctx.close(); } catch (e) {}
+        return LR.reveiller();
+      }
+      return ok;
+    }).then(function (ok) {
+      enReprise = false;
+      if (!S.modeVocal) return;
+      var neuf = LR && LR.mesures().generation !== gen0;
+      if (!ok || neuf) {
+        /* les morceaux de voix programmés sur l'ancien contexte ne finiront jamais : on garde ce que Laura a dit */
+        if (S.vocalEtat === 'speak' || S._vocalAppel) {
+          sauverTourVocal(S._vocalEnCours, S.vocalEtat === 'speak');
+          S._vocalTour = (S._vocalTour || 0) + 1; S._vocalAppel = false;
+          LR.stop();
+          vocalEtatUI('listen', '');
+        }
+        if (neuf) { S._micCoupeOS = true; }   /* le micro était branché sur l'ancien contexte : on le rebranche */
+      }
+      if (!ok) {
+        S._repriseTap = true;
+        vocalStopMediaRec(true); vocalCouperMicro();
+        vocalEtatUI('idle', 'Touche l’écran pour reprendre l’appel.');
+        return;
+      }
+      repriseMicro();
+      if (rejouer) { var r = rejouer; rejouer = ''; if (r === 'unmute' || r === 'coupe-visible') reprise(r); }
+    });
+  }
+  function repriseMicro() {
     if (S.vocalMuet) return;
     var coupe = S._micCoupeOS || (S._vocalFlux && !micVivant());
     if (coupe) {
@@ -1990,7 +2035,10 @@ function vocalDirect(blob, type, texteSeul, source) {
     S._vocalAppel = false;
     if (e && e.name === 'AbortError') return;
     if (e && e.etape === 'stt') { vocalEtatUI('listen', e.message); if (!S.vocalMuet) vocalEcouter(); return; }
-    /* Coupure réseau passagère : un nouvel essai, puis l’ancien chemin. */
+    /* Coupure réseau passagère : un nouvel essai, puis l’ancien chemin.
+       build 52 : si Laura avait déjà commencé à parler (flux coupé au passage en arrière-plan), on ne rejoue pas tout le tour
+       depuis le début : on garde ce qu'elle a dit et on se remet à écouter. */
+    if (parlait) { sauverTourVocal(tt.tom ? tt : Object.assign(tt, { tom: entendu }), true); relancer(); return; }
     if (!blob) { S._vocalAppel = false; relancer(); return; }
     if (!blob._reessai) { blob._reessai = true; setTimeout(function () { if (S.modeVocal) vocalDirect(blob, type); }, 600); return; }
     /* Voie rapide indisponible : on repasse par l’ancien chemin (note vocale + robot). */
@@ -2024,14 +2072,10 @@ function vocalFluxFinal(texte, info) {
   texte = String(texte || '').trim();
   /* fin de tour venue de xAI seule : seulement si le micro a vraiment entendu Tom (jamais l'écho de Laura) */
   if (!(info && info.force) && performance.now() - (S._vocalFinParole || 0) > 2500) return;
-  if (texte && S.vocalEtat === 'wait') {
-    /* Tom a continué sa phrase après la fin de tour : la réponse en route est annulée, la phrase entière repart */
-    if (!S._vocalAppel || !S._fluxDernier) return;
-    S._vocalTour = (S._vocalTour || 0) + 1; S._vocalAppel = false;
-    if (window.LauraRapide) LauraRapide.voix.stop();
-    S._fluxReprise = S._fluxDernier;
-    vocalEtatUI('listen', '');
-  }
+  /* build 52 : pendant « S’en occupe », un texte final de xAI seul (fin de parole à 0,7 s côté xAI, bruit, souffle)
+     annulait la réponse en route et renvoyait la phrase rallongée : Laura recommençait ou répondait deux fois.
+     La reprise de phrase n'est décidée que par la détection locale (niveau réel du micro, voir « reprise » dans l'écoute). */
+  if (S.vocalEtat === 'wait') return;
   var complet = texte && S._fluxReprise ? S._fluxReprise + ' ' + texte : texte;
   if (rec._fluxFin(complet, info) && texte) {
     S._fluxReprise = '';
@@ -2070,17 +2114,22 @@ function vocalEcouterMedia(pendantParole, propre) {
   if (!S.modeVocal || S.vocalMuet) return;
   if (!pendantParole && (S.vocalEtat === 'speak' || S.vocalEtat === 'wait')) return;
   if (S._vocalMr) return; /* déjà à l’écoute */
+  if (S._vocalGum) return; /* ouverture du micro déjà en cours (build 52 : avant, deux reprises = deux micros ouverts) */
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     S._sttRepliNavigateur = true;
     if ((window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note) vocalEcouter();
     return;
   }
   var vivant = S._vocalFlux && S._vocalFlux.getAudioTracks().some(function (t) { return t.readyState === 'live' && t.enabled; });
+  /* appli en arrière-plan : iOS refuse le micro (et n'en rend pas d'autre) ; on le rouvrira au retour (reprise) */
+  if (!vivant && document.hidden) { S._micCoupeOS = true; return; }
   var obtenir = vivant ? Promise.resolve(S._vocalFlux)
     : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  if (!vivant) S._vocalGum = true;
   obtenir.then(function (flux) {
+    S._vocalGum = false; S._gumEchecs = 0; S._repriseTap = false;
     if (!S.modeVocal || S.vocalMuet) { if (flux !== S._vocalFlux) flux.getTracks().forEach(function (tr) { tr.stop(); }); return; }
-    if (S._vocalMr) return;
+    if (S._vocalMr) { if (flux !== S._vocalFlux) flux.getTracks().forEach(function (tr) { tr.stop(); }); return; }
     if (flux !== S._vocalFlux) {
       vocalCouperMicro();
       S._vocalFlux = flux;
@@ -2230,14 +2279,28 @@ function vocalEcouterMedia(pendantParole, propre) {
       /* longue écoute silencieuse : on recommence un enregistrement neuf (mémoire, et début propre) */
       if (!parle && Date.now() - debut > 20000) { rec._annule = true; arreterTic(rec._int); try { rec.stop(); } catch (e2) {} S._vocalMr = null; vocalEcouterMedia(false); }
     }, 100);
-  }).catch(function () {
-    /* Cannot record: fall back to the browser recognizer if it exists. */
-    S._sttRepliNavigateur = true;
-    if ((window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note) {
-      vocalEcouter();
+  }, function (err) {
+    /* build 52 : un échec d'ouverture du micro (fréquent au retour d'arrière-plan sur iPhone : NotReadableError, ou geste exigé)
+       ne fait plus basculer TOUT le reste de la session sur la dictée du navigateur (S._sttRepliNavigateur, jamais remis à zéro,
+       même au prochain appel). On réessaie, puis un toucher relance le micro. */
+    S._vocalGum = false;
+    S._gumEchecs = (S._gumEchecs || 0) + 1;
+    (window.SI_MICRO_ECHECS = window.SI_MICRO_ECHECS || []).push({ t: Date.now(), nom: err && err.name, cache: document.hidden });
+    if (!S.modeVocal || S.vocalMuet) return;
+    if (document.hidden) { S._gumEchecs = 0; S._micCoupeOS = true; return; }   /* parti entre-temps : la reprise s'en charge */
+    if (S._gumEchecs <= 2) {
+      setTimeout(function () { if (S.modeVocal && !S.vocalMuet && !S._vocalMr) vocalEcouterMedia(pendantParole || S.vocalEtat === 'speak', propre); }, 700);
       return;
     }
-    vocalEtatUI('idle', 'Micro indisponible : touche pour réessayer.');
+    S._repriseTap = true;
+    var msg = err && err.name === 'NotAllowedError' ? 'Micro refusé : touche pour réessayer.' : 'Micro indisponible : touche pour réessayer.';
+    if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') { if ($('voiceCaption')) $('voiceCaption').textContent = msg; }
+    else vocalEtatUI('idle', msg);
+  }).catch(function (e) {
+    S._vocalGum = false;
+    (window.SI_MICRO_ECHECS = window.SI_MICRO_ECHECS || []).push({ t: Date.now(), code: String(e && e.message || e).slice(0, 120) });
+    S._repriseTap = true;
+    if (S.modeVocal && S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait') vocalEtatUI('idle', 'Micro indisponible : touche pour réessayer.');
   });
 }
 
@@ -2452,6 +2515,15 @@ function vocalSurReponse(it) {
 
 function vocalInterrompre() {
   if (!S.modeVocal) return;
+  if (S._repriseTap) {
+    /* un toucher = geste de l'utilisateur : iOS laisse alors démarrer le son et le micro */
+    S._repriseTap = false; S._gumEchecs = 0;
+    debloquerAudio();
+    if (S.vocalEtat === 'idle') vocalEtatUI('listen', '');
+    S._micCoupeOS = true;
+    ArrierePlan.reprise('toucher');
+    return;
+  }
   if (S.vocalEtat === 'speak' || S._vocalAppel) {
     S._vocalCoupe = true;
     S._vocalAppel = false;
@@ -2536,6 +2608,7 @@ function ouvrirModeVocal() {
   if (window.LauraRapide && LauraRapide.voix.sessionAppel) LauraRapide.voix.sessionAppel(true);
   debloquerAudio();
   S.modeVocal = true;
+  S._sttRepliNavigateur = false; S._gumEchecs = 0; S._repriseTap = false; S._vocalGum = false; S._micCoupeOS = false;
   S._vocalDebut = Date.now();
   S._appelTours = []; S._appelSauves = [];
   S.vocalMuet = false;
