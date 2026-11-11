@@ -1,4 +1,4 @@
-/* Appel vocal partagé FSM SI (build 20261111-57) — même moteur que l'appel de LAURA :
+/* Appel vocal partagé FSM SI (build 20261111-67) — même moteur que l'appel de LAURA :
    micro ouvert tout l'appel, transcription en continu (stt-flux.js, relais /stt-flux vers xAI) avec repli sur l'enregistrement,
    fin de tour à 0,5 s de silence (« finalize »), réponse en voix PCM phrase par phrase (laura-rapide.js, /voix en SSE),
    coupure de la voix quand on parle par-dessus (barge-in), reprise propre au retour au premier plan (iPhone).
@@ -283,7 +283,7 @@ function sauverTour(tt, coupe) {
   if (!tt || tt.sauve || !tt.tom) return;
   tt.sauve = true;
   var dit = tt.laura;
-  if (coupe) { try { var V = LR().mesures(), c = V.ctx; if (c && V.debutCtx != null && V.fin > V.debutCtx) { var f = Math.max(0, Math.min(1, (c.currentTime - V.debutCtx) / (V.fin - V.debutCtx))); dit = dit.slice(0, Math.round(dit.length * f)); } } catch (e) {} }
+  if (coupe) { try { var V = LR().mesures(), c = V.ctx; if (c && V.debutCtx != null && V.fin > V.debutCtx) { var f = Math.max(0, Math.min(1, (c.currentTime - V.debutCtx) / (V.fin - V.debutCtx))); var n = Math.round(dit.length * f), cp = dit.slice(0, n), esp = cp.lastIndexOf(' '); dit = esp > 0 && n < dit.length ? cp.slice(0, esp) : cp; } } catch (e) {} }
   if (A.o.surTour) try { A.o.surTour({ tom: tt.tom, reponse: (dit || '').trim(), coupe: !!coupe, conv: tt.conv }); } catch (e) {}
 }
 function direct(blob, type, texteSeul, source) {
@@ -299,6 +299,7 @@ function direct(blob, type, texteSeul, source) {
   if (texteSeul) { meta.texte = texteSeul; meta.stt = source === 'flux' ? 'flux' : 'texte'; }
   V.appel(A.o.jeton || 'cookie', texteSeul ? null : blob, meta, {
     entendu: function (x) { entendu = x; tt.tom = String(x || '').trim(); },   /* gardé pour l'historique, jamais affiché */
+    capture: function (c) { if (A.o.surCapture) try { A.o.surCapture(c); } catch (e) {} },   /* capture de l'ordinateur pendant l'appel : montrée dans le fil, jamais lue */
     texte: function (x) { tt.laura = String(x || '').trim(); if (parlait && $('avCaption')) $('avCaption').textContent = x; },
     parle: function () {
       if (parlait || !A.appel || tour !== A.tour) return;
