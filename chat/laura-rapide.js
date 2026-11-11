@@ -45,28 +45,30 @@ function discuter(jeton, corps, surTexte) {
 }
 
 /* ---------- Cases sécurisées (même look que la case « Secrets » de Grok Bot) ---------- */
-var CSS = '.si-bloc{width:min(100%,420px);margin:2px 0 0;align-self:flex-start;font:15px/1.38 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-touch-callout:default}' +
-  '.msg.si-avec-carte{max-width:100%;width:100%}.msg.si-avec-carte>.bubble{max-width:86%}' +
-  '.si-carte{box-sizing:border-box;width:100%;background:#1E1E20;border:1px solid rgba(255,255,255,.10);border-radius:20px;padding:14px 16px 16px;color:#fff}' +
-  '.si-tete{display:flex;align-items:center;gap:7px;color:#9A9AA0;font-size:13px;font-weight:500;margin:0 0 12px}' +
-  '.si-tete svg{width:15px;height:15px;flex:none}' +
-  '.si-carte h5{margin:0 0 3px;font-size:17px;line-height:1.3;font-weight:700;color:#fff}' +
-  '.si-carte p.si-desc{margin:0 0 14px;color:#9A9AA0;font-size:15px;line-height:1.38}' +
-  '.si-champ{position:relative;margin:0 0 10px}' +
-  '.si-champ input{display:block;width:100%;box-sizing:border-box;height:46px;background:#121213;border:1px solid rgba(255,255,255,.10);border-radius:12px;color:#fff;padding:0 46px 0 14px;font-size:16px;outline:none;-webkit-appearance:none;appearance:none;-webkit-user-select:text;user-select:text;font-family:inherit}' +
-  '.si-champ input::placeholder{color:#6E6E73}.si-champ input:focus{border-color:rgba(255,255,255,.24)}' +
-  '.si-champ input[readonly]{color:#9A9AA0}' +
-  '.si-oeil{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:none;color:#8E8E93;display:grid;place-items:center;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
-  '.si-oeil svg{width:19px;height:19px}' +
-  '.si-pied{display:flex;justify-content:flex-end;margin-top:4px}' +
-  '.si-btn{border:0;border-radius:999px;background:#fff;color:#000;font-family:inherit;font-weight:600;font-size:15px;line-height:1;padding:11px 18px;min-height:38px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}' +
-  '.si-btn:disabled{background:#2C2C2E;color:#6E6E73;cursor:default}' +
-  '.si-btn.si-fait{background:#2C2C2E;color:#C7C7CC}.si-btn svg{width:15px;height:15px}' +
+/* valeurs relevées au pixel sur la capture Grok Bot de Tom (1170×2532, ×3) */
+var CSS = '.si-bloc{width:100%;margin:2px 0 0;align-self:stretch;font:15px/1.38 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-touch-callout:default}' +
+  '.msg.si-avec-carte{width:100%}' +
+  '.si-carte{box-sizing:border-box;width:100%;background:#1f1f1f;border:1px solid #303030;border-radius:20px;padding:14.5px 15px 15px;color:#fff}' +
+  '.si-tete{display:flex;align-items:center;gap:9px;color:#fff;font-size:15px;font-weight:400;height:20px;margin:0 0 21px}' +
+  '.si-tete .si-ico{width:20px;height:20px;border-radius:5px;background:#343436;color:#a1a1a8;display:grid;place-items:center;flex:none}' +
+  '.si-tete svg{width:15px;height:15px}' +
+  '.si-carte h5{margin:0 0 3.5px;font-size:17px;line-height:22px;font-weight:700;color:#fff}' +
+  '.si-carte p.si-desc{margin:0 0 12px;color:#99999f;font-size:17px;line-height:24px}' +
+  '.si-champ{position:relative;margin:0 0 18px}' +
+  '.si-champ input{display:block;width:100%;box-sizing:border-box;height:40px;background:#343436;border:0;border-radius:10px;color:#fff;padding:0 44px 0 12px;font-size:17px;outline:none;-webkit-appearance:none;appearance:none;-webkit-user-select:text;user-select:text;font-family:inherit}' +
+  '.si-champ input::placeholder{color:#6a6a6f;opacity:1}' +
+  '.si-champ input[readonly]{color:#a1a1a8}' +
+  '.si-oeil{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:none;color:#a1a1a8;display:grid;place-items:center;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+  '.si-oeil svg{width:18px;height:18px}' +
+  '.si-pied{display:flex;justify-content:flex-end}' +
+  '.si-btn{border:0;border-radius:999px;background:#fff;color:#000;font-family:inherit;font-weight:400;font-size:13px;line-height:1;padding:0 12.5px;height:34px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}' +
+  '.si-btn:disabled{background:#343436;color:#858586;cursor:default}' +
+  '.si-btn.si-fait{background:#343436;color:#a1a1a8}.si-btn svg{width:12px;height:12px}' +
   '.si-err{color:#FF453A;font-size:13px;margin:8px 0 0}' +
-  '.si-note{display:flex;align-items:center;gap:6px;color:#8E8E93;font-size:12.5px;margin:8px 2px 0}' +
-  '.si-note svg{width:13px;height:13px;flex:none}';
+  '.si-note{display:flex;align-items:flex-start;gap:8px;color:#555558;font-size:12px;line-height:17px;margin:11px 16px 0}' +
+  '.si-note svg{width:11px;height:12px;flex:none;margin-top:2px}';
 var IC = {
-  cle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M18.5 4.5l2 2"/></svg>',
+  cle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="17" cy="12" r="4.2"/><path d="M12.8 12H2.5M4.5 12v3.2M7.8 12v2.4"/></svg>',
   oeil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   oeilBarre: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.5M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20"/></svg>',
   bouclier: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
@@ -100,7 +102,7 @@ function carte(spec, o) {
   ['click', 'touchstart', 'touchend', 'mousedown', 'contextmenu'].forEach(function (t) { bloc.addEventListener(t, function (ev) { ev.stopPropagation(); }); });
   var champs = estSecret ? [{ nom: spec.nom, libelle: spec.libelle || spec.nom, secret: true }] : (spec.champs || []);
   var aSecret = champs.some(function (ch) { return ch.secret; });
-  var tete = e('div', 'si-tete'); tete.appendChild(ico(estSecret || aSecret ? 'cle' : 'form'));
+  var tete = e('div', 'si-tete'), boite = e('span', 'si-ico'); boite.appendChild(ico(estSecret || aSecret ? 'cle' : 'form')); tete.appendChild(boite);
   tete.appendChild(e('span', '', estSecret || aSecret ? 'Secrets' : 'Formulaire')); c.appendChild(tete);
   c.appendChild(e('h5', '', estSecret ? (spec.libelle || spec.nom) : (spec.titre || 'Formulaire')));
   if (spec.description) c.appendChild(e('p', 'si-desc', spec.description));

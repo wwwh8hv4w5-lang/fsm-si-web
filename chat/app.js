@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-17';
+var BUILD = '20261111-18';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -218,7 +218,7 @@ function montrerChat(viaMorph) {
   $('home').hidden = false; /* reste derrière pour le morph */
   $('chatView').hidden = false;
   champsFocusables([$('texte')]);
-  themeColor('#171717');
+  themeColor('#141414');
   if (!viaMorph) resetCard();
   setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 40);
 }
@@ -1683,7 +1683,7 @@ function ouvrirModeVocal() {
   }
   fermerVoixPrefs();
   if ($('voiceDock')) $('voiceDock').style.transform = '';
-  themeColor('#171717');
+  themeColor('#141414');
   vocalEtatUI('listen', '');
   vocalAnimer(true);
   vocalEcouter();
@@ -1712,7 +1712,7 @@ function fermerModeVocal() {
     $('texte').setAttribute('placeholder', S._phVocal);
     S._phVocal = null;
   }
-  if (S.ecran === 'chat') themeColor('#171717');
+  if (S.ecran === 'chat') themeColor('#141414');
 }
 
 function basculerMuetVocal() {
@@ -2116,7 +2116,7 @@ function ouvrirChatMorph() {
   $('chatView').hidden = false;
   $('home').hidden = false;
   S.ecran = 'chat';
-  themeColor('#171717');
+  themeColor('#141414');
   appliquerCarte(1);
   spring(1, 0, 16, appliquerCarte, function () {
     resetCard();
