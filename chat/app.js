@@ -11,7 +11,7 @@ var mem = {
 };
 var S = {
   depot: mem.lire('si_depot'), jeton: mem.lire('si_jeton'),
-  conv: (function () { var u = /[?&]conv=(\d+)/.exec(location.search || ''); if (u) mem.ecrire('si_conv', u[1]); var c = mem.lire('si_conv'); /* Bots locaux retirés de LAURA : une ancienne conversation « L… » revient à l’accueil */ return Number(c) || 0; })(),
+  conv: (function () { var u = /[?&]conv=(\d+)/.exec(location.search || ''); if (u) mem.ecrire('si_conv', u[1]); var c = mem.lire('si_conv'); if (c && c.charAt(0) === 'L') return c; return Number(c) || 0; })(),
   voix: mem.lire('si_voix') === '1', note: mem.lire('si_note') === '1',
   hap: mem.lire('si_hap') !== '0', tzauto: mem.lire('si_tzauto') !== '0',
   notif: mem.lire('si_notif') === '1',
@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-56';
+var BUILD = '20261111-57';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -3833,7 +3833,9 @@ $('btnSearch').onclick = function () {
   }, $('home'));
 };
 
-/* « Créer un nouveau Bot » retiré de LAURA (build 20261111-56). */
+/* Créer un Bot : feuille et archive locale — voir create-bot.js (build 20261111-26). */
+function ouvrirCreate() { if (window.CreateBot) CreateBot.ouvrir(); }
+function fermerCreate() { if (window.CreateBot) CreateBot.fermer(); }
 
 /* ---------- Connexion ---------- */
 function demarrer() {
@@ -4211,7 +4213,7 @@ window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '
     return { t: 'Coucou, je suis là.', n: null };
   }
   function placer() {
-    var nb = ($('newBtn') || $('btnSettings')).getBoundingClientRect();   /* « + » (Créer un Bot) retiré : même rangée */
+    var nb = $('newBtn').getBoundingClientRect();
     box.style.setProperty('--hc-top', Math.round(nb.top + 31) + 'px');
     var m = $('hcMenu'), so = $('hcSous');
     so.style.top = (m.offsetTop + m.offsetHeight + 51 - so.offsetHeight) + 'px';

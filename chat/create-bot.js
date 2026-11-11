@@ -6,10 +6,20 @@
   var DEF_SHAPE = 4;
   var DEF_COLOR = '#FFFFFF';
   var sel = { shape: DEF_SHAPE, color: DEF_COLOR };
+  /* LAURA (demande de Tom, 11/11) : l’écran « Créer un nouveau Bot » reste, mais le profil est verrouillé sur Laura :
+     nom et photo fixes, non modifiables, aucun autre Bot ni portrait au choix. Le serveur n’accepte que ce profil sur l’hôte LAURA. */
+  var VERROU = location.hostname !== 'bot.fsmsibot.app';
+  var LAURA = { nom: 'Laura F.S.M · F.S.M AI', photo: './icons/laura.png' };
+  function imgLaura(cls) { return '<img class="' + (cls || '') + ' laura-photo" src="' + LAURA.photo + '" alt="">'; }
 
   function hap() { try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {} }
-  function lireBots() {
+  function lireBotsBruts() {
     try { return JSON.parse(localStorage.getItem(CLE) || '[]') || []; } catch (e) { return []; }
+  }
+  function lireBots() {
+    var l = lireBotsBruts();
+    if (VERROU) l.forEach(function (b) { b.name = LAURA.nom; b.laura = true; });
+    return l;
   }
   function sauverBots(l) {
     try { localStorage.setItem(CLE, JSON.stringify(l)); } catch (e) {}
@@ -27,6 +37,7 @@
     return (window.BOT_COLOR_BODY || function (x) { return x; })(c);
   }
   function svgPour(shape, color, cls, rotate) {
+    if (VERROU) return imgLaura(cls);
     var sh = (window.BOT_SHAPES || [])[shape] || (window.BOT_SHAPES || [])[DEF_SHAPE] || { d: '' };
     var rot = rotate ? ' transform="rotate(' + rotate + ' 50 50)"' : '';
     return '<svg class="' + (cls || '') + '" viewBox="0 0 100 100" aria-hidden="true"><path fill="' + bodyColor(color) + '" fill-rule="evenodd"' + rot + ' d="' + sh.d + '"/></svg>';
@@ -91,14 +102,33 @@
       box.classList.remove('assembling');
     }, 560);
   }
+  function verrouiller() {
+    var sheet = $('createSheet'), nom = $('botName'), prev = $('botPreview');
+    if (sheet) sheet.classList.add('verrou-laura');
+    if (nom) { nom.value = LAURA.nom; nom.readOnly = true; nom.tabIndex = -1; nom.setAttribute('aria-readonly', 'true'); }
+    if (prev && !prev.querySelector('img.laura-photo')) prev.insertAdjacentHTML('beforeend', imgLaura('create-laura'));
+    ['shapeGrid', 'colorGrid'].forEach(function (id) { var g = $(id); if (g) { g.textContent = ''; g.hidden = true; } });
+    if ($('botCreate')) $('botCreate').disabled = false;
+    /* profil donné par le serveur (seul permis sur l’hôte LAURA) */
+    try {
+      fetch('/profil', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+        if (!d || !d.profil || !d.profil.nom) return;
+        LAURA.nom = d.profil.nom;
+        if (nom) nom.value = LAURA.nom;
+      }).catch(function () {});
+    } catch (e) {}
+  }
   function ouvrir() {
     sel.shape = DEF_SHAPE;
     sel.color = DEF_COLOR;
     var nom = $('botName');
-    if (nom) { nom.value = ''; nom.tabIndex = 0; }
-    if ($('botCreate')) $('botCreate').disabled = true;
-    peindreGrilles();
-    appliqueForme();
+    if (VERROU) verrouiller();
+    else {
+      if (nom) { nom.value = ''; nom.tabIndex = 0; }
+      if ($('botCreate')) $('botCreate').disabled = true;
+      peindreGrilles();
+      appliqueForme();
+    }
     var back = $('createBackdrop'), sheet = $('createSheet');
     if (back) { back.classList.add('hide'); back.hidden = false; }
     if (sheet) {
@@ -126,19 +156,20 @@
     }, wait);
   }
   function creer() {
-    var nom = ($('botName') && $('botName').value || '').trim();
+    var nom = VERROU ? LAURA.nom : ($('botName') && $('botName').value || '').trim();
     if (!nom) return;
     var id = 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var gre = 'Bonjour, je suis ' + nom + '. Comment puis-je t’aider ?';
     var bot = {
       id: id,
       name: nom,
-      shape: sel.shape,
-      color: sel.color,
+      shape: VERROU ? DEF_SHAPE : sel.shape,
+      color: VERROU ? DEF_COLOR : sel.color,
+      laura: VERROU || undefined,
       created: new Date().toISOString(),
       messages: [{ cle: 'g' + id, genre: 'tx', corps: gre, date: new Date().toISOString() }]
     };
-    var l = lireBots();
+    var l = lireBotsBruts();
     l.push(bot);
     sauverBots(l);
     fermer();
@@ -168,7 +199,7 @@
     return b && b.messages ? b.messages : [];
   }
   function ajouterMsg(id, genre, corps) {
-    var l = lireBots(), i, b;
+    var l = lireBotsBruts(), i, b;
     for (i = 0; i < l.length; i++) if (l[i].id === id) { b = l[i]; break; }
     if (!b) return null;
     var it = { cle: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), genre: genre, corps: corps, date: new Date().toISOString() };
@@ -185,6 +216,7 @@
     var img = av.querySelector('img');
     var old = av.querySelector('svg.bot-av');
     if (old) old.remove();
+    if (b && VERROU) b = null;   /* LAURA : l’en-tête reste celui de Laura (photo et nom) */
     if (b) {
       av.insertAdjacentHTML('afterbegin', svgPour(b.shape, b.color, 'bot-av'));
       if (img) img.hidden = true;
@@ -250,6 +282,7 @@
     if ($('botCreate')) $('botCreate').addEventListener('click', creer);
     if ($('botName')) {
       $('botName').addEventListener('input', function () {
+        if (VERROU) { this.value = LAURA.nom; return; }
         if ($('botCreate')) $('botCreate').disabled = !this.value.trim();
       });
       $('botName').addEventListener('keydown', function (e) {
@@ -280,7 +313,9 @@
     entete: entete,
     messagesDe: messagesDe,
     ajouterMsg: ajouterMsg,
-    svgPour: svgPour
+    svgPour: svgPour,
+    verrou: VERROU,
+    LAURA: LAURA
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', brancher);
