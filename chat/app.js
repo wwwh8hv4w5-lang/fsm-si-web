@@ -73,7 +73,7 @@ function rendre(md) {
   var h = esc(md)
     .replace(/&lt;details&gt;\s*&lt;summary&gt;([\s\S]*?)&lt;\/summary&gt;/g, '\n<details><summary>$1</summary>\n')
     .replace(/&lt;\/details&gt;/g, '\n</details>\n')
-    .replace(/&lt;sub&gt;([\s\S]*?)&lt;\/sub&gt;/g, '<span class="petit">$1</span>');
+    .replace(/&lt;sub&gt;([\s\S]*?)&lt;\/sub&gt;/g, '');
   var out = [], liste = false, table = false;
   function clore() { if (liste) { out.push('</ul>'); liste = false; } if (table) { out.push('</table>'); table = false; } }
   h.split('\n').forEach(function (l) {
@@ -299,14 +299,43 @@ document.addEventListener('visibilitychange', function () { if (!document.hidden
 
 /* ---------- Statut Actions ---------- */
 function etatLigne(txt) {
-  var box = $('typing'), em = $('typingText');
-  if (!txt) { box.hidden = true; S.runEtat = ''; placeScrollDown(); return; }
-  box.hidden = false;
-  if (em.textContent !== txt) {
-    em.style.opacity = '0';
-    setTimeout(function () { em.textContent = txt; em.style.opacity = '1'; }, 160);
+  var box = $('typing'), stack = $('typingStack');
+  clearTimeout(S._etatT);
+  txt = String(txt || '');
+  if (!txt) {
+    box.hidden = true;
+    S.runEtat = '';
+    if (stack) {
+      stack.textContent = '';
+      var em0 = document.createElement('em');
+      em0.id = 'typingText';
+      em0.className = 'cur';
+      stack.appendChild(em0);
+    }
+    placeScrollDown();
+    return;
   }
+  box.hidden = false;
+  if (S.runEtat === txt) { placeScrollDown(); return; }
   S.runEtat = txt;
+  if (!stack) { placeScrollDown(); return; }
+  var cur = stack.querySelector('em.cur');
+  if (cur && cur.textContent === txt) { placeScrollDown(); return; }
+  Array.prototype.forEach.call(stack.querySelectorAll('em.out'), function (n) { n.remove(); });
+  if (cur) {
+    cur.classList.remove('cur');
+    cur.classList.add('out');
+    cur.removeAttribute('id');
+    cur.style.opacity = '1';
+    void cur.offsetWidth;
+    cur.style.opacity = '0';
+    S._etatT = setTimeout(function () { if (cur.parentNode) cur.remove(); }, 220);
+  }
+  var neu = document.createElement('em');
+  neu.id = 'typingText';
+  neu.className = 'cur';
+  neu.textContent = txt;
+  stack.appendChild(neu);
   placeScrollDown();
 }
 function etatActions() {
@@ -806,74 +835,96 @@ function resetCard() {
   c.style.transform = '';
   c.style.borderRadius = '';
   c.style.opacity = '';
-  $('backBtn').style.opacity = '';
-  $('menuBtn').style.opacity = '';
-  $('morph').hidden = true;
-  $('chatAv').style.opacity = '';
-  $('chatName').style.opacity = '';
-  $('homeAv').style.opacity = '';
-  $('homeName').style.opacity = '';
+  if ($('backBtn')) $('backBtn').style.opacity = '';
+  if ($('menuBtn')) $('menuBtn').style.opacity = '';
+  if ($('morph')) $('morph').hidden = true;
+  if ($('chatAv')) $('chatAv').style.opacity = '';
+  if ($('chatName')) $('chatName').style.opacity = '';
+  if ($('homeAv')) $('homeAv').style.opacity = '';
+  if ($('homeName')) $('homeName').style.opacity = '';
+  S._cardP = 0;
 }
 function lerp(a, b, p) { return a + (b - a) * p; }
-function appliquerCarte(p) {
-  p = Math.max(0, Math.min(1, p));
-  var c = $('chatView');
-  c.hidden = false;
-  $('home').hidden = false;
-  c.classList.toggle('carding', p > 0.02);
-  var scale = lerp(1, 0.85, p);
-  var x = p * c.offsetWidth * 0.22;
-  c.style.transform = 'translateX(' + x + 'px) scale(' + scale + ')';
-  c.style.borderRadius = (32 * p) + 'px';
-  $('backBtn').style.opacity = String(1 - p);
-  $('menuBtn').style.opacity = String(1 - p);
-  /* FLIP avatar + nom */
-  var a0 = $('chatAv').getBoundingClientRect();
-  var a1 = $('homeAv').getBoundingClientRect();
-  var n0 = $('chatName').getBoundingClientRect();
-  var n1 = $('homeName').getBoundingClientRect();
-  var morph = $('morph'), av = $('morphAv'), nm = $('morphName');
-  morph.hidden = false;
-  $('chatAv').style.opacity = '0';
-  $('chatName').style.opacity = '0';
-  $('homeAv').style.opacity = '0';
-  $('homeName').style.opacity = '0';
-  var w = lerp(a0.width, a1.width, p);
-  var h = lerp(a0.height, a1.height, p);
-  var l = lerp(a0.left, a1.left, p);
-  var t = lerp(a0.top, a1.top, p);
-  av.style.width = w + 'px';
-  av.style.height = h + 'px';
-  av.style.left = l + 'px';
-  av.style.top = t + 'px';
-  nm.textContent = p > 0.55 ? 'Laura F.S.M · F.S.M AI' : NOM;
-  nm.style.maxWidth = lerp(n0.width || 200, 168, p) + 'px';
-  nm.style.left = lerp(n0.left, n1.left, p) + 'px';
-  nm.style.top = lerp(n0.top, n1.top, p) + 'px';
-  nm.style.fontSize = lerp(16, 16, p) + 'px';
-  nm.style.fontWeight = p > 0.5 ? '500' : '600';
-  nm.style.opacity = '1';
+var _springId = 0, _springTimer = 0;
+function cancelSpring() {
+  _springId++;
+  clearTimeout(_springTimer);
 }
 function spring(from, to, omega, onup, ondone) {
+  cancelSpring();
+  var id = _springId;
   var t0 = performance.now();
+  var finished = false;
+  function finish() {
+    if (finished || id !== _springId) return;
+    finished = true;
+    clearTimeout(_springTimer);
+    onup(to);
+    if (ondone) ondone();
+  }
+  _springTimer = setTimeout(finish, 480);
   function frame(now) {
+    if (id !== _springId || finished) return;
     var t = (now - t0) / 1000;
-    var e = Math.exp(-omega * t);
-    var k = e * (1 + omega * t);
+    var e = Math.exp(-(omega || 16) * t);
+    var k = e * (1 + (omega || 16) * t);
     var v = to + (from - to) * k;
+    v = from < to ? Math.min(to, Math.max(from, v)) : Math.min(from, Math.max(to, v));
     onup(v);
-    if (k < 0.008 || t > 0.7) { onup(to); ondone && ondone(); return; }
+    if (k < 0.008 || t > 0.7) { finish(); return; }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }
+function appliquerCarte(p) {
+  p = Math.max(0, Math.min(1, Number(p) || 0));
+  S._cardP = p;
+  var c = $('chatView');
+  if (!c) return p;
+  c.hidden = false;
+  $('home').hidden = false;
+  c.classList.toggle('carding', p > 0.02);
+  var w = c.offsetWidth || window.innerWidth || 390;
+  var scale = lerp(1, 0.85, p);
+  var x = p * w * 0.22;
+  c.style.transform = 'translateX(' + x + 'px) scale(' + scale + ')';
+  c.style.borderRadius = (32 * p) + 'px';
+  if ($('backBtn')) $('backBtn').style.opacity = String(1 - p);
+  if ($('menuBtn')) $('menuBtn').style.opacity = String(1 - p);
+  try {
+    var a0 = $('chatAv').getBoundingClientRect();
+    var a1 = $('homeAv').getBoundingClientRect();
+    var n0 = $('chatName').getBoundingClientRect();
+    var n1 = $('homeName').getBoundingClientRect();
+    var morph = $('morph'), av = $('morphAv'), nm = $('morphName');
+    if (morph && av && nm) {
+      morph.hidden = false;
+      $('chatAv').style.opacity = '0';
+      $('chatName').style.opacity = '0';
+      $('homeAv').style.opacity = '0';
+      $('homeName').style.opacity = '0';
+      av.style.width = lerp(a0.width, a1.width, p) + 'px';
+      av.style.height = lerp(a0.height, a1.height, p) + 'px';
+      av.style.left = lerp(a0.left, a1.left, p) + 'px';
+      av.style.top = lerp(a0.top, a1.top, p) + 'px';
+      nm.textContent = p > 0.55 ? 'Laura F.S.M · F...' : NOM;
+      nm.style.maxWidth = lerp(n0.width || 200, 168, p) + 'px';
+      nm.style.left = lerp(n0.left, n1.left, p) + 'px';
+      nm.style.top = lerp(n0.top, n1.top, p) + 'px';
+      nm.style.fontSize = '16px';
+      nm.style.fontWeight = p > 0.5 ? '500' : '600';
+      nm.style.opacity = '1';
+    }
+  } catch (err) { /* mesure indisponible : on garde la carte */ }
+  return p;
+}
 function fermerChatMorph() {
-  var start = S._cardP || 0;
+  var start = Math.max(0, Math.min(1, S._cardP || 0));
   spring(start, 1, 14, appliquerCarte, function () {
     resetCard();
     $('chatView').hidden = true;
-    $('homeAv').style.opacity = '';
-    $('homeName').style.opacity = '';
+    if ($('homeAv')) $('homeAv').style.opacity = '';
+    if ($('homeName')) $('homeName').style.opacity = '';
     S.ecran = 'home';
     themeColor('#141414');
     S._cardP = 0;
@@ -888,8 +939,13 @@ function ouvrirChatMorph() {
   spring(1, 0, 16, appliquerCarte, function () {
     resetCard();
     $('chatView').hidden = false;
-    setTimeout(function () { var f = $('fil'); f.scrollTop = f.scrollHeight; }, 30);
+    setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 30);
   });
+}
+function revenirCarte() {
+  var p = Math.max(0, Math.min(1, S._cardP || 0));
+  if (p <= 0) { resetCard(); return; }
+  spring(p, 0, 16, appliquerCarte, function () { resetCard(); });
 }
 $('homeAvatar').addEventListener('click', function () {
   if (!S.jeton) return;
@@ -900,35 +956,99 @@ $('homeAvatar').addEventListener('click', function () {
 $('backBtn').addEventListener('click', function () { fermerChatMorph(); });
 
 (function () {
-  var on = false, x0 = 0, y0 = 0, edge = false, locked = null;
+  var on = false, x0 = 0, y0 = 0, locked = null, lastX = 0, lastT = 0, vx = 0;
   var chat = $('chatView');
-  chat.addEventListener('touchstart', function (e) {
-    if (S.ecran !== 'chat' || !$('push').hidden || !$('settingsSheet').hidden || !$('iosAlert').hidden) return;
-    if ($('composer').classList.contains('full')) return;
-    if (!e.touches[0]) return;
-    var x = e.touches[0].clientX, y = e.touches[0].clientY;
-    edge = x <= 28;
-    if (!edge) return;
-    on = true; locked = null; x0 = x; y0 = y; S._cardP = 0;
-  }, { passive: true });
-  chat.addEventListener('touchmove', function (e) {
+  function overlaysBloquent() {
+    return S.ecran !== 'chat'
+      || !$('push').hidden
+      || !$('settingsSheet').hidden
+      || !$('iosAlert').hidden
+      || ($('lightbox') && !$('lightbox').hidden)
+      || ($('createSheet') && !$('createSheet').hidden)
+      || $('composer').classList.contains('full');
+  }
+  function pointerXY(e) {
+    if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.clientX != null) return { x: e.clientX, y: e.clientY };
+    return null;
+  }
+  function start(e) {
+    if (overlaysBloquent()) return;
+    var pt = pointerXY(e);
+    if (!pt) return;
+    if (pt.x > 28) return;
+    cancelSpring();
+    on = true;
+    locked = null;
+    x0 = pt.x; y0 = pt.y;
+    lastX = pt.x; lastT = performance.now(); vx = 0;
+  }
+  function move(e) {
     if (!on) return;
-    var t = e.touches[0];
-    var dx = t.clientX - x0, dy = t.clientY - y0;
-    if (locked === null && Math.abs(dx) + Math.abs(dy) > 8) locked = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'x' : 'y';
+    var pt = pointerXY(e);
+    if (!pt) return;
+    var dx = pt.x - x0, dy = pt.y - y0;
+    if (locked === null && (Math.abs(dx) + Math.abs(dy) > 8)) {
+      locked = (Math.abs(dx) > Math.abs(dy) * 1.15 && dx > 0) ? 'x' : 'y';
+      if (locked === 'y') {
+        on = false;
+        if (S._cardP) revenirCarte();
+        return;
+      }
+    }
     if (locked !== 'x') return;
-    var p = Math.max(0, Math.min(1, dx / (chat.offsetWidth * 0.55)));
-    S._cardP = p;
+    if (e.cancelable) e.preventDefault();
+    var now = performance.now();
+    var dt = now - lastT;
+    if (dt > 0) vx = (pt.x - lastX) / dt;
+    lastX = pt.x; lastT = now;
+    var p = Math.max(0, Math.min(1, dx / ((chat.offsetWidth || 390) * 0.55)));
     appliquerCarte(p);
-  }, { passive: true });
-  chat.addEventListener('touchend', function (e) {
-    if (!on) return; on = false;
-    if (locked !== 'x') { if (S._cardP) spring(S._cardP, 0, 16, appliquerCarte, resetCard); return; }
-    var dx = (e.changedTouches[0] ? e.changedTouches[0].clientX : x0) - x0;
-    var p = S._cardP || 0;
-    if (p > 0.28 || dx > 80) fermerChatMorph();
-    else spring(p, 0, 16, appliquerCarte, resetCard);
-  });
+  }
+  function settle(e, opts) {
+    if (!on) return;
+    on = false;
+    var lockedDir = locked;
+    locked = null;
+    var annule = opts && opts.cancel;
+    if (annule || lockedDir !== 'x') {
+      if (S._cardP) revenirCarte();
+      else resetCard();
+      vx = 0;
+      return;
+    }
+    var pt = e ? pointerXY(e) : null;
+    var dx = pt ? (pt.x - x0) : 0;
+    var p = Math.max(0, Math.min(1, S._cardP || 0));
+    if (p > 0.28 || dx > 80 || vx > 0.65) fermerChatMorph();
+    else revenirCarte();
+    vx = 0;
+  }
+  var optsPas = { passive: true };
+  var optsBloq = { passive: false };
+  chat.addEventListener('touchstart', start, optsPas);
+  chat.addEventListener('touchmove', move, optsBloq);
+  chat.addEventListener('touchend', settle);
+  chat.addEventListener('touchcancel', function (e) { settle(e, { cancel: true }); });
+  chat.addEventListener('pointercancel', function (e) { settle(e, { cancel: true }); });
+  window.addEventListener('pointercancel', function (e) { settle(e, { cancel: true }); });
+  window.addEventListener('blur', function () { if (on) settle(null, { cancel: true }); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && on) settle(null, { cancel: true }); });
+  window.addEventListener('pagehide', function () { if (on) settle(null, { cancel: true }); });
+  /* expose un accesseur de test */
+  window.__chatGeste = {
+    start: start, move: move, settle: settle,
+    appliquer: appliquerCarte, reset: resetCard,
+    p: function () { return S._cardP || 0; },
+    ecran: function () { return S.ecran; },
+    etat: etatLigne,
+    labels: function () {
+      return Array.prototype.map.call(document.querySelectorAll('#typingStack em'), function (n) {
+        return { text: n.textContent, cls: n.className };
+      });
+    }
+  };
 })();
 
 /* ---------- Réglages ---------- */

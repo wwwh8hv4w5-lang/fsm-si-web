@@ -192,9 +192,7 @@ img { display: block; max-width: 100%; }
 .msg.bot .bubble { background: var(--bulle-bot); color: #fff; border-radius: 16px; border-bottom-left-radius: 6px; }
 .msg.me .bubble { background: var(--bulle-moi); color: var(--texte-moi); border-radius: 16px; border-bottom-right-radius: 6px; }
 .msg.ordre .bubble { background: #3A3A3C; color: #eee; }
-.msg .bubble .petit, .msg .bubble sub, .msg .bubble .sub {
-  display: block; font-size: 11px; color: var(--muted); margin-top: 6px; font-style: normal;
-}
+.msg .bubble .petit, .msg .bubble sub, .msg .bubble .sub { display: none !important; }
 .msg .bubble pre {
   overflow-x: auto; background: rgba(0,0,0,.35); border-radius: 8px;
   padding: 8px; font-size: 13px; user-select: text;
@@ -782,3 +780,47 @@ mark.hit.cur { background: #FFD60A; }
 /* Home + is outline, logo fills the circle */
 #newBtn { background: transparent; }
 #home .home-top { padding-left: 16px; padding-right: 16px; }
+
+/* Gesture robustness + status line */
+html, body, #chatView, #fil, #home {
+  overscroll-behavior-x: none;
+}
+#chatView { touch-action: pan-y; }
+#chatEdge {
+  position: absolute;
+  left: 0;
+  top: calc(var(--safe-top) + 58px);
+  bottom: 0;
+  width: 28px;
+  z-index: 8;
+  touch-action: none;
+}
+#composer { touch-action: pan-y; }
+.typing-stack {
+  position: relative;
+  display: inline-block;
+  min-height: 1.2em;
+  min-width: 8em;
+  overflow: hidden;
+  vertical-align: middle;
+}
+.typing-stack em {
+  display: block;
+  font-style: normal;
+  font-size: 17px;
+  color: #8E8E93;
+  font-weight: 400;
+  line-height: 1.25;
+}
+.typing-stack em.cur {
+  position: relative;
+  opacity: 1;
+  transition: opacity .2s ease;
+}
+.typing-stack em.out {
+  position: absolute;
+  left: 0; top: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}

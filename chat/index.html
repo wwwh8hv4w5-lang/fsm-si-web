@@ -85,6 +85,7 @@
       <svg viewBox="0 0 24 24" class="dots-h"><circle cx="6" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.35" fill="currentColor" stroke="none"/></svg>
     </button>
   </header>
+  <div id="chatEdge" aria-hidden="true"></div>
   <div id="fil" aria-live="polite"></div>
   <button type="button" id="scrollDown" hidden aria-label="Aller au plus récent">
     <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
@@ -93,7 +94,7 @@
     <div id="attachments" class="hidden"></div>
     <div id="typing" hidden>
       <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-      <em id="typingText">S’en occupe</em>
+      <span class="typing-stack" id="typingStack"><em id="typingText" class="cur">S’en occupe</em></span>
     </div>
     <div class="compose-row" id="composeRow">
       <div class="pill big" id="composePill">
