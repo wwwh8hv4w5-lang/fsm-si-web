@@ -1344,3 +1344,116 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 @media (min-width: 735px) and (min-height: 700px) {
   #chatView .topbar { padding-top: calc(4px + var(--safe-top)); }
 }
+
+/* ===== 20261111-11 : fluidité, en-tête flottant, tapbacks ===== */
+/* Messages : l’entrée n’anime que les messages réellement nouveaux, jamais l’historique */
+.msg { animation: none; }
+.msg.neuf { animation: bubble-in .34s var(--ease-spring) both; }
+@keyframes bubble-in {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+.msg.me.neuf { transform-origin: 100% 100%; }
+.msg.bot.neuf { transform-origin: 0 100%; }
+/* longs historiques : le navigateur saute le rendu des bulles hors écran */
+#fil > .msg { content-visibility: auto; contain-intrinsic-size: auto 72px; }
+#fil > .msg.has-react, #fil > .msg.neuf, #fil > .msg.nonlu { content-visibility: visible; }
+#fil { contain: layout paint; will-change: scroll-position; }
+/* envoi en file : la bulle est là tout de suite, légèrement estompée tant que GitHub n’a pas répondu */
+.msg.local.envoi .bubble { opacity: .78; transition: opacity .2s ease; }
+.msg.echec .bubble { opacity: .55; }
+.msg.echec time::after { content: " · Non envoyé, touche pour réessayer"; color: var(--danger); }
+
+/* En-tête : pas de barre, trois pastilles flottantes translucides au-dessus du fil */
+#chatView .topbar {
+  background: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  padding: calc(6px + var(--safe-top)) 12px 6px;
+  grid-template-columns: 44px 1fr 44px;
+  pointer-events: none;
+}
+#chatView .topbar .frost-btn, #chatView .topbar .who.pill {
+  background: rgba(30,30,32,.58);
+  border: .5px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  box-shadow: none;
+}
+#chatView .topbar .frost-btn { width: 44px; height: 44px; color: #fff; }
+#chatView .topbar .frost-btn svg { width: 20px; height: 20px; stroke: #fff; stroke-width: 2.2; }
+#chatView .topbar .who.pill {
+  height: 44px; border-radius: 22px; gap: 8px;
+  padding: 0 16px 0 6px;
+  max-width: calc(100% - 8px);
+}
+#chatView .topbar .who.pill .av { width: 32px; height: 32px; position: relative; }
+#chatView .topbar .who.pill .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+#chatView .topbar .who.pill .av .dot {
+  width: 10px; height: 10px; right: -1px; bottom: -1px;
+  background: #34C759; border: 2px solid #1E1E20; box-shadow: none;
+}
+#chatView .topbar .who.pill .nm { font-size: 17px; font-weight: 500; letter-spacing: -.01em; color: #fff; }
+#fil { padding-top: calc(var(--safe-top) + 62px); }
+@media (min-width: 735px) {
+  #chatView .topbar .who.pill .nm { font-size: 17px; }
+}
+
+/* Tapbacks : pastille au coin bas-droit de la bulle, découpe noire, apparition instantanée */
+.msg .bubble { position: relative; }
+.react-pills {
+  position: absolute; right: -10px; bottom: -17px;
+  display: inline-flex; gap: 0; margin: 0;
+  background: #2C2C2E;
+  border: 2.5px solid #000;
+  border-radius: 999px;
+  padding: 3px 6px;
+  line-height: 1;
+  animation: none !important; transition: none !important;
+  box-shadow: none;
+  z-index: 1;
+  pointer-events: none;
+}
+.msg.bot .react-pills { right: auto; left: calc(100% - 22px); }
+.react-pill {
+  background: none; border-radius: 0; padding: 0 1px;
+  font-size: 15px; line-height: 18px; display: inline-block;
+}
+.msg.has-react time { padding-right: 30px; }
+.msg.bot.has-react time { padding-right: 0; }
+.msg.has-react { margin-bottom: 6px; }
+
+/* Ligne d’état : fondu en opacité seulement, jamais de mise en page du champ */
+.typing-stack em.out { opacity: 0; transition: opacity .22s ease; }
+.typing-stack em.cur { animation: etat-in .22s ease both; }
+@keyframes etat-in { from { opacity: 0; } to { opacity: 1; } }
+.dots i { will-change: transform, opacity; }
+
+/* Clavier : le chat suit la zone visible, le composer colle au clavier */
+#chatView.kb-open #composer { padding-bottom: 8px !important; }
+
+/* Carte (glisser pour revenir) : couche GPU, rayon fixe (pas de repeinture à chaque image) */
+#chatView.carding { will-change: transform; border-radius: 32px; box-shadow: none; }
+#morph .av, #morph .home-name { left: 0; top: 0; transform-origin: 0 0; }
+
+/* Feuilles : pas de transition pendant le glisser au doigt */
+.sheet-up.drag { transition: none !important; }
+
+/* Visionneuse : ouverture/fermeture en fondu + échelle */
+#lightbox { opacity: 0; transition: opacity .28s var(--ease-ios); }
+#lightbox.open { opacity: 1; }
+#lightbox img, #lightbox video { transform: scale(.94); transition: transform .34s var(--ease-spring); will-change: transform; }
+#lightbox.open img, #lightbox.open video { transform: none; }
+#lightbox.drag, #lightbox.drag img, #lightbox.drag video { transition: none !important; }
+#lightbox.retour { transition: transform .3s var(--ease-spring), opacity .28s var(--ease-ios); }
+
+/* Appui long : la bulle se contracte légèrement comme sur iOS */
+.msg .bubble { transition: transform .2s var(--ease-ios); }
+.msg.appui .bubble { transform: scale(.965); }
+
+/* Flèche vers le bas */
+#scrollDown { transition: opacity .2s var(--ease-ios), transform .28s var(--ease-spring); will-change: transform, opacity; }
+@media (prefers-reduced-motion: reduce) {
+  .msg.neuf, .typing-stack em.cur { animation: none !important; }
+}
