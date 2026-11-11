@@ -1,6 +1,8 @@
 /* Laura F.S.M · F.S.M AI — interface FSM SI (backend GitHub Issues) */
 (function () {
 'use strict';
+/* build 50 : appli non installée → écran d'installation (/installer.js) et rien d'autre ne tourne */
+if (window.FSM_BLOQUEE) return;
 var $ = function (i) { return document.getElementById(i); };
 var mem = {
   lire: function (k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
@@ -21,12 +23,15 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-49';
+var BUILD = '20261111-50';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
 window.SI_ouvrirConv = function (n) { if (n && S.pret) choisir(Number(n)); };
 window.SI_rafraichir = function () { return rafraichir(); };
+window.SI_pret = function () { return !!S.pret && S.ecran !== 'login'; };
+window.SI_alerte = function (m) { alerte(m); };
+window.SI_notifActive = function (v) { S.notif = !!v; mem.ecrire('si_notif', v ? '1' : '0'); try { majCompteUI(); } catch (e) {} };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
    Boîte d’envoi locale (si_boite), brouillon par conversation (si_brouillon:<n>), position du fil (si_fil:<n>),
    écran ouvert (si_ecran) et réponse rapide en cours (si_rapide). Tout reste dans ce navigateur. */
@@ -3514,7 +3519,10 @@ function ecranProfil() {
 
     var g3 = el('div', 'group');
     var nt = el('div', 'row toggle-row');
-    nt.innerHTML = '<span class="t">Notifications</span>';
+    /* build 50 : état réel de l'autorisation (accordée, refusée dans les réglages, pas encore demandée) */
+    var pn = typeof Notification === 'undefined' ? 'indispo' : Notification.permission;
+    var etatN = pn === 'granted' ? (S.notif ? 'Activées' : 'Autorisées, coupées ici') : pn === 'denied' ? 'Refusées — à changer dans les réglages de l’appareil' : pn === 'indispo' ? 'Indisponibles ici' : 'Pas encore activées';
+    nt.innerHTML = '<span class="t">Notifications</span><span class="val" id="notifEtat" style="margin-left:auto;margin-right:10px;color:#9a9a9a;font-size:.82rem;text-align:right">' + esc(etatN) + '</span>';
     var tg = el('button', 'toggle' + (S.notif ? ' on' : '')); tg.type = 'button';
     tg.onclick = function () { $('notifToggle').click(); setTimeout(function () { tg.classList.toggle('on', S.notif); }, 200); };
     nt.appendChild(tg);

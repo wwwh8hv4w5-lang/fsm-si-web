@@ -1,9 +1,10 @@
-/* Laura F.S.M — tâches de fond (build 20261111-49).
+/* Laura F.S.M — tâches de fond (build 20261111-49 ; carte des notifications : build 50).
    Les tâches tournent sur le serveur (Durable Object « Taches » + robot FSM SI), appli ouverte ou fermée.
    Ici : bandeau « en cours / fini » (relu à l'ouverture et toutes les 15 s tant qu'une tâche tourne),
    et abonnement Web Push (VAPID) pour être prévenu quand une tâche se termine. FSM SI LAURA seulement. */
 (function () {
 'use strict';
+if (window.FSM_BLOQUEE) return;
 var LAURA = typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app';
 var PROXY = LAURA ? location.origin : '';
 var etat = { taches: [], ouvert: false, minuteur: 0, vus: {}, pret: false };
@@ -109,4 +110,47 @@ function desactiverPush() {
 }
 window.LauraTaches = { relire: relire, activerPush: activerPush, desactiverPush: desactiverPush, pushPossible: pushPossible, etat: etat };
 if (LAURA) setTimeout(relire, 1200);
+
+/* ---------- Carte « Active les notifications » (build 50) ----------
+   Appli installée (ou appli Windows) et autorisation jamais demandée : une carte, et la demande part au toucher
+   (iOS exige un geste). Accordée ou refusée : plus jamais de carte (l'état est dans le menu). « Plus tard » : 24 h. */
+var TXT = ({
+  fr: { t: 'Active les notifications', s: 'Je te préviens quand une tâche est finie, même appli fermée.', a: 'Activer', l: 'Plus tard', ok: 'Notifications activées : une notification d’essai arrive.', non: 'Notifications refusées. Tu peux les autoriser dans les réglages de l’appareil.' },
+  en: { t: 'Turn on notifications', s: 'I’ll let you know when a task is done, even with the app closed.', a: 'Turn on', l: 'Later', ok: 'Notifications on: a test notification is on its way.', non: 'Notifications blocked. You can allow them in your device settings.' },
+  es: { t: 'Activa las notificaciones', s: 'Te aviso cuando termine una tarea, aunque la app esté cerrada.', a: 'Activar', l: 'Más tarde', ok: 'Notificaciones activadas: llega una de prueba.', non: 'Notificaciones bloqueadas. Puedes permitirlas en los ajustes del dispositivo.' }
+})[String(navigator.language || 'fr').slice(0, 2)] || null;
+TXT = TXT || { t: 'Turn on notifications', s: 'I’ll let you know when a task is done, even with the app closed.', a: 'Turn on', l: 'Later', ok: 'Notifications on: a test notification is on its way.', non: 'Notifications blocked. You can allow them in your device settings.' };
+function carteVisible() {
+  if (!LAURA || !window.FSM_INSTALLEE || !pushPossible() || Notification.permission !== 'default') return false;
+  var plusTard = Number(localStorage.getItem('si_notif_plus_tard') || 0);
+  return Date.now() - plusTard > 86400e3;
+}
+function montrerCarte() {
+  if (document.getElementById('notifCarte') || !carteVisible()) return;
+  var c = document.createElement('div'); c.id = 'notifCarte'; c.setAttribute('role', 'dialog');
+  c.innerHTML = '<img src="/chat/icons/fsm-si-logo.png" alt=""><div class="nc-t"><b>' + esc(TXT.t) + '</b><span>' + esc(TXT.s) + '</span></div>' +
+    '<div class="nc-b"><button type="button" class="nc-oui">' + esc(TXT.a) + '</button><button type="button" class="nc-non">' + esc(TXT.l) + '</button></div>';
+  document.body.appendChild(c);
+  c.querySelector('.nc-non').onclick = function () { try { localStorage.setItem('si_notif_plus_tard', String(Date.now())); } catch (e) {} c.remove(); };
+  c.querySelector('.nc-oui').onclick = function () {
+    var fini = function (p) {
+      c.remove();
+      if (p === 'granted') {
+        if (window.SI_notifActive) window.SI_notifActive(true);
+        activerPush(false).then(function () { if (window.SI_alerte) window.SI_alerte(TXT.ok); }, function (e) { if (window.SI_alerte) window.SI_alerte(String(e && e.message || e)); });
+      } else { if (window.SI_notifActive) window.SI_notifActive(false); if (p === 'denied' && window.SI_alerte) window.SI_alerte(TXT.non); }
+    };
+    /* la demande part dans le geste lui-même (iOS) ; ancienne forme à rappel acceptée aussi */
+    var r = Notification.requestPermission(fini);
+    if (r && r.then) r.then(fini);
+  };
+}
+var essais = 0;
+(function attendre() {
+  if (!LAURA || !window.FSM_INSTALLEE) return;
+  if (window.SI_pret && window.SI_pret()) return montrerCarte();
+  if (++essais < 90) setTimeout(attendre, 2000);
+})();
+window.LauraTaches.carteNotif = montrerCarte;
+window.LauraTaches.carteVisible = carteVisible;
 })();
