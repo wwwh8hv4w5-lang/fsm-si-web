@@ -3,7 +3,9 @@
    jamais dans le fil, jamais dans GitHub, jamais montrées au modèle. */
 (function () {
 'use strict';
-var PROXY = 'https://fsm-si-proxy.fsmdev66.workers.dev';
+var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
+  ? location.origin
+  : 'https://fsm-si-proxy.fsmdev66.workers.dev';
 
 function discuter(jeton, corps, surTexte) {
   var t0 = performance.now(), premier = 0;
