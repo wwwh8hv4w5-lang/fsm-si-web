@@ -1560,7 +1560,7 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 #micBtn { color: #9F9FA6; }
 
 /* Appui long sur Laura (accueil) : aperçu + menu contextuel iOS, comme Grok Bot */
-#homeCtx { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0); transition: background .25s ease; -webkit-tap-highlight-color: transparent; }
+#homeCtx { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0); transition: background .25s ease; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 #homeCtx[hidden] { display: none !important; }
 #homeCtx.on { background: rgba(0,0,0,.08); }
 #homeCtx .hc-col { position: absolute; left: 0; right: 0; top: var(--hc-top, 79px); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
@@ -1604,7 +1604,7 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 .hc-row span { flex: 1; min-width: 0; }
 .hc-row .chev { width: 16px; height: 16px; flex: none; margin-right: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .hc-row.danger { color: #FF4046; }
-.hc-row:active { background: rgba(255,255,255,.06); }
+.hc-row:active, .hc-row.press { background: rgba(255,255,255,.06); }
 .hc-sous { position: absolute; left: 50%; margin-left: -124px; background: #141315; border-color: #2B2A32; padding: 6px 0; transform: scale(.92); transform-origin: 50% 100%; pointer-events: none; }
 .hc-sous .hc-plus { font-weight: 600; }
 .hc-sep { height: 1px; background: #222125; margin: 6px 22px; }

@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-22';
+var BUILD = '20261111-23';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -3259,6 +3259,7 @@ else montrerLogin('');
       back.classList.remove('hide');
       sheet.classList.add('open');
     });
+    S._lpIgnoreClicJusqua = Date.now() + 650;
   }
   function fermerMenu() {
     S._lpOuvert = false;
@@ -3285,7 +3286,10 @@ else montrerLogin('');
     fermerMenu();
   }
 
-  $('reactBackdrop').addEventListener('click', fermerMenu);
+  $('reactBackdrop').addEventListener('click', function (e) {
+    if (Date.now() < (S._lpIgnoreClicJusqua || 0)) { e.preventDefault(); e.stopPropagation(); return; }
+    fermerMenu();
+  });
   $('reactReply').onclick = function () {
     if (!cible) return;
     S.reponse = { cle: cible.dataset.cle, texte: cible.dataset.texte || '', qui: cible.dataset.qui };
@@ -3419,7 +3423,10 @@ else montrerLogin('');
   fil.addEventListener('mousedown', debut);
   fil.addEventListener('touchmove', move, { passive: true });
   fil.addEventListener('mousemove', move);
-  fil.addEventListener('touchend', annuler);
+  fil.addEventListener('touchend', function (e) {
+    annuler();
+    if (S._lpOuvert && e.cancelable) e.preventDefault();
+  }, { passive: false });
   fil.addEventListener('touchcancel', annuler);
   fil.addEventListener('mouseup', annuler);
   fil.addEventListener('contextmenu', function (e) {
@@ -3465,6 +3472,7 @@ window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '
   var box = $('homeCtx'), btn = $('homeAvatar'), home = $('home');
   if (!box || !btn) return;
   var tm = 0, x0 = 0, y0 = 0, ouvert = false, bloqueClic = false;
+  var armeFermer = false, doigtOuverture = false, ignoreClicJusqua = 0, suivi = null;
   function dernierTexteBot() {
     var l = document.querySelectorAll('#fil .msg.bot');
     for (var i = l.length - 1; i >= 0; i--) {
@@ -3479,9 +3487,44 @@ window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '
     var m = $('hcMenu'), so = $('hcSous');
     so.style.top = (m.offsetTop + m.offsetHeight + 51 - so.offsetHeight) + 'px';
   }
+  function itemSous(x, y) {
+    var el = document.elementFromPoint(x, y);
+    return (el && el.closest) ? el.closest('#hcMenu .hc-row, #hcSous .hc-row') : null;
+  }
+  function surligner(el) {
+    var rows = box.querySelectorAll('.hc-row');
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i] === el) rows[i].classList.add('press');
+      else rows[i].classList.remove('press');
+    }
+  }
+  function clicFantome(e) {
+    if (Date.now() >= ignoreClicJusqua) return;
+    var t = e.target;
+    if (t && t.closest && t.closest('#hcMenu .hc-row, #hcSous .hc-row')) return;
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  }
+  function terminerGesteOuverture(ev) {
+    if (!doigtOuverture) return;
+    clearTimeout(tm);
+    doigtOuverture = false;
+    if (!ouvert) return;
+    if (ev && ev.cancelable) ev.preventDefault();
+    if (ev) { ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
+    var t = (ev && ev.changedTouches && ev.changedTouches[0]) || ev;
+    var it = (t && typeof t.clientX === 'number') ? itemSous(t.clientX, t.clientY) : suivi;
+    surligner(null);
+    suivi = null;
+    if (it) it.click();
+    ignoreClicJusqua = Date.now() + 650;
+    armeFermer = true;
+  }
   function ouvrir() {
     if (ouvert || !S.jeton) return;
-    ouvert = true; bloqueClic = true;
+    ouvert = true; bloqueClic = true; armeFermer = false;
+    ignoreClicJusqua = Date.now() + 650;
     hap();
     $('hcBulle').textContent = dernierTexteBot().t;
     box.classList.remove('plus', 'sortie', 'on');
@@ -3495,7 +3538,8 @@ window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '
   }
   function fermer(apres) {
     if (!ouvert) return;
-    ouvert = false; bloqueClic = false;
+    ouvert = false; bloqueClic = false; armeFermer = false; doigtOuverture = false; suivi = null;
+    surligner(null);
     box.classList.add('sortie');
     box.classList.remove('on');
     home.classList.remove('ctx-on');
@@ -3508,16 +3552,46 @@ window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '
   }
   btn.addEventListener('touchstart', function (e) {
     var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; bloqueClic = false;
+    doigtOuverture = true;
     clearTimeout(tm); tm = setTimeout(ouvrir, 450);
   }, { passive: true });
   btn.addEventListener('touchmove', function (e) {
-    var t = e.touches[0]; if (Math.abs(t.clientX - x0) + Math.abs(t.clientY - y0) > 10) clearTimeout(tm);
-  }, { passive: true });
-  btn.addEventListener('touchend', function (e) { clearTimeout(tm); if (bloqueClic && e.cancelable) e.preventDefault(); }, { passive: false });
+    var t = e.touches[0];
+    if (!ouvert) {
+      if (Math.abs(t.clientX - x0) + Math.abs(t.clientY - y0) > 10) { clearTimeout(tm); doigtOuverture = false; }
+      return;
+    }
+    suivi = itemSous(t.clientX, t.clientY);
+    surligner(suivi);
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchmove', function (e) {
+    if (!ouvert || !doigtOuverture) return;
+    var t = e.touches && e.touches[0];
+    if (!t) return;
+    suivi = itemSous(t.clientX, t.clientY);
+    surligner(suivi);
+    if (e.cancelable) e.preventDefault();
+  }, { capture: true, passive: false });
+  document.addEventListener('touchend', function (e) { terminerGesteOuverture(e); }, { capture: true, passive: false });
+  document.addEventListener('pointerup', function (e) { terminerGesteOuverture(e); }, { capture: true });
+  document.addEventListener('mouseup', function (e) { terminerGesteOuverture(e); }, { capture: true });
+  document.addEventListener('click', clicFantome, true);
+  document.addEventListener('touchcancel', function () { clearTimeout(tm); if (doigtOuverture && !ouvert) doigtOuverture = false; }, { capture: true, passive: true });
   btn.addEventListener('touchcancel', function () { clearTimeout(tm); }, { passive: true });
-  btn.addEventListener('contextmenu', function (e) { e.preventDefault(); clearTimeout(tm); ouvrir(); });
-  btn.addEventListener('click', function (e) { if (bloqueClic || ouvert) { e.stopImmediatePropagation(); e.preventDefault(); bloqueClic = false; } }, true);
-  box.addEventListener('click', function (e) { if (!e.target.closest('.hc-menu, .hc-sous')) fermer(); });
+  btn.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    clearTimeout(tm);
+    if (!ouvert) ouvrir();
+    doigtOuverture = false;
+    armeFermer = true;
+  });
+  btn.addEventListener('click', function (e) { if (bloqueClic || ouvert || Date.now() < ignoreClicJusqua) { e.stopImmediatePropagation(); e.preventDefault(); bloqueClic = false; } }, true);
+  box.addEventListener('click', function (e) {
+    if (!armeFermer || Date.now() < ignoreClicJusqua) return;
+    if (!e.target.closest('.hc-menu, .hc-sous')) fermer();
+  });
+  box.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   $('hcPlus').onclick = function () { placer(); box.classList.add('plus'); $('hcPlus').setAttribute('aria-expanded', 'true'); };
   $('hcMoins').onclick = function () { box.classList.remove('plus'); $('hcPlus').setAttribute('aria-expanded', 'false'); };
   $('hcUnread').onclick = function () {
@@ -3540,10 +3614,17 @@ window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok, function () { alerte(v); }); else alerte(v);
     });
   };
-  /* glisser vers le bas pour fermer */
+  /* glisser vers le bas pour fermer — seulement après le relâchement qui a ouvert le menu */
   var yd = null;
-  box.addEventListener('touchstart', function (e) { yd = e.touches[0].clientY; }, { passive: true });
-  box.addEventListener('touchend', function (e) { if (yd !== null && e.changedTouches[0] && e.changedTouches[0].clientY - yd > 60) fermer(); yd = null; }, { passive: true });
+  box.addEventListener('touchstart', function (e) {
+    if (!armeFermer || Date.now() < ignoreClicJusqua || !e.touches[0]) { yd = null; return; }
+    yd = e.touches[0].clientY;
+  }, { passive: true });
+  box.addEventListener('touchend', function (e) {
+    if (!armeFermer || Date.now() < ignoreClicJusqua) { yd = null; return; }
+    if (yd !== null && e.changedTouches[0] && e.changedTouches[0].clientY - yd > 60) fermer();
+    yd = null;
+  }, { passive: true });
   window.addEventListener('resize', function () { if (ouvert) placer(); });
   window.__homeCtx = { ouvrir: ouvrir, fermer: fermer };
 })();
