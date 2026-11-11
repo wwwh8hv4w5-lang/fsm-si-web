@@ -24,6 +24,17 @@ var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsm
 var BUILD = '20261111-40';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
+/* ---------- Reprise à la relance (build 20261111-34) ----------
+   Boîte d’envoi locale (si_boite), brouillon par conversation (si_brouillon:<n>), position du fil (si_fil:<n>),
+   écran ouvert (si_ecran) et réponse rapide en cours (si_rapide). Tout reste dans ce navigateur. */
+var Reprise = {
+  lire: function (k, d) { try { var v = JSON.parse(mem.lire(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } },
+  ecrire: function (k, v) { mem.ecrire(k, JSON.stringify(v)); },
+  boite: function () { return Reprise.lire('si_boite', []).filter(function (x) { return x && x.uid && x.corps && Date.now() - (x.t || 0) < 7 * 86400e3; }); },
+  garder: function (x) { var l = Reprise.boite().filter(function (y) { return y.uid !== x.uid; }); l.push(x); Reprise.ecrire('si_boite', l); },
+  oter: function (uid) { Reprise.ecrire('si_boite', Reprise.boite().filter(function (y) { return y.uid !== uid; })); },
+  uid: function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+};
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
 var MAX_FILE = 25 * 1024 * 1024;
@@ -271,6 +282,8 @@ function choisir(n, opts) {
   opts = opts || {};
   S.conv = n; mem.ecrire('si_conv', String(n));
   S.els = {}; $('fil').textContent = ''; S.pret = false; S.attente = false;
+  if (!opts.sansEcran) mem.ecrire('si_ecran', 'chat');
+  if (n && !estLocal(n)) { var br = mem.lire('si_brouillon:' + n); if (br && !$('texte').value.trim()) { $('texte').value = br; taille(); } }
   if (window.LauraMode) LauraMode.maj();
   if (window.CreateBot) CreateBot.entete();
   if (!opts.sansEcran) {
@@ -457,10 +470,16 @@ function majFil(items) {
     else {
       /* premier rendu : les tailles réelles des bulles (content-visibility) n’arrivent qu’après coup ;
          on recolle en bas quelques fois tant que Tom n’a pas touché au fil */
-      fil.scrollTop = fil.scrollHeight;
+      var pos = Reprise.lire('si_fil:' + S.conv, null);
+      var placer = function () {
+        var a = pos && !pos.bas && S.els[pos.cle];
+        if (a) fil.scrollTop = Math.max(0, a.getBoundingClientRect().top - fil.getBoundingClientRect().top + fil.scrollTop - (pos.off || 0));
+        else fil.scrollTop = fil.scrollHeight;
+      };
+      placer();
       S._colle = Date.now();
       [80, 250, 600, 1200].forEach(function (t) {
-        setTimeout(function () { if (S._colle && Date.now() - S._colle < 1600) { fil.scrollTop = fil.scrollHeight; majScrollBtn(); } }, t);
+        setTimeout(function () { if (S._colle && Date.now() - S._colle < 1600) { placer(); majScrollBtn(); } }, t);
       });
     }
   }
@@ -599,7 +618,9 @@ function rafraichir() {
     S.attente = attend;
     majFil(items);
     if (window.PCTom) { try { PCTom.apresRafraichir(n, titre, items); } catch (e) {} }
+    var premier = !S.pret;
     S.pret = true;
+    if (premier) reprendreConv(n, r[1], items);
     if (attend) return etatActions();
     etatLigne('');
   });
@@ -623,6 +644,53 @@ function boucle() {
 }
 document.addEventListener('visibilitychange', function () { if (!document.hidden) boucle(); });
 ['touchstart', 'wheel', 'pointerdown'].forEach(function (ev) { var f = $('fil'); if (f) f.addEventListener(ev, function () { S._colle = 0; }, { passive: true }); });
+function noterFil() {
+  var f = $('fil');
+  if (!f || !S.pret || !S.conv || estLocal() || S.ecran !== 'chat' || $('chatView').hidden) return;
+  var bas = f.scrollHeight - f.scrollTop - f.clientHeight < 140, top = f.getBoundingClientRect().top, cle = '', off = 0;
+  if (!bas) {
+    var l = f.querySelectorAll('article[data-cle]');
+    for (var i = 0; i < l.length; i++) {
+      var b = l[i].getBoundingClientRect();
+      if (b.bottom > top && l[i].dataset.cle.charAt(0) !== 'l') { cle = l[i].dataset.cle; off = b.top - top; break; }
+    }
+  }
+  Reprise.ecrire('si_fil:' + S.conv, { bas: bas || !cle, cle: cle, off: Math.round(off), t: Date.now() });
+}
+(function () { var f = $('fil'), tm = 0; if (f) f.addEventListener('scroll', function () { clearTimeout(tm); tm = setTimeout(noterFil, 250); }, { passive: true }); })();
+function noterBrouillon() {
+  if (!S.conv || estLocal()) return;
+  var v = $('texte').value;
+  if (v.trim()) mem.ecrire('si_brouillon:' + S.conv, v); else mem.oter('si_brouillon:' + S.conv);
+}
+$('texte').addEventListener('input', noterBrouillon);
+window.addEventListener('pagehide', function () { noterFil(); noterBrouillon(); });
+document.addEventListener('visibilitychange', function () { if (document.hidden) { noterFil(); noterBrouillon(); } });
+/* Après le premier rendu d’une conversation : renvoyer ce qui n’est jamais parti, relancer une réponse coupée. */
+function reprendreConv(n, commentaires, items) {
+  var deja = {};
+  (commentaires || []).forEach(function (c) { var m = /<!--\s*fsm-uid:\s*([\w-]+)\s*-->/.exec(String(c.body || '')); if (m) deja[m[1]] = 1; });
+  var enFile = {};
+  S.file.forEach(function (j) { if (j.uid) enFile[j.uid] = 1; });
+  Reprise.boite().forEach(function (x) {
+    if (x.conv !== n || enFile[x.uid]) return;
+    if (deja[x.uid]) { Reprise.oter(x.uid); return; }   /* parti avant la fermeture : rien à refaire */
+    var job = { id: bulleLocale(x.texte), texte: x.corps, conv: n, suitCreation: false, essais: 0, uid: x.uid };
+    S.attente = true;
+    var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
+    if (x.texte.charAt(0) !== '/') repondreVite(x.texte, envoi);
+    envoi.catch(function () {});
+  });
+  var r = Reprise.lire('si_rapide', null);
+  if (r && r.conv === n) {
+    mem.oter('si_rapide');
+    var utiles = (items || []).filter(function (i) { return i.genre === 'moi' || i.genre === 'tx'; });
+    var dern = utiles[utiles.length - 1];
+    /* moins de 25 s : on relance la réponse coupée ; au-delà, le robot (30 s) prend le relais tout seul */
+    if (dern && dern.genre === 'moi' && Date.now() - r.t < 25000 && !S._rapideNode) repondreVite(r.texte, Promise.resolve());
+  }
+}
+
 
 /* ---------- Statut Actions ---------- */
 /* Ligne d’état en direct (comme Grok Bot) : points gris animés + ce que Laura fait, court et en français.
@@ -820,7 +888,9 @@ function envoyer(texte, opts) {
   if (!S.conv && texte.charAt(0) === '/') { alerte('Ouvre d’abord une conversation : les commandes s’envoient dedans.'); return Promise.resolve(); }
   var creationDevant = S.file.some(function (j) { return !j.conv; });
   /* le mode actif (Laura FSM SI / Laura · Grok) voyage avec le message : le robot prend le même cerveau */
-  var job = { id: bulleLocale(texte), texte: window.LauraMode ? LauraMode.marquer(texte) : texte, conv: S.conv, suitCreation: !S.conv || creationDevant, essais: 0 };
+  var uid = Reprise.uid();
+  var job = { id: bulleLocale(texte), texte: (window.LauraMode ? LauraMode.marquer(texte) : texte) + '\n<!-- fsm-uid: ' + uid + ' -->', conv: S.conv, suitCreation: !S.conv || creationDevant, essais: 0, uid: uid };
+  Reprise.garder({ uid: uid, conv: S.conv, texte: texte, corps: job.texte, t: Date.now() });
   S.attente = true;
   if (!S.runEtat) etatLigne('S’en occupe');
   var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
@@ -922,7 +992,12 @@ function repondreVite(texte, envoiTom, images) {
   var node = null;
   /* Lecture à voix haute (réglage « voix ») : la première phrase part pendant que le texte s’écrit encore. */
   var lect = S.voix && !S.modeVocal && LauraRapide.voix ? LauraRapide.voix.lecteur(S.jeton) : null;
-  var nettoyer = function () { if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null; };
+  var marque = Reprise.uid();
+  if (conv0) Reprise.ecrire('si_rapide', { id: marque, conv: conv0, texte: texte, t: Date.now() });
+  var nettoyer = function () {
+    if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null;
+    if ((Reprise.lire('si_rapide', {}) || {}).id === marque) mem.oter('si_rapide');
+  };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
   LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, images: images && images.length ? images : undefined }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
@@ -978,6 +1053,7 @@ function pomper() {
     });
   p.then(function (res) {
     S.file.shift(); S.envoi = false;
+    if (job.uid) Reprise.oter(job.uid);
     var node = S.els[job.id];
     if (node) {
       delete S.els[job.id];
@@ -1027,6 +1103,7 @@ function envoyerSaisie() {
   }
   /* vider tout de suite, sans toucher au focus ni au DOM du composer */
   t.value = '';
+  if (S.conv) mem.oter('si_brouillon:' + S.conv);
   try { t.setSelectionRange(0, 0); } catch (e) {}
   t.scrollTop = 0;
   S._dernEnvoi = Date.now();
@@ -2777,6 +2854,7 @@ function fermerChatMorph() {
     if ($('homeAv')) $('homeAv').style.opacity = '';
     if ($('homeName')) $('homeName').style.opacity = '';
     S.ecran = 'home';
+    mem.ecrire('si_ecran', 'home');
     themeColor('#141414');
     S._cardP = 0;
   });
@@ -3512,9 +3590,19 @@ function demarrer() {
     majCompteUI();
     return chargerConvs();
   }).then(function () {
+    var ecran = mem.lire('si_ecran');
     montrerHome(true);
-    if (S.conv) { /* rester à l’accueil : on ouvre au tap */ }
-    boucle();
+    /* relance : on rouvre exactement la conversation qui était ouverte */
+    if (ecran === 'chat' && S.conv && !estLocal(S.conv)) { choisir(S.conv, { morph: false }); }
+    else boucle();
+    /* messages d’une nouvelle conversation jamais partis : déjà créée ? sinon on la crée */
+    var corpsIssues = S.convs.map(function (i) { return String(i.body || ''); }).join('\n');
+    Reprise.boite().forEach(function (x) {
+      if (x.conv) return;
+      if (corpsIssues.indexOf('fsm-uid: ' + x.uid) >= 0) { Reprise.oter(x.uid); return; }
+      var job = { id: 'r' + x.uid, texte: x.corps, conv: 0, suitCreation: false, essais: 0, uid: x.uid };
+      S.file.push(job); pomper();
+    });
   });
 }
 function appliquerSession(e) {
