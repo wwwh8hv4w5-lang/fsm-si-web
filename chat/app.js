@@ -18,8 +18,9 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-14';
+var BUILD = '20261111-15';
 window.SI_BUILD = BUILD;
+window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
 var MAX_FILE = 25 * 1024 * 1024;
@@ -242,6 +243,7 @@ function choisir(n, opts) {
   opts = opts || {};
   S.conv = n; mem.ecrire('si_conv', String(n));
   S.els = {}; $('fil').textContent = ''; S.pret = false; S.attente = false;
+  if (window.LauraMode) LauraMode.maj();
   if (!opts.sansEcran) {
     if (opts.morph) ouvrirChatMorph();
     else montrerChat(false);
@@ -647,7 +649,8 @@ function envoyer(texte) {
   if (!texte) return Promise.resolve();
   if (!S.conv && texte.charAt(0) === '/') { alerte('Ouvre d’abord une conversation : les commandes s’envoient dedans.'); return Promise.resolve(); }
   var creationDevant = S.file.some(function (j) { return !j.conv; });
-  var job = { id: bulleLocale(texte), texte: texte, conv: S.conv, suitCreation: !S.conv || creationDevant, essais: 0 };
+  /* le mode actif (Laura FSM SI / Laura · Grok) voyage avec le message : le robot prend le même cerveau */
+  var job = { id: bulleLocale(texte), texte: window.LauraMode ? LauraMode.marquer(texte) : texte, conv: S.conv, suitCreation: !S.conv || creationDevant, essais: 0 };
   S.attente = true;
   if (!S.runEtat) etatLigne('S’en occupe');
   var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
@@ -673,7 +676,8 @@ function repondreVite(texte, envoiTom) {
   var encours = S.runEtat && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
   var node = null;
   var nettoyer = function () { if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null; };
-  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours }, function (txt) {
+  var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
+  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
     if (!node) {
       node = document.createElement('article'); node.className = 'msg bot rapide neuf';
@@ -690,7 +694,8 @@ function repondreVite(texte, envoiTom) {
     });
   }).then(function (r) {
     window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
-    var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->';
+    var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->' +
+      '\n<!-- fsm-par: ' + (r.fin.mode === 'grok' || (!r.fin.mode && modeLaura === 'grok') ? 'grok' : 'fsmsi') + ' ' + String(r.fin.modele || '').replace(/[^\w./:-]/g, '') + ' -->';
     if (r.fin.tache) S._tacheEnCours = moiTxt.slice(0, 200);
     return envoiTom.then(function () {
       var conv = conv0 || S.conv;
@@ -1882,6 +1887,13 @@ function ouvrirMenu() {
   item('Voir le profil', user, function () { fermerMenu(); ecranProfil(); });
   item('Rechercher dans la conversation', search, function () { ouvrirRecherche(); });
   item('Partager la conversation', share, function () { fermerMenu(); partagerConv(); });
+  if (window.LauraMode) {
+    /* une seule ligne discrète : Laura · Grok, coche si actif ; toucher bascule (effet dès le message suivant) */
+    var grok = LauraMode.actif() === 'grok';
+    var coche = '<svg viewBox="0 0 24 24" class="mode-coche' + (grok ? '' : ' off') + '"><path d="M5 12.5l4.2 4.2L19 7"/></svg>';
+    item('Laura · Grok', coche, function () { LauraMode.choisir(grok ? 'fsmsi' : 'grok'); setTimeout(fermerMenu, 160); var c = pop.querySelector('.mode-coche'); if (c) c.classList.toggle('off', grok); });
+    pop.lastChild.classList.add('mode-row');
+  }
   var btn = $('menuBtn').getBoundingClientRect();
   pop.style.top = (btn.bottom + 6) + 'px';
   pop.style.right = (window.innerWidth - btn.right) + 'px';
@@ -1890,6 +1902,17 @@ function ouvrirMenu() {
   $('overlay').hidden = false;
 }
 $('menuBtn').onclick = function (e) { e.stopPropagation(); if ($('menuPop').hidden) ouvrirMenu(); else fermerMenu(); };
+/* appui long sur la pastille du nom : même menu (bascule de mode à portée de pouce) */
+(function () {
+  var w = $('chatWho'), tm = 0;
+  if (!w) return;
+  var go = function () { tm = 0; hap(); ouvrirMenu(); };
+  w.addEventListener('touchstart', function () { clearTimeout(tm); tm = setTimeout(go, 420); }, { passive: true });
+  w.addEventListener('touchend', function () { clearTimeout(tm); }, { passive: true });
+  w.addEventListener('touchmove', function () { clearTimeout(tm); }, { passive: true });
+  w.addEventListener('contextmenu', function (e) { e.preventDefault(); clearTimeout(tm); ouvrirMenu(); });
+})();
+if (window.LauraMode) LauraMode.maj();
 $('overlay').onclick = fermerMenu;
 function partagerConv() {
   if (!S.conv) { alerte('Aucune conversation à partager.'); return; }
@@ -2880,6 +2903,7 @@ else montrerLogin('');
     if (!sheet) return;
     node.classList.add('appui');
     setTimeout(function () { node.classList.remove('appui'); }, 220);
+    if (window.LauraMode) LauraMode.infoBulle(node, sheet);
     back.classList.add('hide');
     back.hidden = false;
     sheet.classList.remove('open', 'drag');

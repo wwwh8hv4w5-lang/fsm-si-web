@@ -1456,3 +1456,13 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 }
 .msg.react-espace { margin-bottom: 14px; }
 #fil { padding-bottom: 26px; }
+
+/* ===== Deux modes : Laura FSM SI / Laura · Grok (indice minimal) ===== */
+#chatView .topbar .who.pill .av .dot { transition: background-color .35s ease, transform .35s var(--ease-spring); }
+#chatView .topbar .who.pill .av.mode-grok .dot { background: #F2F2F7; }
+#chatView .topbar .who.pill .av.mode-flash .dot { transform: scale(1.25); }
+#menuPop button.mode-row { color: rgba(255,255,255,.92); }
+#menuPop button.mode-row .mode-coche { stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: opacity .2s ease; }
+#menuPop button.mode-row .mode-coche.off { opacity: 0; }
+.react-par { margin: 10px 4px 2px; text-align: center; font-size: 12px; color: #8E8E93; letter-spacing: .01em; }
+.react-par[hidden] { display: none; }
