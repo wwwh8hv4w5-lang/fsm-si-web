@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-33';
+var BUILD = '20261111-34';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -450,7 +450,15 @@ function majFil(items) {
   majEspacesReact();
   if (ajout && (bas || !S.pret)) {
     if (S.pret) requestAnimationFrame(function () { fil.scrollTo({ top: fil.scrollHeight, behavior: 'smooth' }); });
-    else fil.scrollTop = fil.scrollHeight;
+    else {
+      /* premier rendu : les tailles réelles des bulles (content-visibility) n’arrivent qu’après coup ;
+         on recolle en bas quelques fois tant que Tom n’a pas touché au fil */
+      fil.scrollTop = fil.scrollHeight;
+      S._colle = Date.now();
+      [80, 250, 600, 1200].forEach(function (t) {
+        setTimeout(function () { if (S._colle && Date.now() - S._colle < 1600) { fil.scrollTop = fil.scrollHeight; majScrollBtn(); } }, t);
+      });
+    }
   }
   majScrollBtn();
 }
@@ -607,6 +615,7 @@ function boucle() {
   p.then(function () { suite(); }, function (e) { if (e && e.status === 401) alerte(e.message); else if (!S._errVue || Date.now() - S._errVue > 30000) { S._errVue = Date.now(); alerte(e.message); } suite(); });
 }
 document.addEventListener('visibilitychange', function () { if (!document.hidden) boucle(); });
+['touchstart', 'wheel', 'pointerdown'].forEach(function (ev) { var f = $('fil'); if (f) f.addEventListener(ev, function () { S._colle = 0; }, { passive: true }); });
 
 /* ---------- Statut Actions ---------- */
 function etatLigne(txt) {
