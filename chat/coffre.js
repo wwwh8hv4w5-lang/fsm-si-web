@@ -28,7 +28,8 @@
     { id: 'code', tab: 'code', label: 'Code', pluriel: 'Codes' },
     { id: 'note', tab: 'note', label: 'Note secrète', pluriel: 'Notes secrètes' }
   ];
-  var TABS = [{ id: 'tout', label: 'Tout' }].concat(TYPES.map(function (t) {
+  /* Onglets comme Grok Bot : Tout, Identifiants, Paiements, Coordonnées (codes et notes restent dans « Tout »). */
+  var TABS = [{ id: 'tout', label: 'Tout' }].concat(TYPES.filter(function (t) { return /^(identifiant|carte|coordonnees)$/.test(t.id); }).map(function (t) {
     return { id: t.id, label: t.pluriel };
   }));
 
@@ -500,12 +501,17 @@
         t.innerHTML = '<div class="t">' + esc(titreDe(e)) + '</div>' +
           (sousDe(e) ? '<div class="s">' + esc(sousDe(e)) + '</div>' : '');
         r.appendChild(t);
-        r.appendChild(el('span', 'chev', '›'));
+        if (e.type === 'identifiant' || e.type === 'carte') {
+          var g = el('span', 'cf-gerer', 'Gérer');
+          g.setAttribute('role', 'button');
+          r.appendChild(g);
+        } else r.appendChild(el('span', 'chev', '›'));
         r.onclick = function () { ouvrirDetail(e.id); };
         card.appendChild(r);
       });
     }
     main.appendChild(card);
+    if (_filtre === 'coordonnees') main.appendChild(el('p', 'cf-disclaimer', 'Vos coordonnées servent à remplir les formulaires pour vous. Elles restent chiffrées dans votre coffre.'));
     main.appendChild(el('p', 'cf-disclaimer', 'Chiffré sur cet appareil. Laura ne voit jamais les valeurs.'));
     var acts = el('div', 'cf-backup');
     var exp = el('button', 'cf-link', 'Exporter');

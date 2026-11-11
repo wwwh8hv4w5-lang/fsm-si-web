@@ -53,7 +53,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-73';
+var BUILD = '20261111-74';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -1109,6 +1109,7 @@ function taille() {
     t.style.height = 'auto';
     var h = Math.min(t.scrollHeight + 2, max) + 'px';
     t.style.height = h;
+    majExpand(t);
     if (avant !== h) placeScrollDown();
   });
   majSendIcon();
@@ -1122,8 +1123,14 @@ function majSendIcon() {
   $('sendBtn').querySelector('.ico-send').classList.toggle('hidden', !has);
   $('sendBtn').classList.toggle('has-text', has);
   $('sendBtn').setAttribute('aria-label', has ? 'Envoyer' : 'Mode vocal');
-  var ex = $('expandBtn');
-  if (ex) ex.classList.toggle('hidden', !has);
+}
+/* Bouton plein écran (⛶) : seulement quand il sert, c'est-à-dire quand le texte dépasse ~4 lignes (ou en plein écran,
+   pour réduire). Avant, il apparaissait dès la première lettre (majSendIcon le liait à « il y a du texte »). */
+function majExpand(t) {
+  var ex = $('expandBtn'); if (!ex) return;
+  var full = $('composer').classList.contains('full');
+  var long = !!(t && t.value.trim()) && t.scrollHeight > 100;
+  ex.classList.toggle('hidden', !(full || long));
 }
 S.file = []; S.fileSeq = 0;
 function bulleLocale(texte) {
@@ -4175,6 +4182,7 @@ function ecranRoutines() {
 $('rowAccount').onclick = function () { openPush('Compte', ecranCompte); };
 $('rowUtil').onclick = function () { openPush('Utilisation', ecranUtil); };
 $('rowCoffre').onclick = function () { openPush('Coffre-fort', ecranCoffre); };
+$('rowDest').onclick = function () { openPush('Destinataires autorisés', function (box) { if (window.GmailCarte && GmailCarte.ecranDestinataires) GmailCarte.ecranDestinataires(box); else box.appendChild(el('p', 'invite', 'Indisponible.')); }); };
 $('rowApps').onclick = function () { openPush('Connecter des applications', ecranApps); };
 $('rowAuth').onclick = function () { openPush('Autorisations', ecranAuth); };
 $('rowDepot').onclick = function () { openPush('Ordinateur du Bot', ecranDepot); };

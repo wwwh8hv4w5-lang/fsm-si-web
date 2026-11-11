@@ -1,5 +1,5 @@
 /* Carte d'envoi Gmail, relevée image par image sur la carte Grok Bot de Tom
-   (vidéo tom-1136-draftcard.mp4, 1170×2532, ×3). Rien ne part sans l'appui sur Envoyer. */
+   (vidéo tom-1136-draftcard.mp4, 1170×2532, ×3). Rien ne part sans l’appui sur Envoyer, sauf vers un destinataire autorisé (Réglages). */
 (function () {
 'use strict';
 
@@ -122,7 +122,8 @@ function champs(c) {
 function carte(d, vocal) {
   style();
   var loc = memoLire(d.id) || {};
-  var etat = loc.etat || d.etat || 'attente';
+  var etat = (d.etat === 'envoye' ? 'envoye' : '') || loc.etat || d.etat || 'attente';
+  var mode = 'approb';
   var c = el('div', 'mail-carte' + (etat === 'abandonne' ? ' abandonne' : ''));
   c.dataset.gmail = d.id;
   ['click', 'touchstart', 'touchend', 'mousedown', 'contextmenu'].forEach(function (t) {
@@ -181,8 +182,10 @@ function carte(d, vocal) {
     verrouiller(false);
     var approb = el('button', 'mail-approb');
     approb.type = 'button';
-    approb.innerHTML = 'Approbation nécessaire <span class="chev"><svg viewBox="0 0 10 6" width="9" height="6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
-    approb.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); ouvrirMenu(c, approb); });
+    approb.innerHTML = '<span class="lib-approb"></span> <span class="chev"><svg viewBox="0 0 10 6" width="9" height="6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    var libA = function () { approb.querySelector('.lib-approb').textContent = mode === 'autoriser' ? 'Autoriser le destinataire' : 'Approbation nécessaire'; };
+    libA();
+    approb.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); ouvrirMenu(c, approb, mode, function (m) { mode = m; libA(); }); });
     zone.appendChild(approb);
     var pied = el('div', 'mail-pied');
     var ab = el('button', 'mail-abandonner', 'Abandonner'); ab.type = 'button';
@@ -193,12 +196,14 @@ function carte(d, vocal) {
     zone.appendChild(pied);
   }
 
+  /* « Autoriser le destinataire » : à l'envoi, le ou les destinataires rejoignent la liste des Réglages ; ensuite, un e-mail
+     vers eux part directement (jamais pour un paiement). « Approbation nécessaire » : rien ne change. */
   function faire(action, ab, en) {
     ab.disabled = en.disabled = true;
     if (err.parentNode) err.remove();
     var f = champs(c);
     memoEcrire(d.id, f);
-    var corpsReq = Object.assign({ id: d.id, fil: d.fil || '' }, f);
+    var corpsReq = Object.assign({ id: d.id, fil: d.fil || '' }, f, mode === 'autoriser' ? { autoriser: true } : {});
     var p = action === 'envoyer'
       ? api('/gmail/envoyer', { json: corpsReq })
       : api('/gmail/abandonner', { json: { id: d.id } });
@@ -246,16 +251,15 @@ function prevenirLaura(d, etat, f, vocal) {
   if (FSMChat.continuer) FSMChat.continuer(t);
 }
 
-function ouvrirMenu(carteEl, btn) {
+function ouvrirMenu(carteEl, btn, mode, choisir) {
   fermerMenu();
   btn.classList.add('open');
   var fond = el('div', 'mail-menu-fond');
   var menu = el('div', 'mail-menu');
   menu.setAttribute('role', 'menu');
   var items = [
-    { id: 'autoriser', t: 'Autoriser le destinataire' },
-    { id: 'approb', t: 'Approbation nécessaire', coche: true },
-    { id: 'off', t: 'Désactiver les brouillons' }
+    { id: 'autoriser', t: 'Autoriser le destinataire', coche: mode === 'autoriser' },
+    { id: 'approb', t: 'Approbation nécessaire', coche: mode !== 'autoriser' }
   ];
   items.forEach(function (it) {
     var b = el('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
@@ -264,7 +268,7 @@ function ouvrirMenu(carteEl, btn) {
     b.addEventListener('click', function (ev) {
       ev.preventDefault(); ev.stopPropagation();
       fermerMenu();
-      if (it.id !== 'approb') bientot(it.t);
+      if (choisir) choisir(it.id);
     });
     menu.appendChild(b);
   });
@@ -327,7 +331,30 @@ function demandeVocale(d) {
   obs.observe(c, { childList: true, subtree: true });
 }
 
+/* Réglages : liste des destinataires autorisés (un e-mail vers eux part directement, jamais un paiement), avec Retirer. */
+function ecranDestinataires(box) {
+  box.innerHTML = '';
+  var p = el('p', 'invite', 'Un e-mail vers ces adresses part directement, sans carte à valider. Jamais pour un paiement.');
+  var liste = el('div', 'group'); var ajout = el('div', 'row');
+  var inp = el('input'); inp.type = 'email'; inp.placeholder = 'adresse@exemple.fr'; inp.style.cssText = 'flex:1;min-width:0;background:transparent;border:0;color:inherit;font:inherit';
+  var bt = el('button', 'mail-envoyer', 'Ajouter'); bt.type = 'button';
+  ajout.appendChild(inp); ajout.appendChild(bt);
+  box.appendChild(p); box.appendChild(liste); box.appendChild(ajout);
+  function dessiner(l) {
+    liste.innerHTML = '';
+    if (!l.length) { liste.appendChild(el('p', 'invite', 'Aucun destinataire autorisé.')); return; }
+    l.forEach(function (a) {
+      var r = el('div', 'row'); r.appendChild(el('span', 't', a));
+      var x = el('button', 'mail-abandonner', 'Retirer'); x.type = 'button';
+      x.onclick = function () { api('/gmail/destinataires?adresse=' + encodeURIComponent(a), { method: 'DELETE' }).then(function (d) { dessiner(d.destinataires || []); }); };
+      r.appendChild(x); liste.appendChild(r);
+    });
+  }
+  bt.onclick = function () { var v = inp.value.trim(); if (!v) return; api('/gmail/destinataires', { json: { adresse: v } }).then(function (d) { inp.value = ''; dessiner(d.destinataires || []); }); };
+  api('/gmail/destinataires').then(function (d) { dessiner(d.destinataires || []); }, function (e) { liste.appendChild(el('p', 'invite', e.message)); });
+}
 window.GmailCarte = {
+  ecranDestinataires: ecranDestinataires,
   cartes: cartes, brouillons: brouillons, demandeVocale: demandeVocale,
   _test: { carte: carte, brouillons: brouillons, style: style, PROXY: PROXY }
 };
