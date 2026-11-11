@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-25';
+var BUILD = '20261111-26';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -417,6 +417,7 @@ function majFil(items) {
     brancher(node);
     if (!moi && window.LauraRapide) LauraRapide.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
     if (!moi && window.Ordinateur) Ordinateur.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
+    if (!moi && window.PCTom) PCTom.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle });
     piedMessage(node, it);
   });
   Object.keys(S.els).forEach(function (k) {
@@ -573,6 +574,7 @@ function rafraichir() {
     S.items = items;
     S.attente = attend;
     majFil(items);
+    if (window.PCTom) { try { PCTom.apresRafraichir(n, titre, items); } catch (e) {} }
     S.pret = true;
     if (attend) return etatActions();
     etatLigne('');
@@ -839,6 +841,16 @@ function repondreVite(texte, envoiTom, images) {
     }).then(function () { return rafraichir(); });
   }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne('S’en occupe'); });
 }
+/* Crochets pour le PC de Tom (pc.js) : suite de Laura après une action validée, à l'écrit ou en appel. */
+window.FSMChat = {
+  jeton: function () { return S.jeton; }, conv: function () { return S.conv; }, depot: function () { return S.depot; },
+  enAppel: function () { return !!S.modeVocal; }, texteLeger: texteLeger, envoyer: envoyer,
+  api: function (chemin, o) { return api(chemin, o); },
+  /* texte caché (résultat) : Laura continue tout de suite ; sa réponse est postée comme d'habitude */
+  continuer: function (texteCache, images) { repondreVite(texteCache, Promise.resolve(), images); },
+  continuerVocal: function (texteCache) { if (!S.modeVocal) return false; vocalDirect(null, '', texteCache); return true; },
+  posterDans: function (conv, corps) { return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } }); }
+};
 function pomper() {
   if (S.envoi || !S.file.length) return;
   var job = S.file[0];
@@ -1484,7 +1496,7 @@ function sauverTourVocal(tt, coupe) {
   (S._vocalLocaux = S._vocalLocaux || []).push({ tom: tt.tom, laura: laura });
   return garderTourVocal(corpsAppel({ tom: tt.tom, laura: laura, tache: tt.tache }, modeVoix()));
 }
-function vocalDirect(blob, type) {
+function vocalDirect(blob, type, texteSeul) {
   var finParole = S._vocalFinParole || performance.now();
   vocalEtatUI('wait', '');
   S._vocalAppel = true;
@@ -1502,7 +1514,8 @@ function vocalDirect(blob, type) {
   };
   var meta = { messages: hist, encours: encours };
   if (modeVoix()) meta.mode = modeVoix();
-  LauraRapide.voix.appel(S.jeton, blob, meta, {
+  if (texteSeul) meta.texte = texteSeul;   /* résultat d'une action PC validée pendant l'appel : pas d'audio */
+  LauraRapide.voix.appel(S.jeton, texteSeul ? null : blob, meta, {
     entendu: function (t) { entendu = t; tt.tom = String(t || '').trim(); if (t && $('voiceCaption')) $('voiceCaption').textContent = t; },
     texte: function (txt) { tt.laura = String(txt || '').replace(/\[\[TACHE\]\]/g, '').trim(); if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
     parle: function () {
@@ -1526,7 +1539,7 @@ function vocalDirect(blob, type) {
   }).then(function (r) {
     if (tour !== S._vocalTour) return;   /* Tom a repris la parole : ce tour est remplacé */
     if (!parlait) vocalStopMediaRec(true); /* pas de son joué : on ne renvoie jamais l’ancienne phrase */
-    Object.assign(mesure, { serveur: r.fin, client: r.mesures, entendu: entendu, reessai: !!blob._reessai });
+    Object.assign(mesure, { serveur: r.fin, client: r.mesures, entendu: entendu, reessai: !!(blob && blob._reessai) });
     (window.SI_VOIX_LOG = window.SI_VOIX_LOG || []).push(mesure);
     if (!entendu.trim() || (r.fin && r.fin.vide) || !r.texte.trim()) { S._vocalAppel = false; relancer(); return; }
     var tache = !!(r.fin && r.fin.tache);
@@ -1542,6 +1555,7 @@ function vocalDirect(blob, type) {
     if (e && e.name === 'AbortError') return;
     if (e && e.etape === 'stt') { vocalEtatUI('listen', e.message); if (!S.vocalMuet) vocalEcouter(); return; }
     /* Coupure réseau passagère : un nouvel essai, puis l’ancien chemin. */
+    if (!blob) { S._vocalAppel = false; relancer(); return; }
     if (!blob._reessai) { blob._reessai = true; setTimeout(function () { if (S.modeVocal) vocalDirect(blob, type); }, 600); return; }
     /* Voie rapide indisponible : on repasse par l’ancien chemin (note vocale + robot). */
     vocalEnvoyerAudioLent(blob, type);
@@ -2278,6 +2292,7 @@ function ouvrirMenu() {
   item('Rechercher dans la conversation', search, function () { ouvrirRecherche(); });
   item('Partager la conversation', share, function () { fermerMenu(); partagerConv(); });
   if (window.Ordinateur) item('Ordinateur de Laura', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>', function () { fermerMenu(); Ordinateur.ouvrir({ jeton: S.jeton, envoyer: envoyer }); });
+  if (window.PCTom && PCTom.visible()) item('PC de Tom', '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M7 21h10M12 16v5M6 8l3 2-3 2M11 12h4"/></svg>', function () { fermerMenu(); PCTom.ouvrir(); });
   if (window.LauraMode) {
     /* une seule ligne discrète : Laura · Grok, coche si actif ; toucher bascule (effet dès le message suivant) */
     var grok = LauraMode.actif() === 'grok';
@@ -3155,7 +3170,7 @@ $('btnSearch').onclick = function () {
   }, $('home'));
 };
 
-/* Créer un Bot : feuille et archive locale — voir create-bot.js (build 20261111-24). */
+/* Créer un Bot : feuille et archive locale — voir create-bot.js (build 20261111-26). */
 function ouvrirCreate() { if (window.CreateBot) CreateBot.ouvrir(); }
 function fermerCreate() { if (window.CreateBot) CreateBot.fermer(); }
 
