@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-42';
+var BUILD = '20261111-43';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
@@ -1632,7 +1632,7 @@ function vocalCouperMicro() {
   }
 }
 
-/* ---------- Appel vocal en arrière-plan (build 20261111-42) ----------
+/* ---------- Appel vocal en arrière-plan (build 20261111-43) ----------
    L’appel continue quand la fenêtre perd le focus, est cachée ou réduite : rien ne coupe le micro sur blur/hidden.
    - Minuteries fiables : un petit Worker cadence la détection de parole (100 ms) et l’attente des réponses,
      car le navigateur ralentit setTimeout/setInterval des onglets cachés (1 s, puis 1 min après 5 min sur Chrome).
@@ -2310,21 +2310,27 @@ function vocalInterrompre() {
 }
 
 /* Réglages de l’appel (voix du fournisseur, vitesse, langue), gardés par utilisateur du FSM HUB.
-   Voix : celles du modèle microsoft/mai-voice-2.1-flash (catalogue OpenRouter, 11/11/2026) + Vivienne, la voix actuelle. */
+   Voix : Grok Ara (défaut) et Eve, puis Vivienne et les voix du modèle microsoft/mai-voice-2.1-flash (catalogue OpenRouter, 11/11/2026). */
 var VOIX_MAI = {"cs-CZ":["Grant","Harper"],"da-DK":["Grant","Harper"],"de-DE":["Grant","Harper","Klaus","Mia"],"en-AU":["Isla"],"en-GB":["Emily","Harry"],"en-IN":["Dhruv","Priya"],"en-US":["Ethan","Grant","Harper","Iris","Jasper","Olivia","Sage"],"es-ES":["Marta"],"es-MX":["Alejo","Grant","Harper","Valeria"],"fi-FI":["Grant","Harper"],"fr-FR":["Grant","Harper","Marc","Soleil"],"hi-IN":["Arjun","Dhruv","Grant","Harper","Kavya","Priya"],"hu-HU":["Bence","Grant","Harper","Levente","Lilla","Reka"],"id-ID":["Grant","Harper"],"it-IT":["Grant","Harper","Luca","Rosa"],"ko-KR":["Grant","Haena","Harper","Junho"],"nb-NO":["Grant","Harper"],"nl-NL":["Grant","Harper","Sander"],"pl-PL":["Grant","Harper"],"pt-BR":["Caio","Grant","Harper","Luana","Pedro","Rafael"],"pt-PT":["Grant","Harper","Rui"],"ro-RO":["Andrei","Elena","Grant","Harper","Ioana","Radu"],"ru-RU":["Grant","Harper","Lev","Masha"],"sv-SE":["Grant","Harper"],"th-TH":["Grant","Harper","Krit","Nattapong"],"tr-TR":["Aydin","Elif","Grant","Harper"],"vi-VN":["Grant","Harper"],"zh-CN":["Bo","Grant","Harper","Lan","Mei","Wei"]};
-var VOIX_DEFAUT = 'fr-FR-Vivienne:DragonHDLatestNeural';
+/* Voix de Laura : Grok Ara par défaut (choix de Tom, 11/11/2026), Grok Eve, puis Vivienne et les voix MAI. Ara et Eve parlent toutes les langues. */
+var VOIX_DEFAUT = 'ara';
+var VOIX_VIVIENNE = 'fr-FR-Vivienne:DragonHDLatestNeural';
+var VOIX_GROK = [['ara', 'Ara'], ['eve', 'Eve']];
 var VITESSES = [0.75, 1, 1.25, 1.5];
 function cleVoixPrefs() { return 'si_voixpref:' + (S.moi || 'moi'); }
+function voixValide(v) { return v === 'ara' || v === 'eve' || v === VOIX_VIVIENNE || /^[a-z]{2}-[A-Z]{2}-[A-Za-z]+:MAI-Voice-2\.1-Flash$/.test(String(v)); }
 function prefsVoix() {
   var p = {}; try { p = JSON.parse(mem.lire(cleVoixPrefs()) || '{}') || {}; } catch (e) { p = {}; }
   var langue = VOIX_MAI[p.langue] ? p.langue : 'fr-FR';
-  var voix = typeof p.voix === 'string' && (p.voix === VOIX_DEFAUT || /^[a-z]{2}-[A-Z]{2}-[A-Za-z]+:MAI-Voice-2\.1-Flash$/.test(p.voix)) ? p.voix : (langue === 'fr-FR' ? VOIX_DEFAUT : langue + '-' + VOIX_MAI[langue][0] + ':MAI-Voice-2.1-Flash');
+  /* réglages enregistrés avant Ara (v < 2) : l’ancienne voix par défaut Vivienne cède la place à Ara */
+  if ((p.v || 0) < 2 && p.voix === VOIX_VIVIENNE) p.voix = '';
+  var voix = typeof p.voix === 'string' && voixValide(p.voix) && (VOIX_GROK.some(function (g) { return g[0] === p.voix; }) || p.voix === VOIX_VIVIENNE ? true : p.voix.indexOf(langue + '-') === 0) ? p.voix : VOIX_DEFAUT;
   var vitesse = VITESSES.indexOf(+p.vitesse) >= 0 ? +p.vitesse : 1;
   return { voix: voix, vitesse: vitesse, langue: langue };
 }
 window.SI_PREFS_VOIX = function () { var p = prefsVoix(); return { voix: p.voix, vitesse: p.vitesse, langue: p.langue }; };
-function ecrirePrefsVoix(m) { var p = Object.assign(prefsVoix(), m); mem.ecrire(cleVoixPrefs(), JSON.stringify(p)); remplirVoixPrefs(); }
-function nomVoix(v) { return v === VOIX_DEFAUT ? 'Vivienne' : String(v).split(':')[0].split('-').slice(2).join('-'); }
+function ecrirePrefsVoix(m) { var p = Object.assign(prefsVoix(), m, { v: 2 }); mem.ecrire(cleVoixPrefs(), JSON.stringify(p)); remplirVoixPrefs(); }
+function nomVoix(v) { for (var i = 0; i < VOIX_GROK.length; i++) if (VOIX_GROK[i][0] === v) return VOIX_GROK[i][1]; return v === VOIX_VIVIENNE ? 'Vivienne' : String(v).split(':')[0].split('-').slice(2).join('-'); }
 function nomLangue(l) {
   /* « Français », et la région seulement quand la langue existe en plusieurs variantes (Anglais (États-Unis)…) */
   var seule = Object.keys(VOIX_MAI).filter(function (k) { return k.split('-')[0] === l.split('-')[0]; }).length === 1;
@@ -2335,7 +2341,7 @@ function remplirVoixPrefs() {
   var p = prefsVoix();
   var opt = function (sel, val, txt, on) { var o = document.createElement('option'); o.value = val; o.textContent = txt; if (on) o.selected = true; sel.appendChild(o); };
   var sv = $('voiceSel'), sr = $('voiceRate'), sl = $('voiceLang');
-  if (sv) { sv.textContent = ''; if (p.langue === 'fr-FR') opt(sv, VOIX_DEFAUT, 'Vivienne', p.voix === VOIX_DEFAUT); VOIX_MAI[p.langue].forEach(function (n) { var id = p.langue + '-' + n + ':MAI-Voice-2.1-Flash'; opt(sv, id, n, p.voix === id); }); }
+  if (sv) { sv.textContent = ''; VOIX_GROK.forEach(function (g) { opt(sv, g[0], g[1], p.voix === g[0]); }); if (p.langue === 'fr-FR') opt(sv, VOIX_VIVIENNE, 'Vivienne', p.voix === VOIX_VIVIENNE); VOIX_MAI[p.langue].forEach(function (n) { var id = p.langue + '-' + n + ':MAI-Voice-2.1-Flash'; opt(sv, id, n, p.voix === id); }); }
   if (sr) { sr.textContent = ''; VITESSES.forEach(function (v) { opt(sr, String(v), texteVitesse(v), v === p.vitesse); }); }
   if (sl) { sl.textContent = ''; Object.keys(VOIX_MAI).map(function (l) { return [l, nomLangue(l)]; }).sort(function (a, b) { return a[1].localeCompare(b[1], 'fr'); }).forEach(function (x) { opt(sl, x[0], x[1], x[0] === p.langue); }); }
   if ($('voiceSelVal')) $('voiceSelVal').textContent = nomVoix(p.voix);
@@ -2461,7 +2467,7 @@ $('voicePrefsOk').addEventListener('click', function (e) { e.stopPropagation(); 
 $('voiceDim').addEventListener('click', function () { if (!$('voicePrefs').hidden) fermerVoixPrefs(); else vocalInterrompre(); });
 $('voiceSel').addEventListener('change', function () { ecrirePrefsVoix({ voix: $('voiceSel').value }); });
 $('voiceRate').addEventListener('change', function () { ecrirePrefsVoix({ vitesse: parseFloat($('voiceRate').value) }); });
-$('voiceLang').addEventListener('change', function () { ecrirePrefsVoix({ langue: $('voiceLang').value, voix: '' }); });
+$('voiceLang').addEventListener('change', function () { var v = prefsVoix().voix; ecrirePrefsVoix({ langue: $('voiceLang').value, voix: (v === 'ara' || v === 'eve') ? v : '' }); });
 $('vpMute').addEventListener('click', function (e) { e.stopPropagation(); basculerMuetVocal(); synchroBoutonsPrefs(); });
 $('vpGear').addEventListener('click', function (e) { e.stopPropagation(); fermerVoixPrefs(); });
 $('vpHang').addEventListener('click', function (e) { e.stopPropagation(); fermerModeVocal(); });
