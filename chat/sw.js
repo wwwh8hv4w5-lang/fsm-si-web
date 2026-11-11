@@ -1,10 +1,10 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v6';
-const BUILD = '20261111-6';
-const SHELL = ['./', './index.html', './style.css?v=20261111-6', './app.js?v=20261111-6',
+const C = 'laura-fsm-chat-v8';
+const BUILD = '20261111-8';
+const SHELL = ['./', './index.html', './style.css?v=20261111-8', './app.js?v=20261111-8', './coffre.js?v=20261111-8',
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
-  './icons/icon-192.png', './icons/favicon-32.png'];
+  './icons/icon-192.png', './icons/tom.png', './icons/favicon-32.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(C).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -20,7 +20,7 @@ self.addEventListener('activate', (e) => {
 function estEnveloppe(u) {
   const p = u.pathname.replace(/\/+$/, '') || '/';
   return /\/chat$/.test(p) || /\/chat\/index\.html$/.test(p) ||
-    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p);
+    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p) || /\/chat\/coffre\.js$/.test(p);
 }
 
 self.addEventListener('fetch', (e) => {

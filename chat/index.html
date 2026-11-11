@@ -11,11 +11,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
-<meta name="si-build" content="20261111-6">
+<meta name="si-build" content="20261111-8">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/laura-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/laura-180.png">
-<link rel="stylesheet" href="./style.css?v=20261111-6">
+<link rel="stylesheet" href="./style.css?v=20261111-8">
 </head>
 <body>
 <div id="app">
@@ -51,7 +51,7 @@
 <section id="home" class="screen" hidden>
   <header class="home-top">
     <button type="button" class="round-btn" id="btnSettings" aria-label="Réglages">
-      <img src="./icons/icon-192.png" alt="">
+      <img src="./icons/tom.png" alt="">
     </button>
     <button type="button" class="round-btn plus" id="newBtn" aria-label="Créer un nouveau Bot">
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -97,6 +97,15 @@
     <div id="typing" hidden>
       <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
       <span class="typing-stack" id="typingStack"><em id="typingText" class="cur">S’en occupe</em></span>
+    </div>
+    <div id="replyBar" class="reply-bar" hidden>
+      <div class="reply-meta">
+        <div class="reply-who" id="replyWho">Réponse</div>
+        <div class="reply-txt" id="replyTxt"></div>
+      </div>
+      <button type="button" id="replyClear" aria-label="Annuler la réponse">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
     <div class="compose-row" id="composeRow">
       <div class="pill big" id="composePill">
@@ -155,7 +164,7 @@
   <div class="sheet-scroll" id="settingsBody">
     <div class="group">
       <button type="button" class="row account" id="rowAccount">
-        <div class="av sm"><img src="./icons/icon-192.png" alt=""></div>
+        <div class="av sm"><img src="./icons/tom.png" alt=""></div>
         <div class="row-txt">
           <div class="t" id="accName">—</div>
           <div class="s" id="accLogin">—</div>
@@ -170,7 +179,7 @@
       <button type="button" class="row" id="rowCoffre">
         <div class="row-txt">
           <div class="t">Coffre-fort</div>
-          <div class="s">Secrets des connecteurs (Google, Notion) que Laura F.S.M peut utiliser</div>
+          <div class="s">Coffre personnel, chiffré sur cet appareil. Laura ne voit jamais les valeurs.</div>
         </div>
         <span class="chev">›</span>
       </button>
@@ -268,7 +277,7 @@
     <div class="group">
       <button type="button" class="row danger" id="deco">Se déconnecter</button>
     </div>
-    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-6</span></p>
+    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-8</span></p>
   </div>
 </aside>
 
@@ -325,25 +334,101 @@
 </div>
 
 
-<!-- Mode vocal plein écran -->
-<section id="voiceScreen" hidden>
-  <div class="voice-stage" id="voiceStage">
-    <div class="voice-av-wrap" id="voiceAvWrap">
-      <div class="voice-ring" aria-hidden="true"></div>
-      <div class="voice-av" id="voiceAv"><img src="./icons/laura.png" alt="Laura F.S.M"></div>
+
+<!-- Menu appui long sur un message -->
+<div id="reactBackdrop" class="backdrop" hidden></div>
+<aside id="reactSheet" class="sheet-up react-sheet" hidden role="dialog" aria-label="Actions du message">
+  <div class="sheet-grab react-grab"><div class="grab-bar"></div></div>
+  <div class="sheet-scroll" id="reactBody">
+    <div class="react-rows">
+      <div class="react-row" id="reactRow1"></div>
+      <div class="react-row" id="reactRow2"></div>
     </div>
-    <canvas id="voiceWave" width="390" height="72" aria-hidden="true"></canvas>
+    <div class="group">
+      <button type="button" class="row" id="reactReply">
+        <span class="row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v1"/></svg></span>
+        <span class="t">Répondre</span>
+      </button>
+      <button type="button" class="row" id="reactUnread">
+        <span class="row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18.5" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg></span>
+        <span class="t">Marquer comme non lu</span>
+      </button>
+    </div>
+    <div class="group">
+      <button type="button" class="row" id="reactCopy">
+        <span class="row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/></svg></span>
+        <span class="t">Copier</span>
+      </button>
+      <button type="button" class="row" id="reactSelect">
+        <span class="row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3"/><path d="M8 9h8v6H8z"/></svg></span>
+        <span class="t">Sélectionner le texte</span>
+      </button>
+      <button type="button" class="row" id="reactCopyId">
+        <span class="row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="2.2"/><circle cx="17" cy="12" r="2.2"/><path d="M9 12h6"/></svg></span>
+        <span class="t">Copier l’ID de requête</span>
+      </button>
+    </div>
+    <div class="group">
+      <button type="button" class="row danger" id="reactFlag">
+        <span class="row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h10l-1.4 3.6L15 11H5"/></svg></span>
+        <span class="t">Signaler</span>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<div id="flagBackdrop" class="backdrop" hidden></div>
+<aside id="flagSheet" class="sheet-up flag-sheet" hidden role="dialog" aria-label="Signaler">
+  <div class="sheet-grab"><div class="grab-bar"></div></div>
+  <div class="sheet-scroll">
+    <h3 class="flag-title">Signaler ce message</h3>
+    <p class="flag-sub">Pourquoi signalez-vous ce message ?</p>
+    <div class="group" id="flagReasons"></div>
+    <label class="cf-field flag-autre" hidden>
+      <span class="cf-lab">Préciser</span>
+      <textarea id="flagAutre" class="cf-input" rows="3" maxlength="240"></textarea>
+    </label>
+    <button type="button" class="cf-btn primary" id="flagSend">Envoyer</button>
+    <button type="button" class="cf-btn ghost" id="flagCancel">Annuler</button>
+  </div>
+</aside>
+
+<!-- Mode vocal : pastille flottante, le chat reste visible -->
+<section id="voiceScreen" hidden>
+  <div class="voice-dim" id="voiceDim"></div>
+  <div class="voice-dock" id="voiceDock">
+    <div class="voice-pill" id="voicePill">
+      <div class="voice-av" id="voiceAv"><img src="./icons/laura.png" alt="Laura F.S.M"></div>
+      <canvas id="voiceWave" width="280" height="56" aria-hidden="true"></canvas>
+      <button type="button" class="voice-btn" id="voiceGear" aria-label="Réglages de la voix">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.7.9 1.2 1.5 1.3H21a2 2 0 0 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button type="button" class="voice-btn" id="voiceMute" aria-label="Couper le micro" aria-pressed="false">
+        <svg class="ico-mic-on" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
+        <svg class="ico-mic-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l16 16"/><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-6.3-3.3"/><path d="M8.1 8.1V11a3.9 3.9 0 0 0 5.4 3.6"/><path d="M5 11a7 7 0 0 0 11.5 5.4"/><path d="M19 11a6.7 6.7 0 0 1-.5 2.5"/><path d="M12 18.9V21"/></svg>
+      </button>
+      <button type="button" class="voice-btn hang" id="voiceHang" aria-label="Raccrocher">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8v2.2c0 .6.4 1.1 1 1.3l2.4.7c.7.2 1.5-.1 1.8-.8l.6-1.3c.2-.4.1-.8-.2-1.1A9.3 9.3 0 0 1 12 10c1.6 0 3.1.4 4.4 1 .3.3.4.7.2 1.1l-.6 1.3c-.3.7.1 1.5.8 1.8l2.4.7c.6.2 1.3-.2 1.4-.8V10a8 8 0 0 0-8-8z"/></svg>
+      </button>
+    </div>
+    <div class="voice-grab" id="voiceGrab" aria-hidden="true"></div>
     <p id="voiceState" class="voice-state">Écoute…</p>
     <p id="voiceCaption" class="voice-caption"></p>
   </div>
-  <div class="voice-acts">
-    <button type="button" class="voice-btn" id="voiceMute" aria-label="Couper le micro" aria-pressed="false">
-      <svg class="ico-mic-on" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
-      <svg class="ico-mic-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l16 16"/><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-6.3-3.3"/><path d="M8.1 8.1V11a3.9 3.9 0 0 0 5.4 3.6"/><path d="M5 11a7 7 0 0 0 11.5 5.4"/><path d="M19 11a6.7 6.7 0 0 1-.5 2.5"/><path d="M12 18.9V21"/></svg>
-    </button>
-    <button type="button" class="voice-btn hang" id="voiceHang" aria-label="Raccrocher">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8v2.2c0 .6.4 1.1 1 1.3l2.4.7c.7.2 1.5-.1 1.8-.8l.6-1.3c.2-.4.1-.8-.2-1.1A9.3 9.3 0 0 1 12 10c1.6 0 3.1.4 4.4 1 .3.3.4.7.2 1.1l-.6 1.3c-.3.7.1 1.5.8 1.8l2.4.7c.6.2 1.3-.2 1.4-.8V10a8 8 0 0 0-8-8z"/></svg>
-    </button>
+  <div id="voicePrefs" class="voice-prefs" hidden>
+    <div class="voice-prefs-card" role="dialog" aria-label="Réglages de la voix">
+      <h3>Voix</h3>
+      <label class="vp-row">
+        <span>Voix</span>
+        <select id="voiceSel"></select>
+      </label>
+      <label class="vp-row">
+        <span>Vitesse</span>
+        <input type="range" id="voiceRate" min="0.75" max="1.4" step="0.05" value="1">
+        <span id="voiceRateVal">1,00×</span>
+      </label>
+      <button type="button" class="vp-ok" id="voicePrefsOk">OK</button>
+    </div>
   </div>
 </section>
 
@@ -354,6 +439,7 @@
 </div>
 
 </div>
-<script src="./app.js?v=20261111-6"></script>
+<script src="./coffre.js?v=20261111-8"></script>
+<script src="./app.js?v=20261111-8"></script>
 </body>
 </html>

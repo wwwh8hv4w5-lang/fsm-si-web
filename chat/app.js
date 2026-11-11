@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-6';
+var BUILD = '20261111-8';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -262,11 +262,40 @@ function majFil(items) {
     var moi = it.genre === 'moi' || it.genre === 'ordre';
     node.className = 'msg ' + (moi ? (it.genre === 'ordre' ? 'ordre' : 'me') : 'bot');
     node.innerHTML = '<div class="bubble">' + mediaHtml(rendre(it.corps)) + '</div><time>' + esc(heure(it.date)) + '</time>';
+    node.dataset.cle = it.cle;
+    node.dataset.texte = texteBrut(it.corps);
+    node.dataset.qui = moi ? 'me' : 'bot';
     brancher(node);
+    piedMessage(node, it);
   });
   Object.keys(S.els).forEach(function (k) { if (!vus[k]) { S.els[k].remove(); delete S.els[k]; } });
   if (ajout && (bas || !S.pret)) fil.scrollTop = fil.scrollHeight;
   majScrollBtn();
+}
+
+
+function lireJSON(k, def) {
+  try { var v = JSON.parse(mem.lire(k) || ''); return v || def; } catch (e) { return def; }
+}
+function ecrireJSON(k, v) { mem.ecrire(k, JSON.stringify(v)); }
+function piedMessage(node, it) {
+  var cle = it && it.cle || node.dataset.cle;
+  var hold = node.querySelector('.react-pills');
+  if (hold) hold.remove();
+  var rec = lireJSON('si_react', {})[cle];
+  var list = rec ? (Array.isArray(rec) ? rec : [rec]) : [];
+  if (list.length) {
+    var p = el('div', 'react-pills');
+    list.forEach(function (em) { p.appendChild(el('span', 'react-pill', em)); });
+    node.appendChild(p);
+  }
+  node.classList.toggle('nonlu', !!lireJSON('si_nonlu', {})[cle]);
+}
+function fermerReponse() {
+  S.reponse = null;
+  var b = $('replyBar');
+  if (b) b.hidden = true;
+  if ($('replyTxt')) $('replyTxt').textContent = '';
 }
 
 function bannerBot(corps) {
@@ -316,7 +345,7 @@ function rafraichir() {
 function boucle() {
   clearTimeout(S.minuteur);
   if (!S.jeton || document.hidden) return;
-  var suite = function () { S.minuteur = setTimeout(boucle, S.attente ? 4000 : 20000); };
+  var suite = function () { S.minuteur = setTimeout(boucle, S.attente ? (S.modeVocal ? 1500 : 4000) : 20000); };
   var p = rafraichir();
   if (Date.now() - S.convsVues > 30000) p = p.then(chargerConvs);
   p.then(function () { suite(); }, function (e) { alerte(e.message); suite(); });
@@ -439,6 +468,11 @@ function envoyer(texte) {
 function envoyerSaisie() {
   var t = $('texte'), v = t.value;
   var fin = function (msg) {
+    if (S.reponse && S.reponse.texte) {
+      var q = String(S.reponse.texte).replace(/\s+/g, ' ').trim().slice(0, 280);
+      if (q) msg = '« ' + q + ' »\n\n' + msg;
+      fermerReponse();
+    }
     if (t.value === v) { t.value = ''; taille(); }
     viderPieces();
     if ($('composer').classList.contains('full')) setFullCompose(false);
@@ -687,16 +721,21 @@ $('voiceSend').onclick = function () { if (enr) enr.stop(); };
   }, { passive: true });
   $('voiceBar').addEventListener('touchend', function () { on = false; });
 })();
+function tauxVoix() {
+  var n = parseFloat(mem.lire('si_voixrate') || '1.02');
+  return isFinite(n) ? Math.max(0.7, Math.min(1.5, n)) : 1.02;
+}
 function dire(t) {
   if (!t || !window.speechSynthesis) return;
   var u = new SpeechSynthesisUtterance(t.slice(0, 1500));
   u.lang = 'fr-FR';
+  u.rate = tauxVoix();
   var v = choisirVoixFeminine();
   if (v) u.voice = v;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
 
-/* ---------- Mode vocal plein écran ---------- */
+/* ---------- Mode vocal (pastille flottante, en direct) ---------- */
 S.modeVocal = false;
 S.vocalMuet = false;
 S.vocalEtat = 'idle';
@@ -713,24 +752,30 @@ S._vocalKeep = 0;
 S._vocalRelance = 0;
 S._vocalFinal = '';
 S._vocalSilence = 0;
+S._vocalSpeakAt = 0;
+S._vocalHaut = 0;
 
 function choisirVoixFeminine() {
   if (!window.speechSynthesis) return null;
   var list = speechSynthesis.getVoices() || [];
   if (!list.length) return null;
-  var eviter = /thomas|daniel|paul|nicolas|fred|jean|google français$|fred/i;
+  var saved = mem.lire('si_voixnom');
+  var i, eviter = /thomas|daniel|paul|nicolas|fred|jean|google français$/i;
   var preferer = /amélie|amelie|audrey|marie|virginie|denise|hortense|julie|claire|florence|flo\b|samantha|anna|héloïse|heloise/i;
+  if (saved) {
+    for (i = 0; i < list.length; i++) if (list[i].name === saved) return list[i];
+  }
   var fr = [];
-  for (var i = 0; i < list.length; i++) if (/^fr/i.test(list[i].lang)) fr.push(list[i]);
+  for (i = 0; i < list.length; i++) if (/^fr/i.test(list[i].lang)) fr.push(list[i]);
   var pool = fr.length ? fr : list;
-  var j, best = null;
-  for (j = 0; j < pool.length; j++) if (preferer.test(pool[j].name) && !eviter.test(pool[j].name)) return pool[j];
-  for (j = 0; j < pool.length; j++) if (!eviter.test(pool[j].name) && /^fr/i.test(pool[j].lang)) { best = pool[j]; break; }
+  var best = null;
+  for (i = 0; i < pool.length; i++) if (preferer.test(pool[i].name) && !eviter.test(pool[i].name)) return pool[i];
+  for (i = 0; i < pool.length; i++) if (!eviter.test(pool[i].name) && /^fr/i.test(pool[i].lang)) { best = pool[i]; break; }
   return best || pool[0] || null;
 }
 if (window.speechSynthesis) {
   speechSynthesis.getVoices();
-  speechSynthesis.addEventListener('voiceschanged', function () { choisirVoixFeminine(); });
+  speechSynthesis.addEventListener('voiceschanged', function () { choisirVoixFeminine(); remplirVoixPrefs(); });
 }
 
 function vocalEtatUI(etat, caption) {
@@ -754,50 +799,73 @@ function vocalEtatUI(etat, caption) {
 function vocalBarres(niveau) {
   var cv = $('voiceWave');
   if (!cv) return;
+  var rect = cv.getBoundingClientRect();
+  var dpr = window.devicePixelRatio || 1;
+  var w = Math.max(2, Math.round((rect.width || 200) * dpr));
+  var h = Math.max(2, Math.round((rect.height || 52) * dpr));
+  if (cv.width !== w) cv.width = w;
+  if (cv.height !== h) cv.height = h;
   var ctx = cv.getContext('2d');
-  var w = cv.width, h = cv.height;
   ctx.clearRect(0, 0, w, h);
-  var n = 24, gap = 4, bar = (w - gap * (n - 1)) / n;
+  var n = 26, gap = Math.max(2.5 * dpr, w * 0.012), bar = (w - gap * (n - 1)) / n;
   var t = performance.now() / 1000;
+  var freq = S._vocalFreq;
+  if (S._vocalAn && freq) {
+    try { S._vocalAn.getByteFrequencyData(freq); } catch (e) { freq = null; }
+  }
   for (var i = 0; i < n; i++) {
-    var mid = Math.abs(i - (n - 1) / 2) / ((n - 1) / 2);
-    var pulse = 0.25 + 0.75 * niveau * (0.45 + 0.55 * Math.sin(t * 7 + i * 0.55));
-    var hon = (1 - mid * 0.45) * pulse;
-    var bh = Math.max(6, hon * (h - 8));
-    var x = i * (bar + gap);
+    var pos = i / (n - 1);
+    var shape = Math.pow(pos, 0.65);
+    var mic = niveau;
+    if (freq && freq.length) {
+      var idx = Math.min(freq.length - 1, Math.floor((0.08 + pos * 0.5) * freq.length));
+      mic = Math.max(mic, freq[idx] / 220);
+    }
+    var wobble = 0.55 + 0.45 * Math.sin(t * 9 + i * 0.65);
+    var hon = (0.08 + 0.92 * shape) * (0.08 + Math.min(1, mic) * wobble);
+    hon = Math.max(0.06, Math.min(1, hon));
+    var minDot = Math.max(3.2 * dpr, bar * 0.9);
+    var isDot = shape < 0.28 && hon < 0.4;
+    var bh = isDot ? minDot : (minDot + hon * (h - minDot - 2 * dpr));
+    var bw = isDot ? minDot : bar;
+    var x = i * (bar + gap) + (bar - bw) / 2;
     var y = (h - bh) / 2;
-    ctx.fillStyle = S.vocalEtat === 'speak' ? '#F25C05' : '#FFFFFF';
-    ctx.globalAlpha = 0.35 + 0.65 * hon;
-    var r = bar / 2;
+    ctx.fillStyle = '#FF4B8A';
+    ctx.globalAlpha = 0.5 + 0.5 * hon;
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, bar, bh, r);
-    else ctx.rect(x, y, bar, bh);
+    if (ctx.roundRect) ctx.roundRect(x, y, bw, bh, bw / 2);
+    else { ctx.arc(x + bw / 2, h / 2, bw / 2, 0, Math.PI * 2); }
     ctx.fill();
   }
   ctx.globalAlpha = 1;
-  var av = $('voiceAv');
-  if (av) av.style.transform = 'scale(' + (1 + Math.min(0.07, niveau * 0.08)) + ')';
 }
 
 function vocalAnimer(on) {
   cancelAnimationFrame(S._vocalAnim);
-  if (!on) { S._vocalNiveau = 0; vocalBarres(0.12); return; }
+  if (!on) { S._vocalNiveau = 0; vocalBarres(0.16); return; }
   function frame() {
     if (!S.modeVocal) return;
     var cible = S._vocalCible;
-    if (S._vocalAn) {
-      var data = S._vocalData;
-      S._vocalAn.getByteTimeDomainData(data);
-      var sum = 0;
-      for (var i = 0; i < data.length; i++) {
-        var v = (data[i] - 128) / 128;
-        sum += v * v;
-      }
-      cible = Math.min(1, Math.sqrt(sum / data.length) * 4);
+    if (S._vocalAn && S._vocalData) {
+      try {
+        S._vocalAn.getByteTimeDomainData(S._vocalData);
+        var sum = 0, data = S._vocalData;
+        for (var i = 0; i < data.length; i++) {
+          var v = (data[i] - 128) / 128;
+          sum += v * v;
+        }
+        cible = Math.max(cible, Math.min(1, Math.sqrt(sum / data.length) * 4.2));
+      } catch (e) {}
     }
-    S._vocalNiveau += (cible - S._vocalNiveau) * 0.28;
+    S._vocalNiveau += (cible - S._vocalNiveau) * 0.32;
     vocalBarres(S._vocalNiveau);
-    S._vocalCible *= 0.92;
+    if (S.vocalEtat === 'speak' && !S.vocalMuet && S._vocalSpeakAt && (performance.now() - S._vocalSpeakAt > 550)) {
+      if (S._vocalNiveau > 0.42) {
+        S._vocalHaut += 1;
+        if (S._vocalHaut > 10) { S._vocalHaut = 0; vocalInterrompre(); }
+      } else S._vocalHaut = 0;
+    } else S._vocalHaut = 0;
+    S._vocalCible *= 0.88;
     S._vocalAnim = requestAnimationFrame(frame);
   }
   S._vocalAnim = requestAnimationFrame(frame);
@@ -805,7 +873,7 @@ function vocalAnimer(on) {
 
 function vocalCouperMicro() {
   if (S._vocalAc && S._vocalAc.close) try { S._vocalAc.close(); } catch (e) {}
-  S._vocalAc = null; S._vocalAn = null; S._vocalData = null;
+  S._vocalAc = null; S._vocalAn = null; S._vocalData = null; S._vocalFreq = null;
   if (S._vocalFlux) {
     S._vocalFlux.getTracks().forEach(function (t) { t.stop(); });
     S._vocalFlux = null;
@@ -813,9 +881,11 @@ function vocalCouperMicro() {
 }
 
 function vocalOndeMicro() {
+  if (S.vocalMuet) return;
+  if (S._vocalAn) return;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
-    if (!S.modeVocal || S.vocalEtat !== 'listen' || S.vocalMuet) {
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(function (flux) {
+    if (!S.modeVocal || S.vocalMuet) {
       flux.getTracks().forEach(function (t) { t.stop(); });
       return;
     }
@@ -826,11 +896,14 @@ function vocalOndeMicro() {
       var src = ac.createMediaStreamSource(flux);
       var an = ac.createAnalyser();
       an.fftSize = 256;
+      an.smoothingTimeConstant = 0.55;
       src.connect(an);
-      S._vocalAc = ac; S._vocalAn = an; S._vocalData = new Uint8Array(an.fftSize);
+      S._vocalAc = ac; S._vocalAn = an;
+      S._vocalData = new Uint8Array(an.fftSize);
+      S._vocalFreq = new Uint8Array(an.frequencyBinCount);
       if (ac.state === 'suspended' && ac.resume) ac.resume();
     } catch (e) {}
-  }).catch(function () { /* la reconnaissance peut quand même marcher */ });
+  }).catch(function () {});
 }
 
 function vocalStopRec() {
@@ -847,11 +920,12 @@ function vocalEnvoyerTexte(txt) {
   txt = String(txt || '').replace(/\s+/g, ' ').trim();
   if (!txt || !S.modeVocal) return;
   vocalStopRec();
-  vocalCouperMicro();
   S._vocalFinal = '';
   vocalEtatUI('wait', txt);
   S._vocalCible = 0.15;
-  envoyer(txt).then(function () {}, function (e) {
+  envoyer(txt).then(function () {
+    if (S.modeVocal && S.attente) { clearTimeout(S.minuteur); boucle(); }
+  }, function (e) {
     if (!S.modeVocal) return;
     vocalEtatUI('listen', e && e.message ? e.message : 'Envoi impossible.');
     if (!S.vocalMuet) vocalEcouter();
@@ -878,22 +952,24 @@ function vocalEcouter() {
   reco.maxAlternatives = 1;
   S._vocalFinal = '';
   reco.onresult = function (e) {
-    if (!S.modeVocal || S.vocalMuet || S.vocalEtat === 'speak') return;
+    if (!S.modeVocal || S.vocalMuet) return;
+    if (S.vocalEtat === 'speak') { vocalInterrompre(); }
+    if (S.vocalEtat === 'wait') return;
     var prov = '', fin = S._vocalFinal;
     for (var i = e.resultIndex; i < e.results.length; i++) {
       var t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) fin += t;
+      if (e.results[i].isFinal) fin += (fin && !/\s$/.test(fin) ? ' ' : '') + t;
       else prov += t;
     }
     S._vocalFinal = fin;
-    var aff = (fin + ' ' + prov).replace(/\s+/g, ' ').trim();
+    var aff = (fin + (prov ? (fin ? ' ' : '') + prov : '')).replace(/\s+/g, ' ').trim();
     if (aff && $('voiceCaption')) $('voiceCaption').textContent = aff;
-    S._vocalCible = Math.min(1, 0.35 + aff.length * 0.01);
+    S._vocalCible = Math.min(1, 0.4 + aff.length * 0.02);
     clearTimeout(S._vocalSilence);
     if (fin.trim() && !prov.trim()) {
       S._vocalSilence = setTimeout(function () {
         if (S.modeVocal && S.vocalEtat === 'listen') vocalEnvoyerTexte(S._vocalFinal);
-      }, 900);
+      }, 700);
     }
   };
   reco.onerror = function (e) {
@@ -916,7 +992,7 @@ function vocalEcouter() {
     if (texte) { vocalEnvoyerTexte(texte); return; }
     S._vocalRelance = setTimeout(function () {
       if (S.modeVocal && S.vocalEtat === 'listen' && !S.vocalMuet) vocalEcouter();
-    }, 180);
+    }, 160);
   };
   try { reco.start(); }
   catch (err) {
@@ -925,7 +1001,7 @@ function vocalEcouter() {
 }
 
 function decouperVoix(t, max) {
-  max = max || 420;
+  max = max || 280;
   t = String(t || '');
   if (t.length <= max) return t ? [t] : [];
   var parts = [], rest = t;
@@ -933,7 +1009,7 @@ function decouperVoix(t, max) {
     if (rest.length <= max) { parts.push(rest); break; }
     var morceau = rest.slice(0, max);
     var c = Math.max(morceau.lastIndexOf('. '), morceau.lastIndexOf('? '), morceau.lastIndexOf('! '), morceau.lastIndexOf(', '));
-    if (c < max * 0.4) c = morceau.lastIndexOf(' ');
+    if (c < max * 0.35) c = morceau.lastIndexOf(' ');
     if (c < 1) c = max;
     else c = c + 1;
     parts.push(rest.slice(0, c).trim());
@@ -948,18 +1024,24 @@ function vocalParler(texte, fin) {
   speechSynthesis.cancel();
   clearInterval(S._vocalKeep);
   S._vocalCoupe = false;
-  var parts = decouperVoix(texte, 420);
-  var i = 0;
+  S._vocalSpeakAt = performance.now();
+  var parts = decouperVoix(texte, 220);
+  var i = 0, dit = '';
   var voix = choisirVoixFeminine();
+  var rate = tauxVoix();
+  if (parts[0] && $('voiceCaption')) $('voiceCaption').textContent = parts[0];
   function suite() {
     if (S._vocalCoupe || !S.modeVocal) { clearInterval(S._vocalKeep); if (fin) fin(); return; }
     if (i >= parts.length) { clearInterval(S._vocalKeep); if (fin) fin(); return; }
-    var u = new SpeechSynthesisUtterance(parts[i++]);
+    var morceau = parts[i++];
+    dit = (dit ? dit + ' ' : '') + morceau;
+    if ($('voiceCaption')) $('voiceCaption').textContent = dit;
+    var u = new SpeechSynthesisUtterance(morceau);
     u.lang = 'fr-FR';
-    u.rate = 1.02;
+    u.rate = rate;
     u.pitch = 1.04;
     if (voix) u.voice = voix;
-    u.onboundary = function () { S._vocalCible = 0.85; };
+    u.onboundary = function () { S._vocalCible = 0.9; };
     u.onend = suite;
     u.onerror = suite;
     try { speechSynthesis.speak(u); } catch (e) { suite(); }
@@ -987,9 +1069,9 @@ function vocalSurReponse(it) {
     return;
   }
   vocalStopRec();
-  vocalCouperMicro();
   vocalEtatUI('speak', t);
-  S._vocalCible = 0.5;
+  S._vocalCible = 0.55;
+  vocalOndeMicro();
   vocalParler(t, function () {
     if (!S.modeVocal) return;
     if (S.vocalMuet) { vocalEtatUI('listen', t); return; }
@@ -1012,6 +1094,40 @@ function vocalInterrompre() {
   }
 }
 
+function remplirVoixPrefs() {
+  var sel = $('voiceSel');
+  if (!sel || !window.speechSynthesis) return;
+  var list = speechSynthesis.getVoices() || [];
+  var saved = mem.lire('si_voixnom');
+  var cur = sel.value;
+  sel.textContent = '';
+  if (!list.length) {
+    var o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = 'Voix du système';
+    sel.appendChild(o0);
+  } else {
+    list.forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v.name;
+      o.textContent = v.name + (v.lang ? ' (' + v.lang + ')' : '');
+      if ((saved && v.name === saved) || (!saved && choisirVoixFeminine() && v.name === choisirVoixFeminine().name)) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  if (cur && !saved) sel.value = cur;
+  var rate = tauxVoix();
+  if ($('voiceRate')) $('voiceRate').value = String(rate);
+  if ($('voiceRateVal')) $('voiceRateVal').textContent = rate.toFixed(2).replace('.', ',') + '×';
+}
+
+function ouvrirVoixPrefs() {
+  remplirVoixPrefs();
+  $('voicePrefs').hidden = false;
+}
+function fermerVoixPrefs() {
+  if ($('voicePrefs')) $('voicePrefs').hidden = true;
+}
+
 function ouvrirModeVocal() {
   if (!S.jeton) return;
   if ($('composer').classList.contains('full')) setFullCompose(false);
@@ -1024,10 +1140,15 @@ function ouvrirModeVocal() {
   $('voiceMute').querySelector('.ico-mic-on').classList.remove('hidden');
   $('voiceMute').querySelector('.ico-mic-off').classList.add('hidden');
   $('voiceScreen').hidden = false;
+  $('chatView').classList.add('voice-on');
+  fermerVoixPrefs();
+  if ($('voiceDock')) $('voiceDock').style.transform = '';
   themeColor('#000000');
   vocalEtatUI('listen', '');
   vocalAnimer(true);
+  vocalOndeMicro();
   vocalEcouter();
+  if (S.attente) { clearTimeout(S.minuteur); boucle(); }
 }
 
 function fermerModeVocal() {
@@ -1040,11 +1161,14 @@ function fermerModeVocal() {
   try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
   S.vocalEtat = 'idle';
   S.vocalMuet = false;
+  fermerVoixPrefs();
   if ($('voiceScreen')) {
     $('voiceScreen').hidden = true;
     $('voiceScreen').classList.remove('listen', 'speak', 'wait', 'muted');
   }
+  if ($('chatView')) $('chatView').classList.remove('voice-on');
   if ($('voiceCaption')) $('voiceCaption').textContent = '';
+  if ($('voiceDock')) $('voiceDock').style.transform = '';
   if (S.ecran === 'chat') themeColor('#000000');
 }
 
@@ -1060,33 +1184,80 @@ function basculerMuetVocal() {
     vocalCouperMicro();
     if (S.vocalEtat === 'listen') vocalEtatUI('listen', $('voiceCaption').textContent);
     if ($('voiceState') && S.vocalEtat !== 'speak') $('voiceState').textContent = 'Micro coupé';
-  } else if (S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait') {
-    vocalEcouter();
+  } else {
+    vocalOndeMicro();
+    if (S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait') vocalEcouter();
   }
 }
 
 $('voiceHang').addEventListener('click', function (e) { e.stopPropagation(); fermerModeVocal(); });
 $('voiceMute').addEventListener('click', function (e) { e.stopPropagation(); basculerMuetVocal(); });
-$('voiceStage').addEventListener('click', function () { vocalInterrompre(); });
+$('voiceGear').addEventListener('click', function (e) { e.stopPropagation(); if ($('voicePrefs').hidden) ouvrirVoixPrefs(); else fermerVoixPrefs(); });
+$('voicePrefsOk').addEventListener('click', function (e) { e.stopPropagation(); fermerVoixPrefs(); });
+$('voiceDim').addEventListener('click', function () { if (!$('voicePrefs').hidden) fermerVoixPrefs(); else vocalInterrompre(); });
+$('voiceSel').addEventListener('change', function () { mem.ecrire('si_voixnom', $('voiceSel').value); });
+$('voiceRate').addEventListener('input', function () {
+  var n = parseFloat($('voiceRate').value);
+  mem.ecrire('si_voixrate', String(n));
+  if ($('voiceRateVal')) $('voiceRateVal').textContent = n.toFixed(2).replace('.', ',') + '×';
+});
 window.addEventListener('keydown', function (e) {
   if (!S.modeVocal) return;
-  if (e.key === 'Escape') fermerModeVocal();
+  if (e.key === 'Escape') {
+    if ($('voicePrefs') && !$('voicePrefs').hidden) fermerVoixPrefs();
+    else fermerModeVocal();
+  }
 });
+(function () {
+  var y0 = 0, on = false, dock = $('voiceDock');
+  function start(e) {
+    if (!S.modeVocal) return;
+    var t = e.touches ? e.touches[0] : e;
+    if (!t) return;
+    if (e.target.closest && e.target.closest('button')) return;
+    on = true; y0 = t.clientY;
+  }
+  function move(e) {
+    if (!on) return;
+    var t = e.touches ? e.touches[0] : e;
+    var dy = Math.max(0, t.clientY - y0);
+    dock.style.transform = 'translateY(' + dy + 'px)';
+  }
+  function end(e) {
+    if (!on) return; on = false;
+    var t = e.changedTouches ? e.changedTouches[0] : e;
+    var dy = t ? Math.max(0, t.clientY - y0) : 0;
+    if (dy > 80) fermerModeVocal();
+    else dock.style.transform = '';
+  }
+  dock.addEventListener('touchstart', start, { passive: true });
+  dock.addEventListener('touchmove', move, { passive: true });
+  dock.addEventListener('touchend', end);
+})();
 
 window.__voix = {
   ouvrir: ouvrirModeVocal,
   fermer: fermerModeVocal,
   muet: basculerMuetVocal,
+  prefs: ouvrirVoixPrefs,
   etat: function () { return S.vocalEtat; },
   caption: function () { return $('voiceCaption') && $('voiceCaption').textContent; },
   texte: textePourVoix,
   simuler: function (kind, txt) {
-    if (kind === 'listen') { S.modeVocal = true; vocalEtatUI('listen', txt || ''); S._vocalCible = 0.55; }
-    else if (kind === 'wait') { S.modeVocal = true; vocalEtatUI('wait', txt || ''); S._vocalCible = 0.2; }
-    else if (kind === 'speak') { S.modeVocal = true; vocalEtatUI('speak', txt || ''); S._vocalCible = 0.8; }
-    else if (kind === 'muted') { S.modeVocal = true; if (!S.vocalMuet) basculerMuetVocal(); vocalEtatUI('listen', txt || ''); }
+    if ($('voiceScreen') && $('voiceScreen').hidden) {
+      $('voiceScreen').hidden = false;
+      if ($('chatView')) $('chatView').classList.add('voice-on');
+      S.modeVocal = true;
+      vocalAnimer(true);
+    }
+    S.modeVocal = true;
+    if (kind === 'listen') { vocalEtatUI('listen', txt || ''); S._vocalCible = 0.7; }
+    else if (kind === 'wait') { vocalEtatUI('wait', txt || ''); S._vocalCible = 0.2; }
+    else if (kind === 'speak') { vocalEtatUI('speak', txt || ''); S._vocalCible = 0.95; }
+    else if (kind === 'muted') { if (!S.vocalMuet) basculerMuetVocal(); vocalEtatUI('listen', txt || ''); }
     else if (kind === 'final') vocalEnvoyerTexte(txt);
-    vocalBarres(S._vocalCible || 0.4);
+    else if (kind === 'prefs') ouvrirVoixPrefs();
+    vocalBarres(S._vocalCible || 0.5);
   }
 };
 
@@ -1242,6 +1413,8 @@ function partagerConv() {
     } else alerte(url);
   });
 }
+window.alerte = alerte;
+window.iosAlerte = iosAlerte;
 function iosAlerte(titre, corps, ok) {
   $('alertTitle').textContent = titre;
   $('alertBody').textContent = corps;
@@ -1375,7 +1548,7 @@ $('homeAvatar').addEventListener('click', function () {
   if (n) choisir(n, { morph: true });
   else { montrerChat(true); ouvrirChatMorph(); }
 });
-$('backBtn').addEventListener('click', function () { fermerChatMorph(); });
+$('backBtn').addEventListener('click', function () { if (S.modeVocal) { fermerModeVocal(); return; } fermerChatMorph(); });
 
 (function () {
   var on = false, x0 = 0, y0 = 0, locked = null, lastX = 0, lastT = 0, vx = 0;
@@ -1388,6 +1561,9 @@ $('backBtn').addEventListener('click', function () { fermerChatMorph(); });
       || ($('lightbox') && !$('lightbox').hidden)
       || ($('createSheet') && !$('createSheet').hidden)
       || ($('voiceScreen') && !$('voiceScreen').hidden)
+      || ($('reactSheet') && !$('reactSheet').hidden)
+      || ($('flagSheet') && !$('flagSheet').hidden)
+      || S._lpOuvert
       || $('composer').classList.contains('full');
   }
   function pointerXY(e) {
@@ -1592,10 +1768,11 @@ function closePush(instant) {
     p.hidden = true;
     if (pushFrom && pushFrom.classList) pushFrom.classList.remove('under-parallax');
     $('pushBody').textContent = '';
+    if (window.Coffre && Coffre.surFermeture) Coffre.surFermeture();
   };
   if (instant) done(); else setTimeout(done, 350);
 }
-$('pushBack').onclick = function () { closePush(); };
+$('pushBack').onclick = function () { if (window.Coffre && Coffre.retour && Coffre.retour()) return; closePush(); };
 (function () {
   var on = false, x0 = 0, locked = null, p = $('push');
   p.addEventListener('touchstart', function (e) {
@@ -1624,7 +1801,7 @@ $('pushBack').onclick = function () { closePush(); };
 function ecranCompte(box) {
   var g = el('div', 'group');
   var r = el('div', 'row');
-  var av = el('div', 'av sm'); av.innerHTML = '<img src="./icons/icon-192.png" alt="">';
+  var av = el('div', 'av sm'); av.innerHTML = '<img src="./icons/tom.png" alt="">';
   r.appendChild(av);
   var t = el('div', 'row-txt'); t.innerHTML = '<div class="t">' + esc(S.moiNom || S.moi || '—') + '</div><div class="s">@' + esc(S.moi || '—') + '</div>';
   r.appendChild(t);
@@ -1648,50 +1825,8 @@ function ecranUtil(box) {
   box.appendChild(el('p', 'invite', 'Aucun chiffre n’est affiché faute de donnée réelle (dépenses OpenRouter ou minutes Actions). Rien n’est inventé.'));
 }
 function ecranCoffre(box) {
-  box.appendChild(el('p', 'invite', 'Noms des secrets du dépôt, jamais leurs valeurs.'));
-  var list = el('div', '');
-  box.appendChild(list);
-  list.appendChild(el('p', 'invite', 'Chargement…'));
-  var cherche = el('div', 'float-search');
-  cherche.innerHTML = '<span>⌕</span>';
-  var inp = document.createElement('input'); inp.placeholder = 'Rechercher dans le coffre-fort';
-  cherche.appendChild(inp);
-  box.appendChild(cherche);
-  function render(noms, filtre) {
-    list.textContent = '';
-    var f = (filtre || '').toLowerCase();
-    var n = noms.filter(function (x) { return !f || x.toLowerCase().indexOf(f) >= 0; });
-    if (!n.length) { list.appendChild(el('p', 'invite', noms.length ? 'Aucun résultat.' : 'Aucun secret lisible.')); return; }
-    var g = el('div', 'group');
-    n.forEach(function (nom) {
-      var r = el('div', 'row');
-      r.appendChild(el('div', 'icon-sq', '🔑'));
-      var t = el('div', 'row-txt'); t.innerHTML = '<div class="t">' + esc(nom) + '</div><div class="s">Secret du dépôt</div>';
-      r.appendChild(t);
-      r.appendChild(el('span', 'pill-btn', 'Gérer'));
-      g.appendChild(r);
-    });
-    list.appendChild(g);
-  }
-  var noms = [];
-  api(D() + '/actions/secrets').then(function (d) {
-    noms = ((d && d.secrets) || []).map(function (s) { return s.name; });
-    render(noms, inp.value);
-  }).catch(function () {
-    return api(D() + '/contents/connecteurs.json?ref=' + encodeURIComponent(S.branche), { accept: 'application/vnd.github.raw+json', texte: true }).then(function (t) {
-      var j = {}; try { j = JSON.parse(t); } catch (e) {}
-      var keys = [];
-      Object.keys(j.api || {}).forEach(function (k) { keys.push(k); });
-      Object.keys(j.mcp || {}).forEach(function (k) { keys.push('mcp:' + k); });
-      noms = keys;
-      if (!noms.length) list.textContent = '', list.appendChild(el('p', 'invite', 'Aucun connecteur déclaré dans connecteurs.json (les secrets du dépôt ne sont pas lisibles avec ce jeton).'));
-      else render(noms, inp.value);
-    }).catch(function () {
-      list.textContent = '';
-      list.appendChild(el('p', 'invite', 'Impossible de lister les secrets (droits insuffisants) et connecteurs.json est inaccessible.'));
-    });
-  });
-  inp.addEventListener('input', function () { render(noms, inp.value); });
+  if (window.Coffre && typeof Coffre.ouvrir === 'function') Coffre.ouvrir(box);
+  else box.appendChild(el('p', 'invite', 'Module du coffre-fort indisponible.'));
 }
 function ecranApps(box) {
   var badge = el('span', 'badge-pill', '—');
@@ -2164,4 +2299,245 @@ if ('serviceWorker' in navigator) {
 if ($('buildTag')) $('buildTag').textContent = 'chat ' + BUILD;
 if (S.depot && S.jeton) demarrer().catch(function (e) { montrerLogin(e.message); });
 else montrerLogin('');
+
+/* ---------- Appui long sur un message ---------- */
+(function () {
+  var EMO1 = ['👍', '👎', '❤️', '😂', '🎉', '😮'];
+  var EMO2 = ['🔥', '👀', '🙏', '😢', '💯'];
+  var EMO_PLUS = ['⭐', '👏', '🤔', '🥳', '🙌', '✨'];
+  var cible = null, timer = 0, x0 = 0, y0 = 0, arme = false;
+
+  function remplirRangee(row, list, plus) {
+    row.textContent = '';
+    list.forEach(function (em) {
+      var b = el('button', 'react-emo', em);
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Réaction ' + em);
+      b.onclick = function () { appliquerReaction(em); };
+      row.appendChild(b);
+    });
+    if (plus) {
+      var add = el('button', 'react-add', '');
+      add.type = 'button';
+      add.setAttribute('aria-label', 'Ajouter une réaction');
+      add.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>';
+      add.onclick = function () {
+        if (row.querySelector('[data-extra]')) return;
+        EMO_PLUS.forEach(function (em) {
+          var b = el('button', 'react-emo', em);
+          b.type = 'button';
+          b.dataset.extra = '1';
+          b.onclick = function () { appliquerReaction(em); };
+          row.appendChild(b);
+        });
+      };
+      row.appendChild(add);
+    }
+  }
+  remplirRangee($('reactRow1'), EMO1, false);
+  remplirRangee($('reactRow2'), EMO2, true);
+
+  function ouvrirMenu(node) {
+    cible = node;
+    S._lpOuvert = true;
+    hap();
+    var sheet = $('reactSheet'), back = $('reactBackdrop');
+    if (!sheet) return;
+    back.hidden = false;
+    sheet.hidden = false;
+    requestAnimationFrame(function () {
+      back.classList.remove('hide');
+      sheet.classList.add('open');
+    });
+  }
+  function fermerMenu() {
+    S._lpOuvert = false;
+    var sheet = $('reactSheet'), back = $('reactBackdrop');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    if (back) back.classList.add('hide');
+    setTimeout(function () {
+      sheet.hidden = true;
+      if (back) { back.hidden = true; back.classList.remove('hide'); }
+    }, 280);
+  }
+  function appliquerReaction(em) {
+    if (!cible) return;
+    var cle = cible.dataset.cle;
+    var map = lireJSON('si_react', {});
+    var cur = map[cle] ? (Array.isArray(map[cle]) ? map[cle] : [map[cle]]) : [];
+    var i = cur.indexOf(em);
+    if (i >= 0) cur.splice(i, 1);
+    else cur.push(em);
+    if (cur.length) map[cle] = cur; else delete map[cle];
+    ecrireJSON('si_react', map);
+    piedMessage(cible, { cle: cle });
+    fermerMenu();
+  }
+
+  $('reactBackdrop').addEventListener('click', fermerMenu);
+  $('reactReply').onclick = function () {
+    if (!cible) return;
+    S.reponse = { cle: cible.dataset.cle, texte: cible.dataset.texte || '', qui: cible.dataset.qui };
+    $('replyWho').textContent = cible.dataset.qui === 'me' ? 'Vous' : NOM_COURT;
+    $('replyTxt').textContent = (cible.dataset.texte || '').replace(/\s+/g, ' ');
+    $('replyBar').hidden = false;
+    fermerMenu();
+    $('texte').focus();
+  };
+  $('reactUnread').onclick = function () {
+    if (!cible) return;
+    var map = lireJSON('si_nonlu', {});
+    var cle = cible.dataset.cle;
+    if (map[cle]) delete map[cle]; else map[cle] = 1;
+    ecrireJSON('si_nonlu', map);
+    piedMessage(cible, { cle: cle });
+    fermerMenu();
+  };
+  $('reactCopy').onclick = function () {
+    if (!cible) return;
+    var v = cible.dataset.texte || '';
+    var done = function () { if (window.alerte) alerte('Copié'); fermerMenu(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, done);
+    else done();
+  };
+  $('reactSelect').onclick = function () {
+    if (!cible) return;
+    var b = cible.querySelector('.bubble');
+    if (b) {
+      b.classList.add('sel-on');
+      cible.classList.add('sel-on');
+      var sel = window.getSelection();
+      if (sel) {
+        var r = document.createRange();
+        r.selectNodeContents(b);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    }
+    fermerMenu();
+  };
+  $('reactCopyId').onclick = function () {
+    if (!cible) return;
+    var v = cible.dataset.cle || '';
+    var done = function () { if (window.alerte) alerte('ID copié'); fermerMenu(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, done);
+    else done();
+  };
+  $('reactFlag').onclick = function () {
+    fermerMenu();
+    ouvrirFlag();
+  };
+  if ($('replyClear')) $('replyClear').onclick = fermerReponse;
+
+  var RAISONS = ['Spam', 'Contenu offensant', 'Hors-sujet', 'Autre'];
+  function ouvrirFlag() {
+    var box = $('flagReasons');
+    if (!box) return;
+    box.textContent = '';
+    S._flagRaison = '';
+    $('flagAutre').value = '';
+    $('flagAutre').closest('.flag-autre').hidden = true;
+    RAISONS.forEach(function (r) {
+      var b = el('button', 'row', r);
+      b.type = 'button';
+      b.onclick = function () {
+        S._flagRaison = r;
+        Array.prototype.forEach.call(box.querySelectorAll('.row'), function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        $('flagAutre').closest('.flag-autre').hidden = r !== 'Autre';
+      };
+      box.appendChild(b);
+    });
+    $('flagBackdrop').hidden = false;
+    $('flagSheet').hidden = false;
+    requestAnimationFrame(function () { $('flagSheet').classList.add('open'); });
+  }
+  function fermerFlag() {
+    $('flagSheet').classList.remove('open');
+    setTimeout(function () {
+      $('flagSheet').hidden = true;
+      $('flagBackdrop').hidden = true;
+    }, 280);
+  }
+  $('flagBackdrop').addEventListener('click', fermerFlag);
+  $('flagCancel').onclick = fermerFlag;
+  $('flagSend').onclick = function () {
+    if (!cible) { fermerFlag(); return; }
+    var r = S._flagRaison || '';
+    if (r === 'Autre') r = (($('flagAutre') && $('flagAutre').value) || '').trim() || 'Autre';
+    if (!r) { if (window.alerte) alerte('Choisissez une raison.'); return; }
+    var list = lireJSON('si_signalements', []);
+    list.push({ cle: cible.dataset.cle, raison: r, at: Date.now() });
+    ecrireJSON('si_signalements', list);
+    fermerFlag();
+    if (window.alerte) alerte('Merci, c’est signalé');
+  };
+
+  function annuler() {
+    arme = false;
+    clearTimeout(timer);
+    timer = 0;
+  }
+  function debut(e) {
+    var n = e.target && e.target.closest && e.target.closest('#fil .msg');
+    if (!n) return;
+    if (e.target.closest('a, button, video, input, textarea')) return;
+    var pt = e.touches ? e.touches[0] : e;
+    if (!pt) return;
+    arme = true;
+    x0 = pt.clientX; y0 = pt.clientY;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      if (!arme) return;
+      arme = false;
+      ouvrirMenu(n);
+    }, 450);
+  }
+  function move(e) {
+    if (!arme) return;
+    var pt = e.touches ? e.touches[0] : e;
+    if (!pt) return;
+    if (Math.abs(pt.clientX - x0) > 10 || Math.abs(pt.clientY - y0) > 10) annuler();
+  }
+  var fil = $('fil');
+  fil.addEventListener('touchstart', debut, { passive: true });
+  fil.addEventListener('mousedown', debut);
+  fil.addEventListener('touchmove', move, { passive: true });
+  fil.addEventListener('mousemove', move);
+  fil.addEventListener('touchend', annuler);
+  fil.addEventListener('touchcancel', annuler);
+  fil.addEventListener('mouseup', annuler);
+  fil.addEventListener('contextmenu', function (e) {
+    if (e.target.closest && e.target.closest('.msg')) e.preventDefault();
+  });
+
+  /* glisser le menu vers le bas pour le fermer */
+  (function () {
+    var sheet = $('reactSheet');
+    if (!sheet) return;
+    var on = false, y0s = 0;
+    sheet.addEventListener('touchstart', function (e) {
+      if (!e.touches[0]) return;
+      var st = $('reactBody') ? $('reactBody').scrollTop : 0;
+      if (st > 0 && e.target.closest('.sheet-scroll')) return;
+      on = true; y0s = e.touches[0].clientY;
+    }, { passive: true });
+    sheet.addEventListener('touchmove', function (e) {
+      if (!on) return;
+      var dy = e.touches[0].clientY - y0s;
+      if (dy > 0) sheet.style.transform = 'translateY(' + dy + 'px)';
+    }, { passive: true });
+    sheet.addEventListener('touchend', function (e) {
+      if (!on) return; on = false;
+      var dy = (e.changedTouches[0] ? e.changedTouches[0].clientY : y0s) - y0s;
+      sheet.style.transform = '';
+      if (dy > 80) fermerMenu();
+    });
+  })();
+
+  window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '#fil .msg'); if (n) ouvrirMenu(n); }, fermer: fermerMenu };
+})();
+
+
 })();
