@@ -58,7 +58,7 @@
   <div class="home-center">
     <button type="button" class="home-hero" id="homeAvatar" aria-label="Ouvrir Laura F.S.M">
       <div class="av xl" id="homeAv"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
-      <div class="home-name" id="homeName">Laura F.S.M · F.S.M AI</div>
+      <div class="home-name" id="homeName" title="Laura F.S.M · F.S.M AI">Laura F.S.M · F...</div>
     </button>
   </div>
   <div class="home-bottom">
@@ -74,45 +74,45 @@
 
 <section id="chatView" class="screen" hidden>
   <header class="topbar">
-    <button type="button" class="icon-btn" id="backBtn" aria-label="Retour">
+    <button type="button" class="frost-btn" id="backBtn" aria-label="Retour">
       <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
-    <div class="who" id="chatWho">
+    <div class="who pill" id="chatWho">
       <div class="av" id="chatAv"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
-      <div>
-        <div class="nm" id="chatName">Laura F.S.M · F.S.M AI</div>
-        <div class="st" id="chatStatus" hidden></div>
-      </div>
+      <div class="nm" id="chatName">Laura F.S.M · F.S.M AI</div>
     </div>
-    <button type="button" class="circ-btn menu-circ" id="menuBtn" aria-label="Options">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>
+    <button type="button" class="frost-btn" id="menuBtn" aria-label="Options">
+      <svg viewBox="0 0 24 24" class="dots-h"><circle cx="6" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.35" fill="currentColor" stroke="none"/></svg>
     </button>
   </header>
   <div id="fil" aria-live="polite"></div>
   <button type="button" id="scrollDown" hidden aria-label="Aller au plus récent">
     <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
   </button>
-  <div id="typing" hidden>
-    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-    <em id="typingText">S’en occupe</em>
-  </div>
   <footer id="composer">
     <div id="attachments" class="hidden"></div>
+    <div id="typing" hidden>
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <em id="typingText">S’en occupe</em>
+    </div>
     <div class="compose-row" id="composeRow">
-      <button type="button" class="circ-btn" id="attachBtn" aria-label="Joindre">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-      <div class="pill">
+      <div class="pill big" id="composePill">
+        <button type="button" class="pill-ico" id="attachBtn" aria-label="Joindre">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
         <textarea id="texte" rows="1" placeholder="Demander à Laura F.S.M…" aria-label="Message"></textarea>
-        <button type="button" class="expand-btn" id="expandBtn" aria-label="Plein écran">
+        <button type="button" class="expand-btn hidden" id="expandBtn" aria-label="Plein écran">
           <svg class="ico-expand" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
           <svg class="ico-collapse hidden" viewBox="0 0 24 24"><path d="M3 8h5V3M16 3v5h5M3 16h5v5M16 21v-5h5"/></svg>
         </button>
+        <button type="button" class="pill-ico" id="micBtn" aria-label="Dicter">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
+        </button>
+        <button type="button" class="pill-ico accent" id="sendBtn" aria-label="Note vocale">
+          <svg class="ico-wave" viewBox="0 0 24 24" fill="#fff"><rect x="4.2" y="8" width="3.2" height="8" rx="1.5"/><rect x="10.4" y="4" width="3.2" height="16" rx="1.5"/><rect x="16.6" y="7" width="3.2" height="10" rx="1.5"/></svg>
+          <svg class="ico-send hidden" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+        </button>
       </div>
-      <button type="button" class="circ-btn accent" id="sendBtn" aria-label="Dicter">
-        <svg class="ico-mic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
-        <svg class="ico-send hidden" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-      </button>
     </div>
     <div id="voiceBar" hidden>
       <button type="button" class="circ-btn light" id="voiceStop" aria-label="Arrêter">
@@ -275,6 +275,7 @@
       <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
     <h2 id="pushTitle"></h2>
+    <div id="pushExtra" class="push-extra"></div>
   </header>
   <div class="push-body" id="pushBody"></div>
 </section>
@@ -286,13 +287,13 @@
 <!-- Créer un Bot -->
 <div id="createBackdrop" class="backdrop" hidden></div>
 <aside id="createSheet" class="sheet-up" hidden role="dialog" aria-label="Créer un nouveau Bot">
-  <div class="sheet-grab">
+  <div class="sheet-grab create-grab">
     <button type="button" class="round-btn close-x" id="createClose" aria-label="Fermer">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
+    <h2 class="create-title">Créer un nouveau Bot</h2>
   </div>
   <div class="sheet-scroll create-body">
-    <h2 class="create-title">Créer un nouveau Bot</h2>
     <div class="blob" id="botBlob" aria-hidden="true"></div>
     <input id="botName" type="text" placeholder="Nommez votre Bot" maxlength="40" autocomplete="off">
     <div class="shape-grid" id="shapeGrid"></div>

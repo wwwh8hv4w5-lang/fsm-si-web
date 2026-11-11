@@ -355,9 +355,12 @@ function taille() {
 }
 function majSendIcon() {
   var has = !!$('texte').value.trim() || S.pending.length;
-  $('sendBtn').querySelector('.ico-mic').classList.toggle('hidden', has);
+  var wave = $('sendBtn').querySelector('.ico-wave');
+  if (wave) wave.classList.toggle('hidden', has);
   $('sendBtn').querySelector('.ico-send').classList.toggle('hidden', !has);
-  $('sendBtn').setAttribute('aria-label', has ? 'Envoyer' : 'Dicter');
+  $('sendBtn').setAttribute('aria-label', has ? 'Envoyer' : 'Note vocale');
+  var ex = $('expandBtn');
+  if (ex) ex.classList.toggle('hidden', !($('texte').value.trim() || S.pending.length));
 }
 function envoyer(texte) {
   texte = String(texte || '').trim();
@@ -396,8 +399,9 @@ function envoyerSaisie() {
 }
 $('sendBtn').addEventListener('click', function () {
   if ($('texte').value.trim() || S.pending.length) envoyerSaisie();
-  else dicterOuEnregistrer();
+  else enregistrer();
 });
+$('micBtn').addEventListener('click', function () { dicterOuEnregistrer(); });
 $('texte').addEventListener('input', taille);
 $('texte').addEventListener('keydown', function (e) {
   if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); if ($('texte').value.trim() || S.pending.length) envoyerSaisie(); }
@@ -1007,6 +1011,7 @@ function openPush(title, build, fromEl) {
   pushFrom = fromEl || $('settingsSheet');
   $('pushTitle').textContent = title;
   $('pushBody').textContent = '';
+  if ($('pushExtra')) $('pushExtra').textContent = '';
   build($('pushBody'));
   $('push').hidden = false;
   if (pushFrom && pushFrom.classList) pushFrom.classList.add('under-parallax');
@@ -1299,29 +1304,53 @@ function ecranPartage(box) {
   box.appendChild(el('p', 'invite', 'Le jeton et tes messages ne partent que vers l’API GitHub du dépôt FSM SI, depuis ce navigateur. Rien n’est envoyé à un autre service par cette interface.'));
 }
 function ecranProfil() {
-  openPush(NOM_COURT, function (box) {
+  openPush('', function (box) {
+    $('pushTitle').textContent = '';
+    var extra = $('pushExtra');
+    extra.innerHTML = '';
+    var sh = el('button', 'frost-btn'); sh.type = 'button'; sh.setAttribute('aria-label', 'Partager');
+    sh.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v10M8 9l4-4 4 4"/><path d="M5 15v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg>';
+    sh.onclick = function () { partagerConv(); };
+    var more = el('button', 'frost-btn'); more.type = 'button'; more.setAttribute('aria-label', 'Options');
+    more.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" class="dots-h" fill="currentColor"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg>';
+    more.onclick = function () { closePush(); ouvrirMenu(); };
+    extra.appendChild(sh); extra.appendChild(more);
+    $('pushBack').className = 'frost-btn';
+    $('pushBack').innerHTML = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>';
+
     var hero = el('div', 'prof-hero');
     hero.innerHTML = '<div class="av-wrap"><div class="av xl"><img src="./icons/laura.png" alt=""><span class="dot"></span></div><span class="star-badge">★</span></div><h1>' + esc(NOM) + '</h1>';
     box.appendChild(hero);
-    var mod = el('button', 'pill-btn', 'Modifier'); mod.type = 'button'; mod.style.margin = '0 auto 16px'; mod.style.display = 'block';
+    var mod = el('button', 'mod-pill', 'Modifier'); mod.type = 'button';
     box.appendChild(mod);
-    var g = el('div', 'group');
+
+    var g1 = el('div', 'group');
     var b1 = el('button', 'row'); b1.type = 'button';
-    b1.innerHTML = '<span class="t">Bibliothèque</span><span class="chev">›</span>';
+    b1.innerHTML = '<span class="row-ico">📁</span><span class="t">Bibliothèque</span><span class="chev">›</span>';
     b1.onclick = function () { ecranBibli(); };
-    g.appendChild(b1);
+    g1.appendChild(b1);
+    var ord = el('button', 'row'); ord.type = 'button';
+    ord.innerHTML = '<span class="row-ico">🖥</span><span class="t">Ordinateur</span><span class="val">—</span><span class="chev">›</span>';
+    ord.onclick = function () { ecranDepot(); };
+    g1.appendChild(ord);
+    box.appendChild(g1);
+
+    box.appendChild(el('div', 'sec-lab', 'Configurer le Bot'));
+    var g2 = el('div', 'group');
     var r2 = el('button', 'row'); r2.type = 'button';
-    var nR = '—';
-    r2.innerHTML = '<span class="t">Routines</span><span class="val" id="profRoutines">—</span><span class="chev">›</span>';
+    r2.innerHTML = '<span class="row-ico">⏱</span><span class="t">Routines</span><span class="val" id="profRoutines">—</span><span class="chev">›</span>';
     r2.onclick = function () { ecranRoutines(); };
-    g.appendChild(r2);
+    g2.appendChild(r2);
+    box.appendChild(g2);
+
+    var g3 = el('div', 'group');
     var nt = el('div', 'row toggle-row');
     nt.innerHTML = '<span class="t">Notifications</span>';
     var tg = el('button', 'toggle' + (S.notif ? ' on' : '')); tg.type = 'button';
     tg.onclick = function () { $('notifToggle').click(); setTimeout(function () { tg.classList.toggle('on', S.notif); }, 200); };
     nt.appendChild(tg);
-    g.appendChild(nt);
-    box.appendChild(g);
+    g3.appendChild(nt);
+    box.appendChild(g3);
     box.appendChild(el('p', 'sheet-foot', 'FSM SI · F.S.M AI'));
     fichierTexte('taches/planifiees.json').then(function (t) {
       var arr = []; try { arr = JSON.parse(t).filter(function (x) { return x.actif; }); } catch (e) {}
@@ -1478,16 +1507,22 @@ var botSel = { shape: 0, color: '#7B61FF' };
 function ouvrirCreate() {
   var sg = $('shapeGrid'), cg = $('colorGrid');
   sg.textContent = ''; cg.textContent = '';
-  SHAPES.forEach(function (s, i) {
-    var b = el('button', 'shape-cell' + (i === botSel.shape ? ' on' : ''), ''); b.type = 'button';
-    b.textContent = s;
+  var radii = [
+    '50%', '40% 60% 50% 50% / 45% 45% 55% 55%', '20%', '30% 70% 70% 30% / 30% 30% 70% 70%', '50% 50% 40% 60%',
+    '50% 40% 50% 60%', '42% 58% 58% 42%', '50% 50% 30% 70%', '55% 45% 50% 50%', '20% 80% 70% 30% / 40% 40% 60% 60%',
+    '40% 40% 20% 20%', '40% 60% 35% 65%', '30%'
+  ];
+  radii.forEach(function (rad, i) {
+    var b = el('button', 'shape-cell' + (i === botSel.shape ? ' on' : '')); b.type = 'button';
+    var blob = el('span', 'bloblet'); blob.style.borderRadius = rad; blob.style.background = botSel.color;
+    b.appendChild(blob);
     b.onclick = function () { botSel.shape = i; Array.prototype.forEach.call(sg.children, function (x, j) { x.classList.toggle('on', j === i); }); };
     sg.appendChild(b);
   });
   COLORS.forEach(function (c, i) {
     var b = el('button', 'swatch' + (c === botSel.color ? ' on' : '')); b.type = 'button';
     b.style.setProperty('--c', c);
-    b.onclick = function () { botSel.color = c; $('botBlob').style.background = c; Array.prototype.forEach.call(cg.children, function (x) { x.classList.remove('on'); }); b.classList.add('on'); };
+    b.onclick = function () { botSel.color = c; $('botBlob').style.background = c; Array.prototype.forEach.call(document.querySelectorAll('.bloblet'), function (x) { x.style.background = c; }); Array.prototype.forEach.call(cg.children, function (x) { x.classList.remove('on'); }); b.classList.add('on'); };
     cg.appendChild(b);
   });
   $('botBlob').style.background = botSel.color;
