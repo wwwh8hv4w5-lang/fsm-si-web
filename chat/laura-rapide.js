@@ -319,7 +319,7 @@ function appel(jeton, blob, meta, h) {
   var gen = V.gen; V.fluxFini = false; V.enAttente = 0; V.surFin = h.surFinAudio || null; V.premierSon = 0; V.trous = 0; V.trouMs = 0; if (!V.sources.length) V.fin = 0;
   var ctl = new AbortController(); V.ctl = ctl;
   var fd = new FormData();
-  fd.append('audio', blob, 'parole.' + (/webm/.test(blob.type) ? 'webm' : /ogg/.test(blob.type) ? 'ogg' : /mpeg|mp3/.test(blob.type) ? 'mp3' : 'm4a'));
+  if (blob) fd.append('audio', blob, 'parole.' + (/webm/.test(blob.type) ? 'webm' : /ogg/.test(blob.type) ? 'ogg' : /mpeg|mp3/.test(blob.type) ? 'mp3' : 'm4a'));
   fd.append('meta', JSON.stringify(meta || {}));
   var t0 = performance.now(), texte = '', fin = null, premierPcm = 0;
   var horsDelai = false;
@@ -345,6 +345,7 @@ function appel(jeton, blob, meta, h) {
           if (j.t) { texte += j.t; if (h.texte) h.texte(texte); }
           if (j.pcm) { if (!premierPcm) premierPcm = performance.now() - t0; var b = pcmVersBuffer(j.pcm, j.rate); if (b) programmer(b, gen); if (h.parle) h.parle(); }
           if (j.audio_echec) { V.enAttente++; voixNavigateur(j.phrase, gen, function () { V.enAttente--; verifierFin(gen); }); }
+          if (j.pc_demande && window.PCTom) PCTom.demandeVocale(j.pc_demande);
           if (j.fin) fin = j;
           if (j.erreur) { var e = new Error(j.erreur); e.etape = j.etape; throw e; }
         }
