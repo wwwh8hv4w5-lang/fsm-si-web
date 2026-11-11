@@ -9,7 +9,7 @@
   /* LAURA (demande de Tom, 11/11) : l’écran « Créer un nouveau Bot » reste, mais le profil est verrouillé sur Laura :
      nom et photo fixes, non modifiables, aucun autre Bot ni portrait au choix. Le serveur n’accepte que ce profil sur l’hôte LAURA. */
   var VERROU = location.hostname !== 'bot.fsmsibot.app';
-  var LAURA = { nom: 'Laura F.S.M · F.S.M AI', photo: './icons/laura.png' };
+  var LAURA = { nom: 'Laura F.S.M · FSM SI', photo: './icons/laura.png' };
   function imgLaura(cls) { return '<img class="' + (cls || '') + ' laura-photo" src="' + LAURA.photo + '" alt="">'; }
 
   function hap() { try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {} }
@@ -110,7 +110,12 @@
     if (nom) { nom.value = LAURA.nom; nom.readOnly = true; nom.tabIndex = -1; nom.setAttribute('aria-readonly', 'true'); }
     if (prev && !prev.querySelector('img.laura-photo')) prev.insertAdjacentHTML('beforeend', imgLaura('create-laura'));
     ['shapeGrid', 'colorGrid'].forEach(function (id) { var g = $(id); if (g) { g.textContent = ''; g.hidden = true; } });
-    if ($('botCreate')) $('botCreate').disabled = false;
+    /* Bouton « Créer » sous la photo supprimé (demande de Tom, 11/11 22 h 02) ; retiré aussi d’une ancienne page en cache. */
+    if ($('botCreate')) $('botCreate').remove();
+    /* Mention sous le nom (demande de Tom, 11/11 22 h 10) ; créée aussi si la page en cache ne l’a pas encore. */
+    var note = $('botNote');
+    if (!note && nom) { note = document.createElement('p'); note.id = 'botNote'; note.className = 'create-note'; note.textContent = 'Laura FSM SI est un modèle custom - non modifiable'; nom.insertAdjacentElement('afterend', note); }
+    if (note) note.hidden = false;
     /* profil donné par le serveur (seul permis sur l’hôte LAURA) */
     try {
       fetch('/profil', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
@@ -236,7 +241,7 @@
       if (img) img.hidden = false;
       var d2 = av.querySelector('.dot');
       if (d2) d2.hidden = false;
-      nm.textContent = 'Laura F.S.M · F.S.M AI';
+      nm.textContent = 'Laura F.S.M · FSM SI';
     }
   }
   function rafraichir() {

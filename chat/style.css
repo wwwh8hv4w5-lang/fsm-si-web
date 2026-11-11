@@ -2180,6 +2180,8 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 #createSheet.verrou-laura .create-preview img.create-laura { position: relative; z-index: 1; display: block; width: 121px; height: 121px; border-radius: 50%; object-fit: cover; opacity: 0; transition: opacity .3s ease; }
 #createSheet.verrou-laura .create-preview.assembled img.create-laura { opacity: 1; }
 #createSheet.verrou-laura #botName { pointer-events: none; color: #fff; text-align: center; }
+#createSheet .create-note { margin: 14px 8px 0; color: #9a9a9a; font-size: .92rem; line-height: 1.4; text-align: center; }
+#createSheet .create-note[hidden] { display: none; }
 img.home-bot-svg.laura-photo { border-radius: 50%; object-fit: cover; }
 
 

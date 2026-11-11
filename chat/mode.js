@@ -38,7 +38,7 @@
       if (anime) { av.classList.remove('mode-flash'); void 0; requestAnimationFrame(function () { av.classList.add('mode-flash'); setTimeout(function () { av.classList.remove('mode-flash'); }, 600); }); }
     }
     var who = document.getElementById('chatWho');
-    if (who) who.setAttribute('aria-label', 'Laura F.S.M · F.S.M AI, ' + NOMS.fsmsi);
+    if (who) who.setAttribute('aria-label', 'Laura F.S.M · FSM SI, ' + NOMS.fsmsi);
   }
   /* marqueur lu par le robot GitHub (même cerveau que la voie rapide) */
   function marquer(texte) {

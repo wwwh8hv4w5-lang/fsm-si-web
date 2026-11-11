@@ -4,7 +4,7 @@ window.SI_VERSION = window.SI_VERSION || 'V2.0';
 (function(){var dT=0,dX=0,dY=0;function libre(t){return t&&t.closest&&t.closest('input,textarea,select,[contenteditable],#lightbox,.lightbox,.visionneuse');}
 document.addEventListener('touchend',function(e){var p=e.changedTouches&&e.changedTouches[0];if(!p)return;var n=Date.now();if(n-dT<350&&Math.abs(p.clientX-dX)<40&&Math.abs(p.clientY-dY)<40&&!libre(e.target)){e.preventDefault();dT=0;return;}dT=n;dX=p.clientX;dY=p.clientY;},{passive:false});
 document.addEventListener('dblclick',function(e){if(!libre(e.target))e.preventDefault();},{passive:false});})();
-/* Laura F.S.M · F.S.M AI — interface FSM SI (backend GitHub Issues) */
+/* Laura F.S.M · FSM SI — interface FSM SI (backend GitHub Issues) */
 (function () {
 'use strict';
 /* build 50 : appli non installée → écran d'installation (/installer.js) et rien d'autre ne tourne */
@@ -54,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-80';
+var BUILD = '20261111-82';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -215,7 +215,7 @@ var Hist = {
     return true;
   }
 };
-var NOM = 'Laura F.S.M · F.S.M AI';
+var NOM = 'Laura F.S.M · FSM SI';
 var NOM_COURT = 'Laura F.S.M';
 var MAX_FILE = 25 * 1024 * 1024;
 var ORDRES = [['/cout', 'Dépenses'], ['/memoire', 'Mémoire'], ['/projets', 'Projets'], ['/taches', 'Tâches planifiées'], ['/bots', 'Équipe'], ['/competences', 'Compétences'], ['/refaire', 'Refaire la dernière demande'], ['/aide', 'Aide'], ['/stop', 'Arrêter']];
@@ -3140,7 +3140,7 @@ function ouvrirModeVocal() {
   $('chatView').classList.add('voice-on');
   if ($('texte')) {
     S._phVocal = $('texte').getAttribute('placeholder');
-    $('texte').setAttribute('placeholder', 'Demander à Laura F.S.M · F.S.M AI');
+    $('texte').setAttribute('placeholder', 'Demander à Laura F.S.M · FSM SI');
   }
   fermerVoixPrefs();
   if ($('voiceDock')) $('voiceDock').style.transform = '';
