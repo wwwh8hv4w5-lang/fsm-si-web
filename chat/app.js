@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-53';
+var BUILD = '20261111-54';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -3262,8 +3262,11 @@ $('backBtn').addEventListener('click', function () { if (S.modeVocal) { fermerMo
   function maj() {
     raf = 0;
     var c = $('chatView');
-    var kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    var on = kb > 80;
+    /* Repère = hauteur de mise en page (inchangée par le clavier sur iOS). Ne PAS retrancher vv.offsetTop : quand iOS fait
+       glisser la page de toute la hauteur du clavier pour montrer le champ, innerHeight − height − offsetTop ≈ 0 et le clavier
+       passait pour fermé (en-tête et fil sortis par le haut, écran noir au-dessus du composer). */
+    var base = document.documentElement.clientHeight || window.innerHeight;
+    var on = (base - vv.height) > 80 && Math.abs((vv.scale || 1) - 1) < 0.01;
     if (on) {
       c.style.height = Math.round(vv.height) + 'px';
       c.style.top = Math.round(vv.offsetTop) + 'px';
