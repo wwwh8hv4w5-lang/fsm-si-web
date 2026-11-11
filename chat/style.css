@@ -2306,3 +2306,17 @@ html { touch-action: manipulation; }
 
 /* Coffre-fort : bouton « Gérer » sur la ligne (comme Grok Bot) */
 .cf-gerer{flex:none;margin-left:8px;padding:6px 12px;border-radius:14px;background:#2C2C2E;color:#fff;font-size:13px;font-weight:600}
+
+/* Marque FSM SI en bas de l'accueil (même rendu que FSM SI BOT) */
+.home-marque {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px 10px;
+  color: #6f6f6f;
+}
+.home-marque img { width: 28px; height: 28px; object-fit: contain; }
+.home-marque span { font-size: 11px; letter-spacing: .04em; font-weight: 600; font-style: normal; }
+.home-marque i { font-style: normal; font-weight: 600; }
