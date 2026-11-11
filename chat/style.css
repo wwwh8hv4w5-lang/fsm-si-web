@@ -845,7 +845,7 @@ mark.hit.cur { background: #FFD60A; }
 html, body, #chatView, #fil, #home {
   overscroll-behavior-x: none;
 }
-#chatView { touch-action: pan-y; }
+#chatView { touch-action: pan-y pinch-zoom; } /* v70 : le pincement reste permis sur les images du fil */
 #chatEdge {
   position: absolute;
   left: 0;
