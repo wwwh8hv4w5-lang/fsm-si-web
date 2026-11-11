@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-59';
+var BUILD = '20261111-60';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -1579,7 +1579,7 @@ document.addEventListener('drop', function (e) {
   Array.prototype.forEach.call(e.dataTransfer.files || [], ajouterFichier);
 });
 
-/* ---------- Visionneuse (relevé Grok Bot, build 20261111-59) ---------- */
+/* ---------- Visionneuse (relevé Grok Bot, build 20261111-60) ---------- */
 function imagesDuFil() {
   return Array.prototype.filter.call(document.querySelectorAll('#fil img.vue'), function (n) {
     return n.src && !n.classList.contains('perdue') && (n.classList.contains('pj') || n.classList.contains('ecran') || n.getAttribute('data-u') || n.getAttribute('data-p'));
