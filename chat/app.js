@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-41';
+var BUILD = '20261111-42';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
@@ -33,7 +33,22 @@ var Reprise = {
   boite: function () { return Reprise.lire('si_boite', []).filter(function (x) { return x && x.uid && x.corps && Date.now() - (x.t || 0) < 7 * 86400e3; }); },
   garder: function (x) { var l = Reprise.boite().filter(function (y) { return y.uid !== x.uid; }); l.push(x); Reprise.ecrire('si_boite', l); },
   oter: function (uid) { Reprise.ecrire('si_boite', Reprise.boite().filter(function (y) { return y.uid !== uid; })); },
-  uid: function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  uid: function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); },
+  /* messages tout juste postés : la liste GitHub peut les rendre avec du retard (cache/répliques) ; on les garde 3 min */
+  recent: function (conv, c) {
+    if (!conv || !c || !c.id) return;
+    var l = Reprise.lire('si_recents', []).filter(function (x) { return Date.now() - x.t < 180000 && x.c.id !== c.id; });
+    l.push({ conv: conv, t: Date.now(), c: { id: c.id, body: c.body, created_at: c.created_at, user: c.user ? { login: c.user.login, type: c.user.type } : null } });
+    Reprise.ecrire('si_recents', l.slice(-20));
+  },
+  fusion: function (conv, liste) {
+    var ids = {}; liste.forEach(function (c) { ids[c.id] = 1; });
+    var l = Reprise.lire('si_recents', []).filter(function (x) { return Date.now() - x.t < 180000; });
+    var manque = l.filter(function (x) { return x.conv === conv && !ids[x.c.id]; }).map(function (x) { return x.c; });
+    Reprise.ecrire('si_recents', l.filter(function (x) { return !ids[x.c.id]; }));
+    if (!manque.length) return liste;
+    return liste.concat(manque).sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || (a.id - b.id); });
+  }
 };
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -298,9 +313,9 @@ function choisir(n, opts) {
 }
 function tousCommentaires(n, page, acc) {
   page = page || 1; acc = acc || [];
-  return api(D() + '/issues/' + n + '/comments?per_page=100&page=' + page).then(function (l) {
+  return api(D() + '/issues/' + n + '/comments?per_page=100&page=' + page + '&_=' + Date.now()).then(function (l) {
     acc = acc.concat(l);
-    return l.length === 100 && page < 6 ? tousCommentaires(n, page + 1, acc) : acc;
+    return l.length === 100 && page < 6 ? tousCommentaires(n, page + 1, acc) : Reprise.fusion(n, acc);
   });
 }
 
@@ -664,7 +679,9 @@ function noterBrouillon() {
   if (v.trim()) mem.ecrire('si_brouillon:' + S.conv, v); else mem.oter('si_brouillon:' + S.conv);
 }
 $('texte').addEventListener('input', noterBrouillon);
-window.addEventListener('pagehide', function () { noterFil(); noterBrouillon(); });
+window.addEventListener('pagehide', function () { S._quitte = true; noterFil(); noterBrouillon(); });
+window.addEventListener('beforeunload', function () { S._quitte = true; });
+window.addEventListener('pageshow', function (e) { if (e.persisted) S._quitte = false; });
 document.addEventListener('visibilitychange', function () { if (document.hidden) { noterFil(); noterBrouillon(); } });
 /* Après le premier rendu d’une conversation : renvoyer ce qui n’est jamais parti, relancer une réponse coupée. */
 function reprendreConv(n, commentaires, items) {
@@ -996,7 +1013,8 @@ function repondreVite(texte, envoiTom, images) {
   if (conv0) Reprise.ecrire('si_rapide', { id: marque, conv: conv0, texte: texte, t: Date.now() });
   var nettoyer = function () {
     if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null;
-    if ((Reprise.lire('si_rapide', {}) || {}).id === marque) mem.oter('si_rapide');
+    /* page qui se ferme ou se recharge : on garde la marque, la relance reprendra la réponse */
+    if (!S._quitte && (Reprise.lire('si_rapide', {}) || {}).id === marque) mem.oter('si_rapide');
   };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
   LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, images: images && images.length ? images : undefined }, function (txt) {
@@ -1025,7 +1043,7 @@ function repondreVite(texte, envoiTom, images) {
     return envoiTom.then(function () {
       var conv = conv0 || S.conv;
       if (!conv) throw new Error('sans conversation');
-      return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } });
+      return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } }).then(function (c) { Reprise.recent(conv, c); return c; });
     }).then(function () { return rafraichir(); });
   }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne('S’en occupe'); });
 }
@@ -1054,6 +1072,7 @@ function pomper() {
   p.then(function (res) {
     S.file.shift(); S.envoi = false;
     if (job.uid) Reprise.oter(job.uid);
+    if (conv && res && res.id) Reprise.recent(conv, res);
     var node = S.els[job.id];
     if (node) {
       delete S.els[job.id];
@@ -1613,7 +1632,7 @@ function vocalCouperMicro() {
   }
 }
 
-/* ---------- Appel vocal en arrière-plan (build 20261111-41) ----------
+/* ---------- Appel vocal en arrière-plan (build 20261111-42) ----------
    L’appel continue quand la fenêtre perd le focus, est cachée ou réduite : rien ne coupe le micro sur blur/hidden.
    - Minuteries fiables : un petit Worker cadence la détection de parole (100 ms) et l’attente des réponses,
      car le navigateur ralentit setTimeout/setInterval des onglets cachés (1 s, puis 1 min après 5 min sur Chrome).
