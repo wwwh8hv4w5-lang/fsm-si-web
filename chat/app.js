@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-51';
+var BUILD = '20261111-52';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -32,6 +32,69 @@ window.SI_rafraichir = function () { return rafraichir(); };
 window.SI_pret = function () { return S.ecran === 'home' || S.ecran === 'chat'; };
 window.SI_alerte = function (m) { alerte(m); };
 window.SI_notifActive = function (v) { S.notif = !!v; mem.ecrire('si_notif', v ? '1' : '0'); try { majCompteUI(); } catch (e) {} };
+/* Ligne d’état (build 52) : libellés via i18n, 16 langues, français en secours. */
+var ETAT_TXT = {
+  fr: { etatTravaille: 'Travaille dessus', etatPese: 'Pèse le pour et le contre', etatEcrit: 'En train d’écrire…' },
+  en: { etatTravaille: 'Working on it', etatPese: 'Weighing the options', etatEcrit: 'Writing…' },
+  es: { etatTravaille: 'Trabajando en ello', etatPese: 'Sopesando los pros y los contras', etatEcrit: 'Escribiendo…' },
+  de: { etatTravaille: 'Arbeitet daran', etatPese: 'Wägt Für und Wider ab', etatEcrit: 'Schreibt…' },
+  it: { etatTravaille: 'Ci sta lavorando', etatPese: 'Valuta il pro e il contro', etatEcrit: 'Sta scrivendo…' },
+  pt: { etatTravaille: 'Trabalhando nisso', etatPese: 'Pesa prós e contras', etatEcrit: 'Escrevendo…' },
+  nl: { etatTravaille: 'Werkt eraan', etatPese: 'Weegt de voors en tegens', etatEcrit: 'Aan het schrijven…' },
+  pl: { etatTravaille: 'Pracuje nad tym', etatPese: 'Rozważa za i przeciw', etatEcrit: 'Pisze…' },
+  sv: { etatTravaille: 'Jobbar på det', etatPese: 'Väger för- och nackdelar', etatEcrit: 'Skriver…' },
+  tr: { etatTravaille: 'Üzerinde çalışıyor', etatPese: 'Artıları ve eksileri tartıyor', etatEcrit: 'Yazıyor…' },
+  ru: { etatTravaille: 'Работает над этим', etatPese: 'Взвешивает плюсы и минусы', etatEcrit: 'Пишет…' },
+  uk: { etatTravaille: 'Працює над цим', etatPese: 'Зважує плюси і мінуси', etatEcrit: 'Пише…' },
+  ar: { etatTravaille: 'يعمل على ذلك', etatPese: 'يوازن بين الإيجابيات والسلبيات', etatEcrit: 'يكتب…' },
+  ja: { etatTravaille: '作業中', etatPese: '検討しています', etatEcrit: '入力中…' },
+  zh: { etatTravaille: '正在处理', etatPese: '权衡利弊', etatEcrit: '正在输入…' },
+  ko: { etatTravaille: '작업 중', etatPese: '장단점을 따지는 중', etatEcrit: '작성 중…' }
+};
+function langueUI() {
+  try {
+    if (window.SI_LANG && ETAT_TXT[window.SI_LANG]) return window.SI_LANG;
+    var m = /(?:^|;\s*)fsmsi_lang=([a-z]{2})(?:;|$)/.exec(document.cookie || '');
+    if (m && ETAT_TXT[m[1]]) return m[1];
+    var list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language];
+    for (var i = 0; i < list.length; i++) {
+      var b = String(list[i] || '').split('-')[0].toLowerCase();
+      if (ETAT_TXT[b]) return b;
+    }
+  } catch (e) {}
+  return 'fr';
+}
+function t(cle) {
+  if (typeof window.SI_T === 'function') { var x = window.SI_T(cle); if (x && x !== cle) return x; }
+  var code = langueUI();
+  if (window.I18N) return (I18N[code] && I18N[code][cle]) || (I18N.fr && I18N.fr[cle]) || (ETAT_TXT.fr && ETAT_TXT.fr[cle]) || cle;
+  return (ETAT_TXT[code] && ETAT_TXT[code][cle]) || ETAT_TXT.fr[cle] || cle;
+}
+function libelleEtat(phase) {
+  if (phase === 'pese') return t('etatPese');
+  if (phase === 'ecrit') return t('etatEcrit');
+  return t('etatTravaille');
+}
+function mouvementReduit() {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+}
+function animerFil(duree) {
+  var fil = $('fil');
+  if (!fil) return;
+  var from = fil.scrollTop;
+  var dest = function () { return Math.max(0, fil.scrollHeight - fil.clientHeight); };
+  if (mouvementReduit() || !duree) { fil.scrollTop = dest(); majScrollBtn(); return; }
+  if (S._filAnim) cancelAnimationFrame(S._filAnim);
+  var t0 = performance.now();
+  var ease = function (x) { return 1 - Math.pow(1 - x, 3); };
+  function tick(now) {
+    var p = Math.min(1, (now - t0) / duree);
+    fil.scrollTop = from + (dest() - from) * ease(p);
+    if (p < 1) S._filAnim = requestAnimationFrame(tick);
+    else { S._filAnim = 0; majScrollBtn(); }
+  }
+  S._filAnim = requestAnimationFrame(tick);
+}
 /* ---------- Reprise à la relance (build 20261111-34) ----------
    Boîte d’envoi locale (si_boite), brouillon par conversation (si_brouillon:<n>), position du fil (si_fil:<n>),
    écran ouvert (si_ecran) et réponse rapide en cours (si_rapide). Tout reste dans ce navigateur. */
@@ -420,11 +483,21 @@ function majFil(items) {
     }
     var node = S.els[it.cle];
     if (!node) {
+      var rapide = (it.genre === 'tx') ? fil.querySelector('.msg.rapide') : null;
+      if (rapide && !rapide.dataset.cle) {
+        /* la bulle déjà montrée par la voie rapide : on la reprend, sans doublon ni 2e animation */
+        node = S.els[it.cle] = rapide;
+        rapide.classList.remove('rapide', 'neuf');
+        rapide.dataset.cle = it.cle;
+        node._neuf = false;
+        if (ancre === rapide) ancre = fil.querySelector('.msg.local, .msg.rapide');
+      } else {
       node = S.els[it.cle] = document.createElement('article');
       if (S.pret) node._neuf = true;
       if (ancre) fil.insertBefore(node, ancre); else fil.appendChild(node);
       ajout = true;
-      if (S.pret && it.genre === 'tx') {
+      }
+      if (S.pret && it.genre === 'tx' && !rapide) {
         if (S.modeVocal) vocalSurReponse(it);
         else if (S.voix && it.corps.indexOf('<!-- fsm-laura') < 0) dire(textePourVoix(it.corps));
       }
@@ -650,8 +723,13 @@ function rafraichir() {
 }
 function boucle() {
   clearTimeout(S.minuteur); arreterTic(S.minuteur);
-  /* en appel vocal, la conversation continue même fenêtre cachée ou sans focus */
-  if (!S.jeton || (document.hidden && !S.modeVocal)) return;
+  if (!S.jeton) return;
+  /* iOS / appli installée : au lancement, document.hidden peut être vrai.
+     choisir() a déjà vidé le fil et affiché le chat : il faut quand même
+     charger l'historique. On ne saute que le sondage de fond, une fois l'histoire à l'écran.
+     L'appel vocal continue même fenêtre cachée. */
+  var histoireDue = !!(S.conv && !estLocal() && !S.pret);
+  if (document.hidden && !S.modeVocal && !histoireDue) return;
   /* une seule tournée à la fois : pas d’empilement de requêtes ni de rendus */
   if (S._tourne) { S._rejouer = true; return; }
   S._tourne = true; S._rejouer = false;
@@ -689,7 +767,7 @@ function noterBrouillon() {
 $('texte').addEventListener('input', noterBrouillon);
 window.addEventListener('pagehide', function () { S._quitte = true; noterFil(); noterBrouillon(); });
 window.addEventListener('beforeunload', function () { S._quitte = true; });
-window.addEventListener('pageshow', function (e) { if (e.persisted) S._quitte = false; });
+window.addEventListener('pageshow', function (e) { S._quitte = false; if (e.persisted || !document.hidden) boucle(); });
 document.addEventListener('visibilitychange', function () { if (document.hidden) { noterFil(); noterBrouillon(); } });
 /* Après le premier rendu d’une conversation : renvoyer ce qui n’est jamais parti, relancer une réponse coupée. */
 function reprendreConv(n, commentaires, items) {
@@ -720,7 +798,6 @@ function reprendreConv(n, commentaires, items) {
 /* ---------- Statut Actions ---------- */
 /* Ligne d’état en direct (comme Grok Bot) : points gris animés + ce que Laura fait, court et en français.
    L’étape réelle du robot (commentaire de progression) d’abord ; sinon des libellés qui évoluent avec le temps. */
-var LIBELLES_TRAVAIL = ['En train d’écrire…', 'Gère la situation', 'Pèse le pour et le contre', 'En train d’écrire…', 'Progresse'];
 function libelleEtape(l) {
   var t = String(l || '').replace(/^[-*\s]+/, '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{2190}-\u{21FF}]/gu, '').trim();
   var low = t.toLowerCase(), outil = (t.split('·')[1] || '').trim().toLowerCase();
@@ -740,19 +817,12 @@ function noterProgres(corps, quand) {
   var t = Date.parse(quand || '') || 0;
   if (lib && Date.now() - t < 120000) S._progres = { label: lib, t: Date.now() };
 }
-function libelleTravail() {
-  if (S._progres && Date.now() - S._progres.t < 60000) return S._progres.label;
-  var i = Math.floor((Date.now() - (S._travailDebut || Date.now())) / 4500) % LIBELLES_TRAVAIL.length;
-  return LIBELLES_TRAVAIL[i];
-}
+function libelleTravail() { return libelleEtat('travail'); }
 function etatLigne(txt) {
   txt = String(txt || '');
-  if (txt === 'S’en occupe') {
-    if (!S._travailDebut) S._travailDebut = Date.now();
-    S._etatGen = true;
-    txt = libelleTravail();
-    if (!S._travailTic) S._travailTic = setInterval(function () { if (S._etatGen && !$('typing').hidden) etatLigneBrut(libelleTravail()); }, 1500);
-  } else { S._etatGen = false; }
+  if (txt === 'S’en occupe' || txt === 'travail') txt = libelleEtat('travail');
+  else if (txt === 'pese') txt = libelleEtat('pese');
+  else if (txt === 'ecrit' || txt === 'S’en occupe…') txt = libelleEtat('ecrit');
   if (!txt) { clearInterval(S._travailTic); S._travailTic = 0; S._travailDebut = 0; S._progres = null; S._etatGen = false; }
   etatLigneBrut(txt);
 }
@@ -777,21 +847,18 @@ function etatLigneBrut(txt) {
   if (S.runEtat === txt) { placeScrollDown(); return; }
   S.runEtat = txt;
   if (!stack) { placeScrollDown(); return; }
-  var cur = stack.querySelector('em.cur');
-  if (cur && cur.textContent === txt) { placeScrollDown(); return; }
-  Array.prototype.forEach.call(stack.querySelectorAll('em.out'), function (n) { n.remove(); });
-  if (cur) {
-    /* fondu par classe seulement : pas de reflow forcé, pas de toucher au composer */
-    cur.classList.remove('cur');
-    cur.classList.add('out');
-    cur.removeAttribute('id');
-    S._etatT = setTimeout(function () { if (cur.parentNode) cur.remove(); }, 240);
+  var cur = stack.querySelector('em.cur') || stack.querySelector('em');
+  if (!cur) {
+    cur = document.createElement('em');
+    cur.id = 'typingText';
+    cur.className = 'cur';
+    stack.appendChild(cur);
   }
-  var neu = document.createElement('em');
-  neu.id = 'typingText';
-  neu.className = 'cur';
-  neu.textContent = txt;
-  stack.appendChild(neu);
+  /* échange instantané, sans fondu (relevé Grok Bot) */
+  Array.prototype.forEach.call(stack.querySelectorAll('em.out'), function (n) { n.remove(); });
+  cur.id = 'typingText';
+  cur.className = 'cur';
+  cur.textContent = txt;
   placeScrollDown();
 }
 function etatActions() {
@@ -820,12 +887,9 @@ function etatActions() {
       });
       var nom = ((step && step.name) || (job && job.name) || '').trim();
       var low = nom.toLowerCase();
-      if (/écrit|ecrit|write|reply|répond|repond|comment|message/i.test(low)) etatLigne('S’en occupe');
-      else if (/assemble|pièce|piece/i.test(low)) etatLigne('Assemble les pièces');
-      else if (/pas à pas|pas a pas|step by step|avance/i.test(low)) etatLigne('Avance pas à pas');
-      else if (nom && /^[\wÀ-ÿ’' .:-]{3,60}$/.test(nom) && /[àâéèêëîïôùûçÀ-ÿ ]/.test(nom)) etatLigne(nom);
-      else etatLigne('Exécute quelques commandes');
-    }).catch(function () { etatLigne('Exécute quelques commandes'); });
+      if (/écrit|ecrit|write|reply|répond|repond|comment|message/i.test(low)) etatLigne('ecrit');
+      else etatLigne('travail');
+    }).catch(function () { etatLigne('travail'); });
   }).catch(function () {
     if (S.attente) etatLigne('S’en occupe');
   });
@@ -891,22 +955,17 @@ function envoyer(texte, opts) {
     }).slice(-16);
     if (window.LauraRapide && S.jeton) {
       var node = null;
+      etatLigne('travail');
       return LauraRapide.discuter(S.jeton, { messages: hist, mode: window.LauraMode ? LauraMode.actif() : 'fsmsi' }, function (txt) {
         if (S.conv !== id) return;
-        if (!node) {
-          node = document.createElement('article'); node.className = 'msg bot rapide neuf';
-          node.innerHTML = '<div class="bubble"></div>';
-          $('fil').appendChild(node);
-        }
-        node.querySelector('.bubble').innerHTML = rendre(String(txt || '').replace(/\[\[TACHE\]\]/g, ''));
-        var fil = $('fil');
-        if (fil.scrollHeight - fil.scrollTop - fil.clientHeight < 240) fil.scrollTop = fil.scrollHeight;
-      }).then(function (r) {
+        etatLigne('ecrit');
+        /* pas de défilement mot à mot : on attend la réponse complète */
+      }, function (phase) { if (phase === 'outil') etatLigne('travail'); }).then(function (r) {
         var txt = String((r && r.texte) || '').replace(/\[\[TACHE\]\]/g, '').trim();
-        if (node && node.parentNode) node.remove();
+        if (txt) node = afficherReponseComplete(txt);
         if (txt && window.CreateBot) CreateBot.ajouterMsg(id, 'tx', txt);
         if (window.CreateBot) return CreateBot.rafraichir();
-      }).catch(function () { if (node && node.parentNode) node.remove(); });
+      }).then(function () { if (node && node.parentNode && node.classList.contains('rapide')) { /* CreateBot.rafraichir reprend la bulle si possible */ } }, function () { if (node && node.parentNode && node.classList.contains('rapide') && !node.dataset.cle) node.remove(); etatLigne(''); });
     }
     return Promise.resolve();
   }
@@ -1007,6 +1066,17 @@ function resumerAppel() {
     return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } });
   }).then(function () { return conv === S.conv ? rafraichir() : null; }).then(function () { prov.remove(); }, function () { prov.remove(); alerte('Résumé de l’appel non enregistré.'); });
 }
+function afficherReponseComplete(txt) {
+  etatLigne('');
+  var node = document.createElement('article');
+  node.className = 'msg bot rapide neuf';
+  node.innerHTML = '<div class="bubble">' + rendre(String(txt || '').replace(/\[\[TACHE\]\]/g, '')) + '</div>';
+  if (window.GmailCarte) GmailCarte.cartes(node, String(txt || ''));
+  $('fil').appendChild(node);
+  S._rapideNode = node;
+  animerFil(mouvementReduit() ? 0 : 250);
+  return node;
+}
 function repondreVite(texte, envoiTom, images) {
   if (!window.LauraRapide || !S.jeton) return;
   var conv0 = S.conv;
@@ -1020,40 +1090,42 @@ function repondreVite(texte, envoiTom, images) {
   var marque = Reprise.uid();
   if (conv0) Reprise.ecrire('si_rapide', { id: marque, conv: conv0, texte: texte, t: Date.now() });
   var nettoyer = function () {
-    if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null;
+    /* ne retirer que si la bulle n'a pas déjà été reprise par majFil (sinon on efface la réponse officielle) */
+    if (node && node.parentNode && node.classList.contains('rapide') && !node.dataset.cle) node.remove();
+    if (S._rapideNode === node) S._rapideNode = null;
     /* page qui se ferme ou se recharge : on garde la marque, la relance reprendra la réponse */
     if (!S._quitte && (Reprise.lire('si_rapide', {}) || {}).id === marque) mem.oter('si_rapide');
   };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
+  etatLigne('travail');
+  if (S._etatPeseT) clearTimeout(S._etatPeseT);
+  S._etatPeseT = setTimeout(function () { if (!node && S.runEtat && !S.modeVocal) etatLigne('pese'); }, 1800);
   LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, conv: typeof conv0 === 'number' && conv0 > 0 ? conv0 : undefined, images: images && images.length ? images : undefined }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
     if (lect) lect.pousser(txt.replace(/\[\[TACHE\]\]/g, ''));
-    if (!node) {
-      node = document.createElement('article'); node.className = 'msg bot rapide neuf';
-      node.innerHTML = '<div class="bubble"></div>';
-      $('fil').appendChild(node); S._rapideNode = node; etatLigne('');
-    }
-    /* un rendu par image au plus, même si les jetons arrivent plus vite */
-    node._txt = txt;
-    if (!node._raf) node._raf = requestAnimationFrame(function () {
-      node._raf = 0;
-      node.querySelector('.bubble').innerHTML = rendre(String(node._txt || '').replace(/\[\[TACHE\]\]/g, ''));
-      if (window.GmailCarte) GmailCarte.cartes(node, String(node._txt || ''));
-      var fil = $('fil');
-      if (fil.scrollHeight - fil.scrollTop - fil.clientHeight < 240) fil.scrollTop = fil.scrollHeight;
-    });
+    if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; }
+    if (!S.modeVocal) etatLigne('ecrit');
+    /* pas de bulle mot à mot : le texte s'accumule, la bulle n'apparaît que complète */
+  }, function (phase) {
+    if (conv0 && S.conv !== conv0) return;
+    if (phase === 'outil') { if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; } etatLigne('travail'); }
   }).then(function (r) {
     window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
     if (lect) lect.finir();
     var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->' +
       '\n<!-- fsm-par: ' + (r.fin.mode === 'grok' || (!r.fin.mode && modeLaura === 'grok') ? 'grok' : 'fsmsi') + ' ' + String(r.fin.modele || '').replace(/[^\w./:-]/g, '') + ' -->';
     if (r.fin.tache) S._tacheEnCours = moiTxt.slice(0, 200);
+    if (!S.modeVocal && r.texte && r.texte.replace(/\[\[TACHE\]\]/g, '').trim()) {
+      node = afficherReponseComplete(r.texte.replace(/\[\[TACHE\]\]/g, '').trim());
+    } else {
+      etatLigne('');
+    }
     return envoiTom.then(function () {
       var conv = conv0 || S.conv;
       if (!conv) throw new Error('sans conversation');
       return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } }).then(function (c) { Reprise.recent(conv, c); return c; });
     }).then(function () { return rafraichir(); });
-  }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne('S’en occupe'); });
+  }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne('travail'); });
 }
 /* Crochets pour le PC de Tom (pc.js) : suite de Laura après une action validée, à l'écrit ou en appel. */
 window.FSMChat = {
@@ -2662,9 +2734,6 @@ $('expandBtn').onclick = function () { setFullCompose(!$('composer').classList.c
   var c = $('composer');
   c.addEventListener('touchstart', function (e) {
     full = c.classList.contains('full');
-    if (!full && !on) {
-      /* swipe up on composer to expand */
-    }
     if (!e.touches[0]) return;
     y0 = e.touches[0].clientY; on = true; c._dy = 0;
   }, { passive: true });
@@ -2672,13 +2741,13 @@ $('expandBtn').onclick = function () { setFullCompose(!$('composer').classList.c
     if (!on || !e.touches[0]) return;
     var dy = e.touches[0].clientY - y0;
     c._dy = dy;
+    /* un balayage vers le haut n'ouvre plus le composeur en plein écran
+       (c'était la cause : dy < -40 → setFullCompose(true), #composer.full en inset:0). */
     if (c.classList.contains('full') && dy > 0) {
       var p = Math.min(1, dy / 280);
       c.style.transform = 'translateY(' + dy * 0.6 + 'px) scale(' + (1 - 0.08 * p) + ')';
       c.style.borderRadius = (16 * p) + 'px';
       $('chatView').style.filter = 'brightness(' + (0.5 + 0.5 * (1 - p)) + ')';
-    } else if (!c.classList.contains('full') && dy < -40) {
-      setFullCompose(true); on = false;
     }
   }, { passive: true });
   c.addEventListener('touchend', function () {

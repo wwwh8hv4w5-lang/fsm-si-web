@@ -2146,3 +2146,31 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 #notifCarte .nc-b { grid-column: 1 / -1; display: flex; gap: 8px; }
 #notifCarte .nc-b button { flex: 1; border: 0; border-radius: 12px; padding: 11px; font: inherit; font-weight: 600; cursor: pointer; background: #2a2a2a; color: #ececec; }
 #notifCarte .nc-b .nc-oui { background: #C24E00; color: #fff; }
+
+
+/* ===== Build 20261111-52 : apparition des réponses comme Grok Bot ===== */
+/* Ligne d’état : texte gris clair semi-transparent, échange instantané (pas de fondu). */
+.typing-stack em.out { display: none !important; transition: none !important; }
+.typing-stack em.cur { animation: none !important; transition: none !important; }
+#typing .typing-stack em,
+#typing em,
+#typing .typing-stack em.cur {
+  color: rgba(235, 235, 245, 0.45) !important;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  animation: none !important;
+  transition: none !important;
+}
+/* Réponse du bot : la bulle complète apparaît d’un coup (fondu + glissement 14 px, 250 ms, ease-out).
+   L’historique (.msg sans .neuf) n’est jamais animé. */
+.msg.bot.neuf {
+  animation: reply-in .25s ease-out both;
+}
+@keyframes reply-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg.bot.neuf { animation: none !important; }
+}
