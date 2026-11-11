@@ -7,7 +7,7 @@ var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsm
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
 
-function discuter(jeton, corps, surTexte) {
+function discuter(jeton, corps, surTexte, surEtat) {
   var t0 = performance.now(), premier = 0;
   var ctl = new AbortController();
   var minuteur = setTimeout(function () { ctl.abort(); }, 12000); /* aucun mot en 12 s : on laisse le robot répondre */
@@ -32,8 +32,9 @@ function discuter(jeton, corps, surTexte) {
           var bloc = buf.slice(0, i); buf = buf.slice(i + 2);
           var l = bloc.replace(/^data:\s*/, '');
           var j; try { j = JSON.parse(l); } catch (e) { continue; }
+          if (j.outil && typeof surEtat === 'function') surEtat('outil', j.outil);
           if (j.t) {
-            if (!premier) { premier = performance.now() - t0; clearTimeout(minuteur); }
+            if (!premier) { premier = performance.now() - t0; clearTimeout(minuteur); if (typeof surEtat === 'function') surEtat('ecrit'); }
             txt += j.t; surTexte(txt);
           }
           if (j.fin) fin = j;
