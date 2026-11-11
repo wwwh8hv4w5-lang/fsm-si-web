@@ -12,9 +12,17 @@ var RE_CAPTURE = /^https:\/\/fsm-si-bureau\.fsmdev66\.workers\.dev\/capture\/([0
 /* Portail FSM HUB (laura.fsmsibot.app) : plus de jeton dans le navigateur, la session est un cookie HttpOnly.
    L'écran passe alors par le même hôte (/bureau/*, relayé par le proxy) ; le flux VNC reste direct avec un ticket signé. */
 var MEME_ORIGINE = /^(laura\.fsmsibot\.app|fsm-si-proxy\.fsmdev66\.workers\.dev)$/.test(location.hostname) && !(function () { try { return localStorage.getItem('si_bureau'); } catch (e) { return ''; } })();
-var API = MEME_ORIGINE ? location.origin + '/bureau' : BUREAU;
-function entetes(j) { var h = { 'Content-Type': 'application/json' }; j = j || jetonCourant; if (j && j !== 'cookie') h.Authorization = 'Bearer ' + j; return h; }
-function versApi(u) { var m = RE_CAPTURE.exec(u) || (u.indexOf(BUREAU + '/capture/') === 0 ? [u, u.slice((BUREAU + '/capture/').length)] : null); return MEME_ORIGINE && m ? API + '/capture/' + m[1] : u; }
+/* FSM SI BOT : window.SI_ORDI = { api: location.origin + '/bot/bureau', nom: fn|texte, besoin, fini } — l'ordinateur du membre
+   (fsm-si-bureau-bot, relayé par le proxy avec la session du membre). Sans SI_ORDI, rien ne change pour LAURA. */
+var CFG = window.SI_ORDI || {};
+var API = CFG.api ? String(CFG.api).replace(/\/+$/, '') : MEME_ORIGINE ? location.origin + '/bureau' : BUREAU;
+function cfgTexte(k, def) { var v = CFG[k]; try { if (typeof v === 'function') v = v(); } catch (x) { v = ''; } return v ? String(v) : def; }
+function nomOrdi() { return cfgTexte('nom', 'Ordinateur de Laura'); }
+function entetes(j) { var h = { 'Content-Type': 'application/json' }; j = j || jetonCourant; if (j && j !== 'cookie' && !CFG.api) h.Authorization = 'Bearer ' + j; return h; }
+function versApi(u) {
+  if (CFG.api) { var b = /\/capture\/([0-9a-f]{32})(?:[?#].*)?$/.exec(String(u || '')); return b ? API + '/capture/' + b[1] : u; }
+  var m = RE_CAPTURE.exec(u) || (u.indexOf(BUREAU + '/capture/') === 0 ? [u, u.slice((BUREAU + '/capture/').length)] : null); return MEME_ORIGINE && m ? API + '/capture/' + m[1] : u;
+}
 var jetonCourant = null, envoyerCourant = null;
 var NOVNC = null;
 function novnc() {
@@ -23,6 +31,7 @@ function novnc() {
   return NOVNC;
 }
 function $(id) { return document.getElementById(id); }
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function e(n, c, t) { var x = document.createElement(n); if (c) x.className = c; if (t != null) x.textContent = t; return x; }
 function api(chemin, o) {
   o = o || {};
@@ -104,7 +113,7 @@ function ouvrir(o) {
   var root = e('div'); root.id = 'ordi';
   root.innerHTML =
     '<div class="oh"><button class="ob" data-a="fermer" aria-label="Retour">' + ICO.back + '</button>' +
-    '<div class="ot"><b>Ordinateur de Laura</b><small class="oetat">Connexion…</small></div>' +
+    '<div class="ot"><b>' + esc(nomOrdi()) + '</b><small class="oetat">Connexion…</small></div>' +
     '<button class="ob" data-a="aide" aria-label="Aide">' + ICO.aide + '</button></div>' +
     '<div class="os"><div class="oz"><div class="ovnc"></div></div>' +
     '<svg class="curseur" viewBox="0 0 18 18"><path d="M2 2l12 5-5 2-2 5z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>' +
@@ -221,7 +230,7 @@ function finiAide() {
   api('/aide/fini', { body: {} }).catch(function () {});
   try { localStorage.setItem('si_ordi_aide_fini', String(Date.now())); } catch (x) {}
   Array.prototype.forEach.call(document.querySelectorAll('.si-ordi'), function (c) { marquerCarte(c); });
-  if (envoyerCourant) envoyerCourant('C’est fait, je t’ai rendu la main sur ton ordinateur.');
+  if (envoyerCourant) envoyerCourant(cfgTexte('fini', 'C’est fait, je t’ai rendu la main sur ton ordinateur.'));
 }
 function fermer(sansHistorique) {
   if (!V) return;
@@ -503,9 +512,9 @@ function bulleAide(btn) {
 /* ---------- Profil : statut et vignette en direct ---------- */
 function vignette(conteneur, jeton, valEl) {
   style(); if (jeton) jetonCourant = jeton;
-  var box = e('div', 'ordi-vig'); box.setAttribute('role', 'button'); box.setAttribute('aria-label', 'Ouvrir l’ordinateur de Laura');
+  var box = e('div', 'ordi-vig'); box.setAttribute('role', 'button'); box.setAttribute('aria-label', 'Ouvrir : ' + nomOrdi());
   var badge = e('div', 'badge'); badge.innerHTML = '<i></i><span>…</span>';
-  box.appendChild(e('div', 'vide', 'Ordinateur de Laura'));
+  box.appendChild(e('div', 'vide', nomOrdi()));
   box.appendChild(badge);
   conteneur.appendChild(box);
   box.onclick = function () { arreter(); ouvrir({ jeton: jetonCourant }); };
@@ -542,7 +551,7 @@ function marquerCarte(c) {
   if (c._fait) return; c._fait = true;
   try { var f = JSON.parse(localStorage.getItem('si_cartes_faites') || '{}'); f[c._cle] = Date.now(); localStorage.setItem('si_cartes_faites', JSON.stringify(f)); } catch (x) {}
   var b = c.querySelector('.bts'); if (b) b.remove();
-  c.appendChild(e('div', 'ok', '✓ C’est fait, Laura reprend'));
+  c.appendChild(e('div', 'ok', cfgTexte('reprend', '✓ C’est fait, Laura reprend')));
 }
 function cartes(node, corps, o) {
   var l = specs(corps); if (!l.length) return;
@@ -552,7 +561,7 @@ function cartes(node, corps, o) {
   l.forEach(function (s, i) {
     var c = e('div', 'si-ordi'); c._cle = (o.cle || '') + ':ordi:' + i;
     ['click', 'touchstart', 'touchend', 'mousedown', 'contextmenu'].forEach(function (t) { c.addEventListener(t, function (ev) { ev.stopPropagation(); }); });
-    c.appendChild(e('h5', '', '🖥 Laura a besoin de toi sur son ordinateur'));
+    c.appendChild(e('h5', '', cfgTexte('besoin', '🖥 Laura a besoin de toi sur son ordinateur')));
     if (s.message) c.appendChild(e('p', '', s.message));
     var faits = {}; try { faits = JSON.parse(localStorage.getItem('si_cartes_faites') || '{}'); } catch (x) {}
     if (faits[c._cle]) { c.appendChild(e('div', 'ok', '✓ C’est fait')); bulle.appendChild(c); return; }
