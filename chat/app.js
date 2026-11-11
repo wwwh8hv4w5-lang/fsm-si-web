@@ -48,7 +48,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-64';
+var BUILD = '20261111-65';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -4347,22 +4347,61 @@ $('loginForm').addEventListener('keydown', function (e) {
 
 if ('serviceWorker' in navigator) {
   var _swRelu = false;
-  navigator.serviceWorker.addEventListener('controllerchange', function () {
+  /* build 63 : mises à jour de l’appli Windows (cause racine). L’appli FSM SI pour PC (Tauri/WebView2) reste ouverte des jours :
+     « fermer » ne fait que la ranger dans la barre des tâches, et masquer/afficher la fenêtre ne change pas document.hidden dans
+     WebView2 (Tauri masque la fenêtre, pas le contrôleur WebView2). La seule vérification (au chargement + visibilitychange) ne
+     repassait donc jamais : la page restait sur l’ancienne version jusqu’à un « Quitter » complet. Désormais on vérifie aussi au
+     focus, au retour du réseau, au retour d’arrière-plan et toutes les 10 min ; le rechargement attend que Tom n’écrive pas,
+     n’envoie pas et ne soit pas en appel. */
+  var _majOccupe = function () {
+    var t = document.getElementById('texte');
+    return !!(S.modeVocal || S.envoi || (t && t.value && t.value.trim()));
+  };
+  var _majRecharger = function () {
+    if (_majOccupe()) {
+      if (S.modeVocal) { S._rechargerApresAppel = true; return; }
+      setTimeout(_majRecharger, 5000);
+      return;
+    }
+    location.reload();
+  };
+  /* build 63 : 2e cause racine. L’ancien garde-fou (« déjà rechargé pour CE build », sessionStorage) bloquait toute mise à jour
+     suivante dans la même fenêtre : à chaque ouverture de l’appli Windows, la page arrive déjà neuve, le nouveau service worker
+     prend la main → rechargement → garde = ce build ; à la version d’après, même build de page → plus jamais de rechargement.
+     Désormais : pas de rechargement si la page n’était contrôlée par aucun service worker (elle vient du réseau, donc déjà neuve),
+     et l’anti-boucle est un délai (pas deux rechargements en moins de 20 s). */
+  var _swAvait = !!navigator.serviceWorker.controller;
+  var _swChange = function () {
     if (_swRelu) return;
     try {
-      if (sessionStorage.getItem('si_sw_reloaded') === BUILD) return;
-      sessionStorage.setItem('si_sw_reloaded', BUILD);
+      var dern = Number(sessionStorage.getItem('si_sw_reloaded_t') || 0), ecart = Date.now() - dern;
+      /* rechargé il y a moins de 20 s : on attend la fin du délai au lieu d’abandonner la mise à jour */
+      if (ecart >= 0 && ecart < 20000) { setTimeout(_swChange, 20000 - ecart + 50); return; }
+      sessionStorage.setItem('si_sw_reloaded_t', String(Date.now()));
     } catch (err) {}
     _swRelu = true;
-    /* jamais de rechargement en plein appel vocal (il couperait le micro et la conversation) */
-    if (S.modeVocal) { S._rechargerApresAppel = true; return; }
-    location.reload();
+    /* jamais de rechargement en plein appel vocal (il couperait le micro et la conversation), ni en pleine saisie */
+    _majRecharger();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!_swAvait) { _swAvait = true; return; }
+    _swChange();
   });
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(function (reg) {
-    try { reg.update(); } catch (err) {}
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) try { reg.update(); } catch (err) {}
-    });
+    var dernier = 0;
+    var verifier = function () {
+      var t = Date.now();
+      if (t - dernier < 60000) return;
+      dernier = t;
+      try { reg.update().catch(function () {}); } catch (err) {}
+    };
+    verifier();
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) verifier(); });
+    window.addEventListener('focus', verifier);
+    window.addEventListener('online', verifier);
+    window.addEventListener('pageshow', function (e) { if (e.persisted) verifier(); });
+    setInterval(verifier, 10 * 60 * 1000);
+    window.SI_verifierMaj = function () { dernier = 0; verifier(); };
   }).catch(function () {});
 }
 /* build 49 : notification touchée → ouvrir sa conversation ; abonnement push rafraîchi à l'ouverture */
