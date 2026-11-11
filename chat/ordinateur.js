@@ -9,6 +9,12 @@
 'use strict';
 var BUREAU = (function () { try { return localStorage.getItem('si_bureau') || ''; } catch (e) { return ''; } })() || 'https://fsm-si-bureau.fsmdev66.workers.dev';
 var RE_CAPTURE = /^https:\/\/fsm-si-bureau\.fsmdev66\.workers\.dev\/capture\/([0-9a-f]{32})$/;
+/* Portail FSM HUB (laura.fsmsibot.app) : plus de jeton dans le navigateur, la session est un cookie HttpOnly.
+   L'écran passe alors par le même hôte (/bureau/*, relayé par le proxy) ; le flux VNC reste direct avec un ticket signé. */
+var MEME_ORIGINE = /^(laura\.fsmsibot\.app|fsm-si-proxy\.fsmdev66\.workers\.dev)$/.test(location.hostname) && !(function () { try { return localStorage.getItem('si_bureau'); } catch (e) { return ''; } })();
+var API = MEME_ORIGINE ? location.origin + '/bureau' : BUREAU;
+function entetes(j) { var h = { 'Content-Type': 'application/json' }; j = j || jetonCourant; if (j && j !== 'cookie') h.Authorization = 'Bearer ' + j; return h; }
+function versApi(u) { var m = RE_CAPTURE.exec(u) || (u.indexOf(BUREAU + '/capture/') === 0 ? [u, u.slice((BUREAU + '/capture/').length)] : null); return MEME_ORIGINE && m ? API + '/capture/' + m[1] : u; }
 var jetonCourant = null, envoyerCourant = null;
 var NOVNC = null;
 function novnc() {
@@ -20,7 +26,7 @@ function $(id) { return document.getElementById(id); }
 function e(n, c, t) { var x = document.createElement(n); if (c) x.className = c; if (t != null) x.textContent = t; return x; }
 function api(chemin, o) {
   o = o || {};
-  return fetch(BUREAU + chemin, { method: o.method || (o.body ? 'POST' : 'GET'), headers: { Authorization: 'Bearer ' + (o.jeton || jetonCourant), 'Content-Type': 'application/json' }, body: o.body ? JSON.stringify(o.body) : undefined })
+  return fetch(API + chemin, { method: o.method || (o.body ? 'POST' : 'GET'), credentials: 'same-origin', headers: entetes(o.jeton), body: o.body ? JSON.stringify(o.body) : undefined })
     .then(function (r) { if (o.brut) { if (!r.ok) throw new Error('bureau ' + r.status); return r.blob(); } return r.json().then(function (d) { if (!r.ok) throw new Error(d && d.erreur || 'bureau ' + r.status); return d; }); });
 }
 function etat(jeton) { if (jeton) jetonCourant = jeton; return api('/etat'); }
@@ -30,7 +36,7 @@ var blobs = {};
 function estCapture(u) { u = String(u || '').replace(/&amp;/g, '&'); return RE_CAPTURE.test(u) || (BUREAU !== 'https://fsm-si-bureau.fsmdev66.workers.dev' && u.indexOf(BUREAU + '/capture/') === 0) ? u : ''; }
 function image(u, jeton) {
   if (jeton) jetonCourant = jeton;
-  if (!blobs[u]) blobs[u] = fetch(u, { headers: { Authorization: 'Bearer ' + jetonCourant } }).then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'Capture expirée' : 'Capture indisponible'); return r.blob(); }).then(function (b) { return URL.createObjectURL(b); });
+  if (!blobs[u]) blobs[u] = fetch(versApi(u), { credentials: 'same-origin', headers: entetes() }).then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'Capture expirée' : 'Capture indisponible'); return r.blob(); }).then(function (b) { return URL.createObjectURL(b); });
   blobs[u].catch(function () { delete blobs[u]; });
   return blobs[u];
 }
