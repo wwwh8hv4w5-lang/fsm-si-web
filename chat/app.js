@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-20';
+var BUILD = '20261111-21';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -1095,7 +1095,7 @@ function onde(stream) {
       if (!S._wave) { ac.close && ac.close(); return; }
       an.getByteTimeDomainData(data);
       ctx.clearRect(0, 0, cv.width, cv.height);
-      ctx.strokeStyle = '#F25C05'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.strokeStyle = '#C24E00'; ctx.lineWidth = 2; ctx.beginPath();
       var sl = cv.width / data.length;
       for (var i = 0; i < data.length; i++) {
         var y = (data[i] / 255) * cv.height;
@@ -2249,6 +2249,9 @@ function resetCard() {
   c.classList.remove('carding');
   c.style.transform = '';
   c.style.borderRadius = '';
+  if ($('home')) { $('home').style.transform = ''; $('home').classList.remove('sous-chat'); Array.prototype.forEach.call($('home').querySelectorAll('.home-top, .home-bottom'), function (b) { b.style.opacity = ''; }); }
+  if ($('backBtn')) $('backBtn').style.transform = '';
+  if ($('chatWho')) { $('chatWho').style.transform = ''; $('chatWho').style.opacity = ''; }
   c.style.opacity = '';
   if ($('backBtn')) $('backBtn').style.opacity = '';
   if ($('menuBtn')) $('menuBtn').style.opacity = '';
@@ -2315,40 +2318,35 @@ function mesurerCarte() {
 }
 window.addEventListener('resize', function () { S._carteR = null; });
 function appliquerCarte(p) {
+  /* Glissement iOS comme Grok Bot : le chat se translate d’un bloc (pas d’échelle),
+     l’accueil suit dessous avec une parallaxe de 30 % (relevé image par image sur la vidéo de Tom). */
   p = Math.max(0, Math.min(1, Number(p) || 0));
   S._cardP = p;
-  var c = $('chatView');
+  var c = $('chatView'), h = $('home');
   if (!c) return p;
   if (c.hidden) c.hidden = false;
-  if ($('home').hidden) $('home').hidden = false;
+  if (h && h.hidden) h.hidden = false;
   var on = p > 0.001;
-  if (c._carding !== on) { c._carding = on; c.classList.toggle('carding', on); if (on) S._carteR = mesurerCarte(); }
-  var r = S._carteR || (on ? (S._carteR = mesurerCarte()) : null);
-  var w = (r && r.w) || c.offsetWidth || 390;
-  var scale = lerp(1, 0.85, p);
-  var x = p * w * 0.22;
-  c.style.transform = 'translate3d(' + x + 'px,0,0) scale(' + scale + ')';
-  if ($('backBtn')) $('backBtn').style.opacity = String(1 - p);
-  if ($('menuBtn')) $('menuBtn').style.opacity = String(1 - p);
-  var morph = $('morph'), av = $('morphAv'), nm = $('morphName');
-  if (r && morph && av && nm) {
-    if (morph.hidden) {
-      morph.hidden = false;
-      $('chatAv').style.opacity = '0'; $('chatName').style.opacity = '0';
-      $('homeAv').style.opacity = '0'; $('homeName').style.opacity = '0';
-      nm.style.opacity = '1';
-    }
-    var s = lerp(r.a0.width / r.a1.width, 1, p);
-    av.style.transform = 'translate3d(' + lerp(r.a0.left, r.a1.left, p) + 'px,' + lerp(r.a0.top, r.a1.top, p) + 'px,0) scale(' + s + ')';
-    nm.style.transform = 'translate3d(' + lerp(r.n0.left, r.n1.left, p) + 'px,' + lerp(r.n0.top, r.n1.top, p) + 'px,0)';
-    var court = p > 0.55;
-    if (nm._court !== court) { nm._court = court; nm.textContent = court ? 'Laura F.S.M · F...' : NOM; }
-  }
+  if (c._carding !== on) { c._carding = on; c.classList.toggle('carding', on); if (h) h.classList.toggle('sous-chat', on); }
+  var w = c.offsetWidth || window.innerWidth || 390;
+  S._carteR = S._carteR || { w: w };
+  c.style.transform = on ? 'translate3d(' + (p * w).toFixed(2) + 'px,0,0)' : '';
+  if (h) h.style.transform = on ? 'translate3d(' + (-0.3 * w * (1 - p)).toFixed(2) + 'px,0,0)' : '';
+  /* Comme la barre de navigation iOS de Grok Bot : le bouton retour reste en place et ne s’efface qu’à la fin,
+     les barres haut/bas de l’accueil n’apparaissent qu’en fin de geste. */
+  var fin = Math.max(0, (p - 0.85) / 0.15);
+  var bb = $('backBtn');
+  if (bb) { bb.style.transform = on ? 'translate3d(' + (-p * w).toFixed(2) + 'px,0,0)' : ''; bb.style.opacity = on ? String(1 - fin) : ''; }
+  var cw = $('chatWho');
+  if (cw) { cw.style.transform = on ? 'translate3d(' + (-0.5 * p * w).toFixed(2) + 'px,0,0)' : ''; cw.style.opacity = on ? String(1 - fin) : ''; }
+  var barres = h ? h.querySelectorAll('.home-top, .home-bottom') : [];
+  for (var i = 0; i < barres.length; i++) barres[i].style.opacity = on ? String(fin) : '';
+  if ($('morph')) $('morph').hidden = true;
   return p;
 }
 function fermerChatMorph() {
   var start = Math.max(0, Math.min(1, S._cardP || 0));
-  spring(start, 1, 14, appliquerCarte, function () {
+  spring(start, 1, 20, appliquerCarte, function () {
     resetCard();
     $('chatView').hidden = true;
     if ($('homeAv')) $('homeAv').style.opacity = '';
@@ -2364,7 +2362,7 @@ function ouvrirChatMorph() {
   S.ecran = 'chat';
   themeColor('#141414');
   appliquerCarte(1);
-  spring(1, 0, 16, appliquerCarte, function () {
+  spring(1, 0, 22, appliquerCarte, function () {
     resetCard();
     $('chatView').hidden = false;
     setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 30);
@@ -2373,7 +2371,7 @@ function ouvrirChatMorph() {
 function revenirCarte() {
   var p = Math.max(0, Math.min(1, S._cardP || 0));
   if (p <= 0) { resetCard(); return; }
-  spring(p, 0, 16, appliquerCarte, function () { resetCard(); });
+  spring(p, 0, 22, appliquerCarte, function () { resetCard(); });
 }
 $('homeAvatar').addEventListener('click', function () {
   if (!S.jeton) return;
@@ -2434,7 +2432,7 @@ $('backBtn').addEventListener('click', function () { if (S.modeVocal) { fermerMo
     var dt = now - lastT;
     if (dt > 0) vx = (pt.x - lastX) / dt;
     lastX = pt.x; lastT = now;
-    var p = Math.max(0, Math.min(1, dx / ((S._carteR && S._carteR.w || chat.offsetWidth || 390) * 0.55)));
+    var p = Math.max(0, Math.min(1, dx / (chat.offsetWidth || 390)));
     S._carteCible = p;
     if (!S._carteRaf) S._carteRaf = requestAnimationFrame(function () { S._carteRaf = 0; if (on) appliquerCarte(S._carteCible); });
   }
@@ -2453,7 +2451,7 @@ $('backBtn').addEventListener('click', function () { if (S.modeVocal) { fermerMo
     var pt = e ? pointerXY(e) : null;
     var dx = pt ? (pt.x - x0) : 0;
     var p = Math.max(0, Math.min(1, S._cardP || 0));
-    if (p > 0.28 || dx > 80 || vx > 0.65) fermerChatMorph();
+    if (p > 0.4 || vx > 0.5) fermerChatMorph();
     else revenirCarte();
     vx = 0;
   }
@@ -3422,5 +3420,94 @@ else montrerLogin('');
 window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '#fil .msg'); if (n) ouvrirMenu(n); }, fermer: fermerMenu };
 })();
 
+
+
+/* ---------- Appui long sur Laura (accueil) : aperçu + menu contextuel, comme Grok Bot ---------- */
+(function () {
+  var box = $('homeCtx'), btn = $('homeAvatar'), home = $('home');
+  if (!box || !btn) return;
+  var tm = 0, x0 = 0, y0 = 0, ouvert = false, bloqueClic = false;
+  function dernierTexteBot() {
+    var l = document.querySelectorAll('#fil .msg.bot');
+    for (var i = l.length - 1; i >= 0; i--) {
+      var t = (l[i].dataset.texte || (l[i].querySelector('.bubble') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+      if (t) return { t: t, n: l[i] };
+    }
+    return { t: 'Coucou, je suis là.', n: null };
+  }
+  function placer() {
+    var nb = $('newBtn').getBoundingClientRect();
+    box.style.setProperty('--hc-top', Math.round(nb.top + 31) + 'px');
+    var m = $('hcMenu'), so = $('hcSous');
+    so.style.top = (m.offsetTop + m.offsetHeight + 51 - so.offsetHeight) + 'px';
+  }
+  function ouvrir() {
+    if (ouvert || !S.jeton) return;
+    ouvert = true; bloqueClic = true;
+    hap();
+    $('hcBulle').textContent = dernierTexteBot().t;
+    box.classList.remove('plus', 'sortie', 'on');
+    $('hcPlus').setAttribute('aria-expanded', 'false');
+    box.hidden = false;
+    placer();
+    home.classList.remove('ctx-retour');
+    home.classList.add('ctx-on');
+    void box.offsetWidth;
+    requestAnimationFrame(function () { box.classList.add('on'); });
+  }
+  function fermer(apres) {
+    if (!ouvert) return;
+    ouvert = false; bloqueClic = false;
+    box.classList.add('sortie');
+    box.classList.remove('on');
+    home.classList.remove('ctx-on');
+    home.classList.add('ctx-retour');
+    setTimeout(function () {
+      box.hidden = true; box.classList.remove('sortie', 'plus');
+      home.classList.remove('ctx-retour');
+      if (apres) apres();
+    }, 260);
+  }
+  btn.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; bloqueClic = false;
+    clearTimeout(tm); tm = setTimeout(ouvrir, 450);
+  }, { passive: true });
+  btn.addEventListener('touchmove', function (e) {
+    var t = e.touches[0]; if (Math.abs(t.clientX - x0) + Math.abs(t.clientY - y0) > 10) clearTimeout(tm);
+  }, { passive: true });
+  btn.addEventListener('touchend', function (e) { clearTimeout(tm); if (bloqueClic && e.cancelable) e.preventDefault(); }, { passive: false });
+  btn.addEventListener('touchcancel', function () { clearTimeout(tm); }, { passive: true });
+  btn.addEventListener('contextmenu', function (e) { e.preventDefault(); clearTimeout(tm); ouvrir(); });
+  btn.addEventListener('click', function (e) { if (bloqueClic || ouvert) { e.stopImmediatePropagation(); e.preventDefault(); bloqueClic = false; } }, true);
+  box.addEventListener('click', function (e) { if (!e.target.closest('.hc-menu, .hc-sous')) fermer(); });
+  $('hcPlus').onclick = function () { placer(); box.classList.add('plus'); $('hcPlus').setAttribute('aria-expanded', 'true'); };
+  $('hcMoins').onclick = function () { box.classList.remove('plus'); $('hcPlus').setAttribute('aria-expanded', 'false'); };
+  $('hcUnread').onclick = function () {
+    var d = dernierTexteBot();
+    fermer(function () {
+      if (!d.n || !d.n.dataset.cle) { alerte('Aucun message de Laura à marquer.'); return; }
+      var map = lireJSON('si_nonlu', {}); map[d.n.dataset.cle] = 1; ecrireJSON('si_nonlu', map);
+      piedMessage(d.n, { cle: d.n.dataset.cle });
+      alerte('Dernier message de Laura marqué comme non lu.');
+    });
+  };
+  $('hcPin').onclick = function () { fermer(function () { alerte('Laura reste épinglée : c’est ton seul Bot dans FSM SI.'); }); };
+  $('hcReplace').onclick = function () { fermer(function () { alerte('Laura est le Bot principal de FSM SI. Aucun autre Bot à mettre à sa place pour l’instant.'); }); };
+  $('hcShare').onclick = function () { fermer(partagerConv); };
+  $('hcHide').onclick = function () { fermer(function () { alerte('Laura est ton Bot principal : elle reste affichée.'); }); };
+  $('hcCopyId').onclick = function () {
+    var v = (S.depot || '') + (S.conv ? '#' + S.conv : '');
+    fermer(function () {
+      var ok = function () { alerte('ID copié : ' + v); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok, function () { alerte(v); }); else alerte(v);
+    });
+  };
+  /* glisser vers le bas pour fermer */
+  var yd = null;
+  box.addEventListener('touchstart', function (e) { yd = e.touches[0].clientY; }, { passive: true });
+  box.addEventListener('touchend', function (e) { if (yd !== null && e.changedTouches[0] && e.changedTouches[0].clientY - yd > 60) fermer(); yd = null; }, { passive: true });
+  window.addEventListener('resize', function () { if (ouvert) placer(); });
+  window.__homeCtx = { ouvrir: ouvrir, fermer: fermer };
+})();
 
 })();
