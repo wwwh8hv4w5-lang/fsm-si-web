@@ -1456,7 +1456,7 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 .msg.react-espace { margin-bottom: 14px; }
 #fil { padding-bottom: 26px; }
 
-/* ===== Deux modes : Laura FSM SI / Laura · Grok (indice minimal) ===== */
+/* ===== Cerveau unique : Laura FSM SI (ancien indice de mode retiré) ===== */
 #chatView .topbar .who.pill .av .dot { transition: background-color .35s ease, transform .35s var(--ease-spring); }
 #chatView .topbar .who.pill .av.mode-grok .dot { background: #F2F2F7; }
 #chatView .topbar .who.pill .av.mode-flash .dot { transform: scale(1.25); }
