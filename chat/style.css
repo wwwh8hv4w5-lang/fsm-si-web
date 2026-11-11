@@ -1403,26 +1403,23 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 /* Tapbacks : pastille au coin bas-droit de la bulle, découpe noire, apparition instantanée */
 .msg .bubble { position: relative; }
 .react-pills {
-  position: absolute; right: -10px; bottom: -17px;
+  position: absolute; right: 6px; bottom: -20px;
   display: inline-flex; gap: 0; margin: 0;
   background: #2C2C2E;
   border: 2.5px solid #000;
   border-radius: 999px;
-  padding: 3px 6px;
+  padding: 4px 7px;
   line-height: 1;
   animation: none !important; transition: none !important;
   box-shadow: none;
   z-index: 1;
   pointer-events: none;
 }
-.msg.bot .react-pills { right: auto; left: calc(100% - 22px); }
+.msg.bot .react-pills { right: auto; left: calc(100% - 40px); }
 .react-pill {
   background: none; border-radius: 0; padding: 0 1px;
   font-size: 15px; line-height: 18px; display: inline-block;
 }
-.msg.has-react time { padding-right: 30px; }
-.msg.bot.has-react time { padding-right: 0; }
-.msg.has-react { margin-bottom: 6px; }
 
 /* Ligne d’état : fondu en opacité seulement, jamais de mise en page du champ */
 .typing-stack em.out { opacity: 0; transition: opacity .22s ease; }
@@ -1457,3 +1454,5 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 @media (prefers-reduced-motion: reduce) {
   .msg.neuf, .typing-stack em.cur { animation: none !important; }
 }
+.msg.react-espace { margin-bottom: 14px; }
+#fil { padding-bottom: 26px; }

@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-13';
+var BUILD = '20261111-14';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -367,6 +367,7 @@ function majFil(items) {
       }
     });
   }
+  majEspacesReact();
   if (ajout && (bas || !S.pret)) {
     if (S.pret) requestAnimationFrame(function () { fil.scrollTo({ top: fil.scrollHeight, behavior: 'smooth' }); });
     else fil.scrollTop = fil.scrollHeight;
@@ -374,6 +375,14 @@ function majFil(items) {
   majScrollBtn();
 }
 
+/* place sous une bulle réagie seulement quand un message la suit : l’arrivée d’un tapback ne bouge jamais le fil */
+function majEspacesReact() {
+  var l = document.querySelectorAll('#fil > .msg.has-react');
+  for (var i = 0; i < l.length; i++) {
+    var esp = !!l[i].nextElementSibling;
+    if (l[i]._esp !== esp) { l[i]._esp = esp; l[i].classList.toggle('react-espace', esp); }
+  }
+}
 /* ---------- Réactions (tapbacks) envoyées par Laura ---------- */
 var RE_REAGIR = /<!--\s*fsm-reagir:\s*(\S+)\s+([\s\S]*?)\s*-->/g;
 var GH_EMO = { heart: '❤️', '+1': '👍', '-1': '👎', laugh: '😄', hooray: '🎉', confused: '😕' };
@@ -629,6 +638,7 @@ function bulleLocale(texte) {
   fil.appendChild(node);
   S.els[id] = node;
   brancher(node);
+  majEspacesReact();
   requestAnimationFrame(function () { fil.scrollTop = fil.scrollHeight; majScrollBtn(); });
   return id;
 }
@@ -670,8 +680,14 @@ function repondreVite(texte, envoiTom) {
       node.innerHTML = '<div class="bubble"></div>';
       $('fil').appendChild(node); S._rapideNode = node; etatLigne('');
     }
-    node.querySelector('.bubble').innerHTML = rendre(txt.replace(/\[\[TACHE\]\]/g, ''));
-    var fil = $('fil'); fil.scrollTop = fil.scrollHeight;
+    /* un rendu par image au plus, même si les jetons arrivent plus vite */
+    node._txt = txt;
+    if (!node._raf) node._raf = requestAnimationFrame(function () {
+      node._raf = 0;
+      node.querySelector('.bubble').innerHTML = rendre(String(node._txt || '').replace(/\[\[TACHE\]\]/g, ''));
+      var fil = $('fil');
+      if (fil.scrollHeight - fil.scrollTop - fil.clientHeight < 240) fil.scrollTop = fil.scrollHeight;
+    });
   }).then(function (r) {
     window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
     var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->';
