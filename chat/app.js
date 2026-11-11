@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-57';
+var BUILD = '20261111-58';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -34,22 +34,22 @@ window.SI_alerte = function (m) { alerte(m); };
 window.SI_notifActive = function (v) { S.notif = !!v; mem.ecrire('si_notif', v ? '1' : '0'); try { majCompteUI(); } catch (e) {} };
 /* Ligne d’état (build 52) : libellés via i18n, 16 langues, français en secours. */
 var ETAT_TXT = {
-  fr: { etatTravaille: 'Travaille dessus', etatPese: 'Pèse le pour et le contre', etatEcrit: 'En train d’écrire…' },
-  en: { etatTravaille: 'Working on it', etatPese: 'Weighing the options', etatEcrit: 'Writing…' },
-  es: { etatTravaille: 'Trabajando en ello', etatPese: 'Sopesando los pros y los contras', etatEcrit: 'Escribiendo…' },
-  de: { etatTravaille: 'Arbeitet daran', etatPese: 'Wägt Für und Wider ab', etatEcrit: 'Schreibt…' },
-  it: { etatTravaille: 'Ci sta lavorando', etatPese: 'Valuta il pro e il contro', etatEcrit: 'Sta scrivendo…' },
-  pt: { etatTravaille: 'Trabalhando nisso', etatPese: 'Pesa prós e contras', etatEcrit: 'Escrevendo…' },
-  nl: { etatTravaille: 'Werkt eraan', etatPese: 'Weegt de voors en tegens', etatEcrit: 'Aan het schrijven…' },
-  pl: { etatTravaille: 'Pracuje nad tym', etatPese: 'Rozważa za i przeciw', etatEcrit: 'Pisze…' },
-  sv: { etatTravaille: 'Jobbar på det', etatPese: 'Väger för- och nackdelar', etatEcrit: 'Skriver…' },
-  tr: { etatTravaille: 'Üzerinde çalışıyor', etatPese: 'Artıları ve eksileri tartıyor', etatEcrit: 'Yazıyor…' },
-  ru: { etatTravaille: 'Работает над этим', etatPese: 'Взвешивает плюсы и минусы', etatEcrit: 'Пишет…' },
-  uk: { etatTravaille: 'Працює над цим', etatPese: 'Зважує плюси і мінуси', etatEcrit: 'Пише…' },
-  ar: { etatTravaille: 'يعمل على ذلك', etatPese: 'يوازن بين الإيجابيات والسلبيات', etatEcrit: 'يكتب…' },
-  ja: { etatTravaille: '作業中', etatPese: '検討しています', etatEcrit: '入力中…' },
-  zh: { etatTravaille: '正在处理', etatPese: '权衡利弊', etatEcrit: '正在输入…' },
-  ko: { etatTravaille: '작업 중', etatPese: '장단점을 따지는 중', etatEcrit: '작성 중…' }
+  fr: { etatTravaille: 'Travaille dessus', etatPese: 'Pèse le pour et le contre', etatEcrit: 'En train d’écrire…', etatAvance: 'Avance pas à pas', etatGenereImage: 'Génère une image de %s', etatGenerationImage: 'Génération d’image', etatAckImage: 'Je te le fais tout de suite…', telecharger: 'Télécharger', partager: 'Partager' },
+  en: { etatTravaille: 'Working on it', etatPese: 'Weighing the options', etatEcrit: 'Writing…', etatAvance: 'Taking it step by step', etatGenereImage: 'Generating an image of %s', etatGenerationImage: 'Generating an image', etatAckImage: 'I’ll do that for you right away…', telecharger: 'Download', partager: 'Share' },
+  es: { etatTravaille: 'Trabajando en ello', etatPese: 'Sopesando los pros y los contras', etatEcrit: 'Escribiendo…', etatAvance: 'Paso a paso', etatGenereImage: 'Generando una imagen de %s', etatGenerationImage: 'Generando una imagen', etatAckImage: 'Te lo hago ahora mismo…', telecharger: 'Descargar', partager: 'Compartir' },
+  de: { etatTravaille: 'Arbeitet daran', etatPese: 'Wägt Für und Wider ab', etatEcrit: 'Schreibt…', etatAvance: 'Schritt für Schritt', etatGenereImage: 'Erzeugt ein Bild von %s', etatGenerationImage: 'Erzeugt ein Bild', etatAckImage: 'Das mache ich gleich…', telecharger: 'Laden', partager: 'Teilen' },
+  it: { etatTravaille: 'Ci sta lavorando', etatPese: 'Valuta il pro e il contro', etatEcrit: 'Sta scrivendo…', etatAvance: 'Un passo alla volta', etatGenereImage: 'Genera un\'immagine di %s', etatGenerationImage: 'Generazione dell\'immagine', etatAckImage: 'Te lo faccio subito…', telecharger: 'Scarica', partager: 'Condividi' },
+  pt: { etatTravaille: 'Trabalhando nisso', etatPese: 'Pesa prós e contras', etatEcrit: 'Escrevendo…', etatAvance: 'Passo a passo', etatGenereImage: 'Gerando uma imagem de %s', etatGenerationImage: 'Gerando uma imagem', etatAckImage: 'Faço isso agora mesmo…', telecharger: 'Descarregar', partager: 'Partilhar' },
+  nl: { etatTravaille: 'Werkt eraan', etatPese: 'Weegt de voors en tegens', etatEcrit: 'Aan het schrijven…', etatAvance: 'Stap voor stap', etatGenereImage: 'Genereert een afbeelding van %s', etatGenerationImage: 'Afbeelding genereren', etatAckImage: 'Ik doe het meteen voor je…', telecharger: 'Downloaden', partager: 'Delen' },
+  pl: { etatTravaille: 'Pracuje nad tym', etatPese: 'Rozważa za i przeciw', etatEcrit: 'Pisze…', etatAvance: 'Krok po kroku', etatGenereImage: 'Generuje obraz: %s', etatGenerationImage: 'Generowanie obrazu', etatAckImage: 'Zrobię to od razu…', telecharger: 'Pobierz', partager: 'Udostępnij' },
+  sv: { etatTravaille: 'Jobbar på det', etatPese: 'Väger för- och nackdelar', etatEcrit: 'Skriver…', etatAvance: 'Steg för steg', etatGenereImage: 'Genererar en bild av %s', etatGenerationImage: 'Genererar en bild', etatAckImage: 'Jag gör det med en gång…', telecharger: 'Ladda ned', partager: 'Dela' },
+  tr: { etatTravaille: 'Üzerinde çalışıyor', etatPese: 'Artıları ve eksileri tartıyor', etatEcrit: 'Yazıyor…', etatAvance: 'Adım adım', etatGenereImage: '%s görseli oluşturuluyor', etatGenerationImage: 'Görsel oluşturuluyor', etatAckImage: 'Hemen yapıyorum…', telecharger: 'İndir', partager: 'Paylaş' },
+  ru: { etatTravaille: 'Работает над этим', etatPese: 'Взвешивает плюсы и минусы', etatEcrit: 'Пишет…', etatAvance: 'Шаг за шагом', etatGenereImage: 'Создаёт изображение: %s', etatGenerationImage: 'Создание изображения', etatAckImage: 'Сейчас сделаю…', telecharger: 'Скачать', partager: 'Поделиться' },
+  uk: { etatTravaille: 'Працює над цим', etatPese: 'Зважує плюси і мінуси', etatEcrit: 'Пише…', etatAvance: 'Крок за кроком', etatGenereImage: 'Створює зображення: %s', etatGenerationImage: 'Створення зображення', etatAckImage: 'Зараз зроблю…', telecharger: 'Завантажити', partager: 'Поділитися' },
+  ar: { etatTravaille: 'يعمل على ذلك', etatPese: 'يوازن بين الإيجابيات والسلبيات', etatEcrit: 'يكتب…', etatAvance: 'خطوة بخطوة', etatGenereImage: 'يولّد صورة لـ %s', etatGenerationImage: 'جاري إنشاء صورة', etatAckImage: 'سأفعل ذلك حالاً…', telecharger: 'تنزيل', partager: 'مشاركة' },
+  ja: { etatTravaille: '作業中', etatPese: '検討しています', etatEcrit: '入力中…', etatAvance: '順を追って', etatGenereImage: '%sの画像を生成中', etatGenerationImage: '画像を生成中', etatAckImage: 'すぐ作ります…', telecharger: 'ダウンロード', partager: '共有' },
+  zh: { etatTravaille: '正在处理', etatPese: '权衡利弊', etatEcrit: '正在输入…', etatAvance: '一步一步来', etatGenereImage: '正在生成%s的图像', etatGenerationImage: '正在生成图像', etatAckImage: '我马上做好…', telecharger: '下载', partager: '分享' },
+  ko: { etatTravaille: '작업 중', etatPese: '장단점을 따지는 중', etatEcrit: '작성 중…', etatAvance: '차근차근', etatGenereImage: '%s 이미지 생성 중', etatGenerationImage: '이미지 생성 중', etatAckImage: '바로 만들어 드릴게요…', telecharger: '다운로드', partager: '공유' }
 };
 function langueUI() {
   try {
@@ -73,7 +73,39 @@ function t(cle) {
 function libelleEtat(phase) {
   if (phase === 'pese') return t('etatPese');
   if (phase === 'ecrit') return t('etatEcrit');
+  if (phase === 'avance') return t('etatAvance');
   return t('etatTravaille');
+}
+function estOutilImage(nom) {
+  var n = String(nom || '').toLowerCase();
+  return n === 'image_creer' || n === 'image_editer' || /image_(creer|editer|create|edit)/.test(n);
+}
+function sujetImage(texte) {
+  var s = String(texte || '').replace(/\s+/g, ' ').trim();
+  var rxs = [
+    /(?:l['’]image|une image|un image|les images|an image|the image|a picture|a photo|une photo)\s+(?:d['’]un(?:e)?|d['’]|de la|de|du|des|of(?:\s+an?)?)\s+(.+)$/i,
+    /(?:image|photo|illustration|picture)\s+(?:d['’]un(?:e)?|d['’]|de la|de|du|of(?:\s+an?)?)\s+(.+)$/i
+  ];
+  for (var i = 0; i < rxs.length; i++) {
+    var m = s.match(rxs[i]);
+    if (m && m[1]) {
+      var v = m[1].replace(/[.?!…]+$/, '').replace(/\s+/g, ' ').trim();
+      if (v.length > 48) v = v.slice(0, 48).replace(/\s+\S*$/, '');
+      if (v) return v;
+    }
+  }
+  return '';
+}
+function estDemandeImage(texte) {
+  if (sujetImage(texte)) return true;
+  return /(g[eé]n[eè]re|cr[eé]e|dessine|draw|generate|make|imagine).{0,48}(image|photo|illustration|picture|pic)\b|\b(image|photo|illustration)\b.{0,24}\b(de|d['’]|of)\b/i.test(String(texte || ''));
+}
+function aDesImagesMd(s) {
+  return /<img\s|!\[[^\]]*\]\(https?:/i.test(String(s || ''));
+}
+function libelleGenereImage(sujet) {
+  if (sujet) return t('etatGenereImage').replace('%s', sujet);
+  return t('etatGenerationImage');
 }
 function mouvementReduit() {
   try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
@@ -214,11 +246,22 @@ function rendre(md) {
   md = retirerPiedRobot(md);
   md = String(md || '').replace(/\u0001/g, '').replace(/<!--[\s\S]*?-->/g, '');
   md = md.replace(/<details>[\s\S]*?<\/details>/gi, '');
-  md = md.replace(/!\[[^\]]*\]\((https:\/\/github\.com\/[^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi, function (m, u) { var p = cheminDepot(u); if (!p) return m; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
+  md = md.replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/gi, function (m, alt, u) {
+    var p = cheminDepot(u);
+    if (p) { imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; }
+    if (/^https?:\/\//i.test(u)) { imgs.push({ u: u, nom: alt || 'Image' }); return '\u0001I' + (imgs.length - 1) + '\u0001'; }
+    return m;
+  });
   md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) {
     var b = window.Ordinateur && Ordinateur.estCapture(u); /* écran de Laura (fsm-si-bureau) */
     if (b) { var al = (m.match(/alt="([^"]*)"/) || [])[1] || ''; imgs.push({ b: b, alt: al }); return '\u0001I' + (imgs.length - 1) + '\u0001'; }
-    var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
+    var p = cheminDepot(u); if (p) { imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; }
+    if (/^(https?:|data:image\/)/i.test(u)) {
+      var al2 = (m.match(/alt="([^"]*)"/) || [])[1] || 'Image';
+      imgs.push({ u: u, nom: al2 }); return '\u0001I' + (imgs.length - 1) + '\u0001';
+    }
+    return '';
+  });
   md = md.replace(/```[^\n]*\n([\s\S]*?)```/g, function (m, c) { codes.push(c); return '\n\u0001C' + (codes.length - 1) + '\u0001\n'; });
   var h = esc(md)
     .replace(/&lt;details&gt;[\s\S]*?&lt;\/details&gt;/g, '')
@@ -245,7 +288,12 @@ function rendre(md) {
   });
   clore();
   return out.join('')
-    .replace(/\u0001I(\d+)\u0001/g, function (m, n) { var x = imgs[n]; if (x && x.b) return '<img class="vue ecran" alt="' + esc(x.alt || 'Écran de Laura') + '" data-b="' + esc(x.b) + '">'; return x ? '<img class="vue" alt="Aperçu" data-p="' + esc(x) + '">' : ''; })
+    .replace(/\u0001I(\d+)\u0001/g, function (m, n) {
+      var x = imgs[n];
+      if (x && x.b) return '<img class="vue ecran" alt="' + esc(x.alt || 'Écran de Laura') + '" data-b="' + esc(x.b) + '">';
+      if (x && x.u) return '<img class="vue" alt="' + esc(x.nom || 'Image') + '" data-u="' + esc(x.u) + '">';
+      return x ? '<img class="vue" alt="Aperçu" data-p="' + esc(x) + '">' : '';
+    })
     .replace(/\u0001C(\d+)\u0001/g, function (m, n) { return codes[n] == null ? '' : '<pre>' + esc(codes[n]) + '</pre>'; })
     .replace(/(<div class="vide"><\/div>){2,}/g, '<div class="vide"></div>');
 }
@@ -414,24 +462,49 @@ function piecesDe(corps) {
   });
   return { reste: s, imgs: imgs };
 }
-function galerieHtml(imgs, seule) {
+function galerieHtml(imgs, seule, legende) {
   if (!imgs.length) return '';
   var n = Math.min(imgs.length, 4);
-  return '<div class="pj-grille' + (imgs.length > 1 ? ' pj-multi' : '') + (seule ? ' bubble pj-seule' : '') + '">' + imgs.map(function (im) {
+  var gen = function (im) {
     var ar = im.d && im.d[0] && im.d[1] ? ' style="aspect-ratio:' + im.d[0] + '/' + im.d[1] + '"' : '';
-    return '<img class="vue pj" alt="' + esc(im.nom || 'Image') + '" data-p="' + esc(im.p) + '"' + ar + ' decoding="async">';
-  }).join('') + '</div>';
+    var brut = (im.nom && !/^image$|^aperçu$|^image créée par laura$/i.test(im.nom)) ? im.nom : (legende || im.nom || 'Image');
+    var alt = esc(brut);
+    if (im.u) return '<img class="vue pj" alt="' + alt + '" src="' + esc(im.u) + '" data-u="' + esc(im.u) + '" data-legende="' + alt + '"' + ar + ' decoding="async">';
+    return '<img class="vue pj" alt="' + alt + '" data-p="' + esc(im.p) + '" data-legende="' + alt + '"' + ar + ' decoding="async">';
+  };
+  return '<div class="pj-grille' + (imgs.length > 1 ? ' pj-multi' : '') + (seule ? ' bubble pj-seule' : '') + '">' + imgs.slice(0, n).map(gen).join('') + '</div>';
 }
-/* contenu d’un message (hors note vocale) : images d’abord pour Tom, après le texte pour Laura */
+function decoderAttr(s) {
+  return String(s || '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+function scinderAckCaption(h) {
+  var parts = String(h || '').split(/<div class="vide"><\/div>/).map(function (x) { return x.trim(); }).filter(function (x) {
+    return x.replace(/<[^>]+>/g, '').trim();
+  });
+  if (parts.length < 2) return { ack: '', caption: h };
+  return { ack: parts.slice(0, -1).join('<div class="vide"></div>'), caption: parts[parts.length - 1] };
+}
+/* contenu d’un message (hors note vocale) : images d’abord pour Tom, après le texte pour Laura.
+   Une image générée : légende dans sa bulle, image en dessous ; un accusé (paragraphe d’avant) dans une bulle séparée. */
 function contenuHtml(corps, moi) {
   var pj = piecesDe(corps), imgs = pj.imgs.slice();
-  var h = mediaHtml(rendre(pj.reste)).replace(/<img class="vue" alt="Aperçu" data-p="([^"]+)">/g, function (m, p) {
-    imgs.push({ p: p.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>'), nom: 'Image' }); return '';
+  var h = mediaHtml(rendre(pj.reste));
+  h = h.replace(/<img class="vue" alt="([^"]*)" data-p="([^"]+)"[^>]*>/g, function (m, nom, pth) {
+    imgs.push({ p: decoderAttr(pth), nom: decoderAttr(nom) === 'Aperçu' ? 'Image' : decoderAttr(nom) }); return '';
+  }).replace(/<img class="vue" alt="([^"]*)" data-u="([^"]+)"[^>]*>/g, function (m, nom, u) {
+    imgs.push({ u: decoderAttr(u), nom: decoderAttr(nom) }); return '';
   }).replace(/<div>\s*<\/div>/g, '').replace(/^(<div class="vide"><\/div>)+|(<div class="vide"><\/div>)+$/g, '');
   if (!imgs.length) return '<div class="bubble">' + h + '</div>';
-  var txt = h.replace(/<[^>]+>/g, '').trim() ? '<div class="bubble">' + h + '</div>' : '';
-  var g = galerieHtml(imgs, !txt);
-  return moi ? g + txt : txt + g;
+  var brut = h.replace(/<[^>]+>/g, '').trim();
+  if (moi) {
+    var txtM = brut ? '<div class="bubble">' + h + '</div>' : '';
+    return galerieHtml(imgs, !txtM, brut) + txtM;
+  }
+  var parts = brut ? scinderAckCaption(h) : { ack: '', caption: '' };
+  var ack = parts.ack && parts.ack.replace(/<[^>]+>/g, '').trim() ? '<div class="bubble">' + parts.ack + '</div>' : '';
+  var capBrut = (parts.caption || h).replace(/<[^>]+>/g, '').trim();
+  var cap = capBrut ? '<div class="bubble">' + (parts.caption || h) + '</div>' : '';
+  return ack + cap + galerieHtml(imgs, !ack && !cap, capBrut || brut);
 }
 
 function estNoteVocale(corps) {
@@ -818,21 +891,31 @@ function noterProgres(corps, quand) {
   if (lib && Date.now() - t < 120000) S._progres = { label: lib, t: Date.now() };
 }
 function libelleTravail() { return libelleEtat('travail'); }
-function etatLigne(txt) {
+function etatGenerique(txt) {
+  return txt === 'travail' || txt === 'pese' || txt === 'ecrit' || txt === 'S’en occupe' || txt === 'S’en occupe…'
+    || txt === libelleEtat('travail') || txt === libelleEtat('pese') || txt === libelleEtat('ecrit');
+}
+function etatLigne(txt, opts) {
   txt = String(txt || '');
   if (txt === 'S’en occupe' || txt === 'travail') txt = libelleEtat('travail');
   else if (txt === 'pese') txt = libelleEtat('pese');
   else if (txt === 'ecrit' || txt === 'S’en occupe…') txt = libelleEtat('ecrit');
+  else if (txt === 'avance') txt = libelleEtat('avance');
+  /* ne pas écraser « Avance pas à pas » / « Génère une image de … » par le statut générique (Actions, attente) */
+  if (S._etatGen && txt && etatGenerique(txt) && !(opts && opts.reflet)) return;
   if (!txt) { clearInterval(S._travailTic); S._travailTic = 0; S._travailDebut = 0; S._progres = null; S._etatGen = false; }
-  etatLigneBrut(txt);
+  etatLigneBrut(txt, opts);
 }
-function etatLigneBrut(txt) {
+function etatLigneBrut(txt, opts) {
   var box = $('typing'), stack = $('typingStack');
   clearTimeout(S._etatT);
   txt = String(txt || '');
+  var reflet = !!(opts && opts.reflet);
+  if (box) box.classList.toggle('etat-gen', !!(txt && reflet));
   if (!txt) {
     box.hidden = true;
     S.runEtat = '';
+    if (box) box.classList.remove('etat-gen');
     if (stack) {
       stack.textContent = '';
       var em0 = document.createElement('em');
@@ -956,11 +1039,24 @@ function envoyer(texte, opts) {
     if (window.LauraRapide && S.jeton) {
       var node = null;
       etatLigne('travail');
+      var sujetL = sujetImage(texte);
+      var genL = !!(sujetL || estDemandeImage(texte));
+      if (genL) { S._etatGen = true; etatLigne('avance', { reflet: true }); }
       return LauraRapide.discuter(S.jeton, { messages: hist, mode: window.LauraMode ? LauraMode.actif() : 'fsmsi' }, function (txt) {
         if (S.conv !== id) return;
+        if (S._etatGen) return;
         etatLigne('ecrit');
         /* pas de défilement mot à mot : on attend la réponse complète */
-      }, function (phase) { if (phase === 'outil') etatLigne('travail'); }).then(function (r) {
+      }, function (phase, outil) {
+        if (phase === 'outil' && estOutilImage(outil)) {
+          S._etatGen = true;
+          if (!sujetL) sujetL = sujetImage(texte);
+          etatLigne(libelleGenereImage(sujetL), { reflet: true });
+          if (!node) node = peindreReponse(null, t('etatAckImage'));
+          return;
+        }
+        if (phase === 'outil' && !S._etatGen) etatLigne('travail');
+      }).then(function (r) {
         var txt = String((r && r.texte) || '').replace(/\[\[TACHE\]\]/g, '').trim();
         if (txt) node = afficherReponseComplete(txt);
         if (txt && window.CreateBot) CreateBot.ajouterMsg(id, 'tx', txt);
@@ -1066,15 +1162,41 @@ function resumerAppel() {
     return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } });
   }).then(function () { return conv === S.conv ? rafraichir() : null; }).then(function () { prov.remove(); }, function () { prov.remove(); alerte('Résumé de l’appel non enregistré.'); });
 }
-function afficherReponseComplete(txt) {
-  etatLigne('');
-  var node = document.createElement('article');
-  node.className = 'msg bot rapide neuf';
-  node.innerHTML = '<div class="bubble">' + rendre(String(txt || '').replace(/\[\[TACHE\]\]/g, '')) + '</div>';
-  if (window.GmailCarte) GmailCarte.cartes(node, String(txt || ''));
-  $('fil').appendChild(node);
+function peindreReponse(node, txt, opts) {
+  opts = opts || {};
+  var brut = String(txt || '').replace(/\[\[TACHE\]\]/g, '');
+  var html = contenuHtml(brut, false);
+  var animer = opts.animer !== false && !mouvementReduit();
+  if (!node || !node.parentNode) {
+    node = document.createElement('article');
+    node.className = 'msg bot rapide' + (animer ? ' neuf' : '');
+    node.innerHTML = html;
+    if (window.GmailCarte) GmailCarte.cartes(node, brut);
+    $('fil').appendChild(node);
+    brancher(node);
+    S._rapideNode = node;
+    if (animer) animerFil(250);
+    return node;
+  }
+  var avant = node.querySelectorAll('.bubble, .pj-grille').length;
+  node.classList.remove('neuf');
+  node.innerHTML = html;
+  if (window.GmailCarte) GmailCarte.cartes(node, brut);
+  brancher(node);
+  if (animer) {
+    var els = node.querySelectorAll('.bubble, .pj-grille');
+    for (var k = avant; k < els.length; k++) els[k].classList.add('neuf-img');
+    animerFil(250);
+  }
   S._rapideNode = node;
-  animerFil(mouvementReduit() ? 0 : 250);
+  return node;
+}
+function afficherReponseComplete(txt) {
+  var hasImg = aDesImagesMd(txt);
+  if (hasImg) etatLigne('');
+  var node = peindreReponse(S._rapideNode && S._rapideNode.parentNode && S._rapideNode.classList.contains('rapide') && !S._rapideNode.dataset.cle ? S._rapideNode : null, txt);
+  if (hasImg) etatLigne('');
+  else if (!S._etatGen) etatLigne('');
   return node;
 }
 function repondreVite(texte, envoiTom, images) {
@@ -1085,6 +1207,9 @@ function repondreVite(texte, envoiTom, images) {
   if (!hist.length || hist[hist.length - 1].content !== moiTxt) hist.push({ role: 'user', content: moiTxt });
   var encours = S.runEtat && !S._etatGen && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
   var node = null;
+  var acc = '';
+  var sujet = sujetImage(texte);
+  var imageEnCours = !!(sujet || estDemandeImage(texte));
   /* Lecture à voix haute (réglage « voix ») : la première phrase part pendant que le texte s’écrit encore. */
   var lect = S.voix && !S.modeVocal && LauraRapide.voix ? LauraRapide.voix.lecteur(S.jeton) : null;
   var marque = Reprise.uid();
@@ -1097,26 +1222,44 @@ function repondreVite(texte, envoiTom, images) {
     if (!S._quitte && (Reprise.lire('si_rapide', {}) || {}).id === marque) mem.oter('si_rapide');
   };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
-  etatLigne('travail');
+  if (imageEnCours) { S._etatGen = true; etatLigne('avance', { reflet: true }); }
+  else etatLigne('travail');
   if (S._etatPeseT) clearTimeout(S._etatPeseT);
-  S._etatPeseT = setTimeout(function () { if (!node && S.runEtat && !S.modeVocal) etatLigne('pese'); }, 1800);
+  S._etatPeseT = setTimeout(function () { if (!node && S.runEtat && !S.modeVocal && !S._etatGen) etatLigne('pese'); }, 1800);
   LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, conv: typeof conv0 === 'number' && conv0 > 0 ? conv0 : undefined, images: images && images.length ? images : undefined }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
+    acc = txt;
     if (lect) lect.pousser(txt.replace(/\[\[TACHE\]\]/g, ''));
     if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; }
+    if (S._etatGen) return;
     if (!S.modeVocal) etatLigne('ecrit');
     /* pas de bulle mot à mot : le texte s'accumule, la bulle n'apparaît que complète */
-  }, function (phase) {
+  }, function (phase, outil) {
     if (conv0 && S.conv !== conv0) return;
-    if (phase === 'outil') { if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; } etatLigne('travail'); }
+    if (phase === 'outil' && estOutilImage(outil)) {
+      if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; }
+      S._etatGen = true;
+      imageEnCours = true;
+      if (!sujet) sujet = sujetImage(acc) || sujetImage(texte);
+      etatLigne(libelleGenereImage(sujet), { reflet: true });
+      if (!S.modeVocal && !node) {
+        var accTxt = String(acc || '').replace(/\[\[TACHE\]\]/g, '').trim() || t('etatAckImage');
+        node = peindreReponse(null, accTxt);
+      }
+      return;
+    }
+    if (phase === 'outil') { if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; } if (!S._etatGen) etatLigne('travail'); }
   }).then(function (r) {
     window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
     if (lect) lect.finir();
     var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->' +
       '\n<!-- fsm-par: ' + (r.fin.mode === 'grok' || (!r.fin.mode && modeLaura === 'grok') ? 'grok' : 'fsmsi') + ' ' + String(r.fin.modele || '').replace(/[^\w./:-]/g, '') + ' -->';
     if (r.fin.tache) S._tacheEnCours = moiTxt.slice(0, 200);
-    if (!S.modeVocal && r.texte && r.texte.replace(/\[\[TACHE\]\]/g, '').trim()) {
-      node = afficherReponseComplete(r.texte.replace(/\[\[TACHE\]\]/g, '').trim());
+    var aff = r.texte.replace(/\[\[TACHE\]\]/g, '').trim();
+    if (!S.modeVocal && aff) {
+      if (S._etatGen || aDesImagesMd(aff)) etatLigne('');
+      node = peindreReponse(node, aff);
+      if (S._etatGen || aDesImagesMd(aff)) etatLigne('');
     } else {
       etatLigne('');
     }
@@ -1125,8 +1268,9 @@ function repondreVite(texte, envoiTom, images) {
       if (!conv) throw new Error('sans conversation');
       return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } }).then(function (c) { Reprise.recent(conv, c); return c; });
     }).then(function () { return rafraichir(); });
-  }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne('travail'); });
+  }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne(S._etatGen ? 'avance' : 'travail', S._etatGen ? { reflet: true } : undefined); });
 }
+
 /* Crochets pour le PC de Tom (pc.js) : suite de Laura après une action validée, à l'écrit ou en appel. */
 window.FSMChat = {
   jeton: function () { return S.jeton; }, conv: function () { return S.conv; }, depot: function () { return S.depot; },
@@ -1349,56 +1493,229 @@ document.addEventListener('drop', function (e) {
   Array.prototype.forEach.call(e.dataTransfer.files || [], ajouterFichier);
 });
 
-/* ---------- Visionneuse ---------- */
-function ouvrirMedia(src, video) {
-  var box = $('lightbox'), img = box.querySelector('img'), vid = box.querySelector('video');
-  clearTimeout(box._t);
-  box.classList.remove('open', 'drag', 'retour');
-  box.style.transform = ''; box.style.opacity = '';
-  box.hidden = false;
-  apresPeinture(function () { box.classList.add('open'); });
-  if (video) { img.removeAttribute('src'); img.style.display = 'none'; vid.style.display = 'block'; vid.src = src; vid.play().catch(function () {}); }
-  else { vid.pause(); vid.removeAttribute('src'); vid.style.display = 'none'; img.style.display = 'block'; img.src = src; }
-  box._y = 0;
+/* ---------- Visionneuse (relevé Grok Bot, build 20261111-58) ---------- */
+function imagesDuFil() {
+  return Array.prototype.filter.call(document.querySelectorAll('#fil img.vue'), function (n) {
+    return n.src && !n.classList.contains('perdue') && (n.classList.contains('pj') || n.classList.contains('ecran') || n.getAttribute('data-u') || n.getAttribute('data-p'));
+  });
 }
-$('lightbox').querySelector('.close').onclick = function () { fermerMedia(); };
+function cadreVignette(el) {
+  if (!el || !el.getBoundingClientRect) return null;
+  var r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  return { l: r.left, t: r.top, w: r.width, h: r.height, r: getComputedStyle(el).borderRadius || '18px' };
+}
+function cadrePlein(img, natW, natH) {
+  var top = 56 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0);
+  var bot = 120 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom')) || 0);
+  var W = window.innerWidth, H = Math.max(120, window.innerHeight - top - bot);
+  var nw = natW || img.naturalWidth || W, nh = natH || img.naturalHeight || H;
+  var s = Math.min(W / nw, H / nh);
+  var w = nw * s, h = nh * s;
+  return { l: (W - w) / 2, t: top + (H - h) / 2, w: w, h: h, r: '18px' };
+}
+function poserCadre(el, c, instant) {
+  if (!el || !c) return;
+  if (instant) el.style.transition = 'none';
+  el.style.left = c.l + 'px'; el.style.top = c.t + 'px';
+  el.style.width = c.w + 'px'; el.style.height = c.h + 'px';
+  el.style.borderRadius = c.r || '0px';
+  if (instant) { el.offsetHeight; el.style.transition = ''; }
+}
+function fermerMenuLb() { var m = document.querySelector('#lightbox .lb-menu'); if (m) m.hidden = true; }
+
+function ouvrirMedia(src, video, depuis) {
+  var box = $('lightbox'), img = box.querySelector('img.lb-img') || box.querySelector('img'), vid = box.querySelector('video');
+  var fond = box.querySelector('.lb-fond'), leg = box.querySelector('.lb-legende'), bande = box.querySelector('.lb-bande');
+  clearTimeout(box._t);
+  box.classList.remove('open', 'drag', 'retour', 'pinch', 'zoome');
+  box.style.transform = ''; box.style.opacity = '';
+  box._srcEl = (!video && depuis) ? depuis : null;
+  box._z = 1; box._tx = 0; box._ty = 0; box._y = 0;
+  fermerMenuLb();
+  box.hidden = false;
+  if (video) {
+    img.removeAttribute('src'); img.style.display = 'none';
+    vid.style.display = 'block'; vid.src = src; vid.play().catch(function () {});
+    poserCadre(vid, { l: 0, t: 0, w: window.innerWidth, h: window.innerHeight, r: '0px' }, true);
+    if (leg) { leg.hidden = true; }
+    if (bande) { bande.hidden = true; bande.innerHTML = ''; }
+    apresPeinture(function () { box.classList.add('open'); });
+    return;
+  }
+  vid.pause(); vid.removeAttribute('src'); vid.style.display = 'none';
+  img.style.display = 'block';
+  img.onload = function () { if (box._src === src) poserCadre(img, cadrePlein(img), !box.classList.contains('open')); };
+  img.src = src; box._src = src;
+  var cap = (depuis && (depuis.getAttribute('data-legende') || depuis.alt)) || '';
+  if (/^image$|^aperçu$|^image créée par laura$/i.test(cap)) cap = '';
+  if (leg) { leg.textContent = cap; leg.hidden = !cap; }
+  if (bande) {
+    var tous = imagesDuFil();
+    bande.innerHTML = '';
+    bande.hidden = tous.length === 0;
+    tous.forEach(function (n) {
+      var v = document.createElement('img');
+      v.src = n.src; v.alt = n.alt || '';
+      if (n.src === src) v.className = 'courante';
+      v.addEventListener('click', function () { ouvrirMedia(n.src, false, n); });
+      bande.appendChild(v);
+    });
+  }
+  var depart = cadreVignette(depuis);
+  if (depart && !mouvementReduit()) {
+    poserCadre(img, depart, true);
+    if (fond) fond.style.opacity = '0';
+    apresPeinture(function () {
+      box.classList.add('open');
+      if (fond) fond.style.opacity = '';
+      poserCadre(img, cadrePlein(img, img.naturalWidth, img.naturalHeight));
+    });
+  } else {
+    poserCadre(img, cadrePlein(img, img.naturalWidth, img.naturalHeight), true);
+    apresPeinture(function () { box.classList.add('open'); });
+  }
+}
+
 function fermerMedia() {
   var box = $('lightbox');
+  if (box.hidden) return;
+  var img = box.querySelector('img.lb-img') || box.querySelector('img');
   var vid = box.querySelector('video');
+  var fond = box.querySelector('.lb-fond');
   vid.pause();
-  box.classList.remove('drag');
+  fermerMenuLb();
+  box.classList.remove('drag', 'pinch', 'zoome');
+  box._z = 1; box._tx = 0; box._ty = 0;
+  img.style.transform = '';
+  var retour = cadreVignette(box._srcEl);
   box.classList.add('retour');
   box.classList.remove('open');
-  box.style.opacity = '0';
+  if (retour && !mouvementReduit() && img.style.display !== 'none') {
+    poserCadre(img, retour);
+  }
   clearTimeout(box._t);
   box._t = setTimeout(function () {
     vid.removeAttribute('src');
-    box.querySelector('img').removeAttribute('src');
+    img.removeAttribute('src');
     box.hidden = true;
     box.classList.remove('retour');
     box.style.transform = ''; box.style.opacity = '';
+    if (fond) fond.style.opacity = '';
+    img.style.left = img.style.top = img.style.width = img.style.height = img.style.transform = '';
   }, 300);
 }
+
+function TelechargerLb(src) {
+  var nom = (src.split('/').pop() || 'image').split('?')[0] || 'image.jpg';
+  return fetch(src).then(function (r) { return r.blob(); }).then(function (b) {
+    var u = URL.createObjectURL(b);
+    var a = document.createElement('a'); a.href = u; a.download = nom; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+  }).catch(function () { var a = document.createElement('a'); a.href = src; a.download = nom; a.target = '_blank'; a.click(); });
+}
+function partagerLb(src) {
+  var nom = (src.split('/').pop() || 'image').split('?')[0] || 'image.jpg';
+  return fetch(src).then(function (r) { return r.blob(); }).then(function (b) {
+    var f = new File([b], nom, { type: b.type || 'image/jpeg' });
+    if (navigator.share) {
+      var o = { files: [f], title: nom };
+      if (!navigator.canShare || navigator.canShare(o)) return navigator.share(o);
+      return navigator.share({ title: nom, url: src });
+    }
+    return TelechargerLb(src);
+  }).catch(function () { if (navigator.share) return navigator.share({ url: src }); return TelechargerLb(src); });
+}
+
 (function () {
-  var box = $('lightbox'), y0 = 0, dy = 0, on = false;
-  box.addEventListener('touchstart', function (e) { if (e.touches.length !== 1) return; on = true; y0 = e.touches[0].clientY; dy = 0; }, { passive: true });
+  var box = $('lightbox');
+  if (!box) return;
+  var btnX = box.querySelector('.lb-close') || box.querySelector('.close');
+  var btnP = box.querySelector('.lb-plus');
+  var menu = box.querySelector('.lb-menu');
+  if (btnX) btnX.onclick = function (e) { e.stopPropagation(); fermerMedia(); };
+  if (btnP) btnP.onclick = function (e) {
+    e.stopPropagation();
+    if (!menu) return;
+    menu.hidden = !menu.hidden;
+    var tel = menu.querySelector('[data-a="telecharger"]');
+    var par = menu.querySelector('[data-a="partager"]');
+    if (tel) tel.textContent = t('telecharger');
+    if (par) par.textContent = t('partager');
+  };
+  if (menu) menu.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var src = box._src; menu.hidden = true;
+    if (b.getAttribute('data-a') === 'telecharger') TelechargerLb(src);
+    if (b.getAttribute('data-a') === 'partager') partagerLb(src);
+  });
+  box.addEventListener('click', function (e) {
+    if (e.target === box || e.target.classList.contains('lb-fond')) { fermerMenuLb(); }
+  });
+
+  var y0 = 0, x0 = 0, dy = 0, on = false;
+  var pinc = null;
+  function dist(a, b) { var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY; return Math.sqrt(dx * dx + dy * dy); }
+  function mid(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
+  function appliqueZ() {
+    var img = box.querySelector('img.lb-img') || box.querySelector('img');
+    img.style.transform = 'translate(' + box._tx + 'px,' + box._ty + 'px) scale(' + box._z + ')';
+    box.classList.toggle('zoome', box._z > 1.02);
+  }
+  box.addEventListener('touchstart', function (e) {
+    if (box.hidden) return;
+    fermerMenuLb();
+    if (e.touches.length === 2) {
+      on = false; pinc = { d: dist(e.touches[0], e.touches[1]), z: box._z || 1, m: mid(e.touches[0], e.touches[1]), tx: box._tx || 0, ty: box._ty || 0 };
+      box.classList.add('pinch');
+      return;
+    }
+    if (e.touches.length !== 1) return;
+    pinc = null;
+    on = true; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dy = 0;
+  }, { passive: true });
   var raf = 0;
   box.addEventListener('touchmove', function (e) {
-    if (!on) return;
+    if (pinc && e.touches.length === 2) {
+      var d = dist(e.touches[0], e.touches[1]);
+      var z = Math.max(1, Math.min(4, pinc.z * (d / (pinc.d || 1))));
+      box._z = z;
+      if (z > 1) {
+        var m = mid(e.touches[0], e.touches[1]);
+        box._tx = pinc.tx + (m.x - pinc.m.x);
+        box._ty = pinc.ty + (m.y - pinc.m.y);
+      } else { box._tx = 0; box._ty = 0; }
+      appliqueZ();
+      return;
+    }
+    if (!on || (box._z && box._z > 1.02)) {
+      if (on && box._z > 1.02 && e.touches.length === 1) {
+        box._tx += e.touches[0].clientX - x0; box._ty += e.touches[0].clientY - y0;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+        appliqueZ();
+      }
+      return;
+    }
     dy = e.touches[0].clientY - y0;
     box.classList.add('drag');
     if (!raf) raf = requestAnimationFrame(function () {
       raf = 0;
       var d = Math.max(0, dy);
       box.style.transform = 'translate3d(0,' + d + 'px,0)';
-      box.style.opacity = String(Math.max(0.35, 1 - d / 600));
+      var fond = box.querySelector('.lb-fond');
+      if (fond) fond.style.opacity = String(Math.max(0.35, 1 - d / 600));
     });
   }, { passive: true });
-  box.addEventListener('touchend', function () {
+  box.addEventListener('touchend', function (e) {
+    if (pinc && e.touches.length < 2) {
+      pinc = null; box.classList.remove('pinch');
+      if (box._z <= 1.02) { box._z = 1; box._tx = 0; box._ty = 0; appliqueZ(); }
+      return;
+    }
     if (!on) return; on = false;
     box.classList.remove('drag');
-    if (dy > 80) fermerMedia();
-    else { box.classList.add('retour'); box.style.transform = ''; box.style.opacity = ''; setTimeout(function () { box.classList.remove('retour'); }, 320); }
+    if (dy > 80 && box._z <= 1.02) fermerMedia();
+    else { box.classList.add('retour'); box.style.transform = ''; var fond = box.querySelector('.lb-fond'); if (fond) fond.style.opacity = ''; setTimeout(function () { box.classList.remove('retour'); }, 320); }
   });
 })();
 $('fil').addEventListener('click', function (e) {
@@ -1409,7 +1726,7 @@ $('fil').addEventListener('click', function (e) {
     return;
   }
   var im = e.target.closest('img.vue');
-  if (im && im.src) ouvrirMedia(im.src, false);
+  if (im && im.src) ouvrirMedia(im.src, false, im);
 });
 
 
