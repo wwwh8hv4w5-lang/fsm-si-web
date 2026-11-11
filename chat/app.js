@@ -54,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-78';
+var BUILD = '20261111-79';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -860,7 +860,7 @@ function itemsDepuis(issue, commentaires) {
 }
 function appliquerHistoire(n, issue, commentaires, opts) {
   opts = opts || {};
-  if (n !== S.conv) return;
+  if (n !== S.conv) return Promise.resolve();
   var items = itemsDepuis(issue, commentaires);
   var utiles = items.filter(function (i) { return i.genre !== 'ordre' && !(i.genre === 'appel' && !i.appel.tache); });
   var dernier = utiles[utiles.length - 1];
@@ -869,13 +869,14 @@ function appliquerHistoire(n, issue, commentaires, opts) {
   if (!opts.partiel) S.attente = attend;
   majFil(items);
   if (window.PCTom && !opts.partiel) { try { PCTom.apresRafraichir(n, String(issue.title || ''), items); } catch (e) {} }
-  if (opts.partiel) return;
+  if (opts.partiel) return Promise.resolve();
   Hist.ecrire(n, items);
   var premier = !S.pret;
   S.pret = true;
   if (premier) reprendreConv(n, commentaires, items);
-  if (attend) return etatActions();
+  if (attend) return Promise.resolve(etatActions());
   etatLigne('');
+  return Promise.resolve();
 }
 function rafraichir() {
   if (estLocal()) return window.CreateBot ? CreateBot.rafraichir() : Promise.resolve();
@@ -893,7 +894,7 @@ function rafraichir() {
       appliquerHistoire(n, issue, derniers, { partiel: !!encore });
     }).then(function (coms) {
       if (n !== S.conv) return;
-      return appliquerHistoire(n, issue, coms, { partiel: false }).then(function () { return synchroniserValidations(); });
+      return Promise.resolve(appliquerHistoire(n, issue, coms, { partiel: false })).then(function () { return typeof synchroniserValidations === 'function' ? synchroniserValidations() : undefined; });
     });
   });
 }
