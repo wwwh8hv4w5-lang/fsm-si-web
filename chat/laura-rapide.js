@@ -33,6 +33,8 @@ function discuter(jeton, corps, surTexte, surEtat) {
           var bloc = buf.slice(0, i); buf = buf.slice(i + 2);
           var l = bloc.replace(/^data:\s*/, '');
           var j; try { j = JSON.parse(l); } catch (e) { continue; }
+          /* un outil tourne (image : 5 à 15 s) : le serveur bat toutes les 3 s, on ne coupe plus à 12 s ; garde-fou 60 s */
+          if (j.outil || j.progres) { clearTimeout(minuteur); minuteur = setTimeout(function () { ctl.abort(); }, 60000); }
           if (j.outil && typeof surEtat === 'function') surEtat('outil', j.outil);
           if (j.t) {
             if (!premier) { premier = performance.now() - t0; clearTimeout(minuteur); if (typeof surEtat === 'function') surEtat('ecrit'); }

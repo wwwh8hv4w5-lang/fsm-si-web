@@ -1,3 +1,8 @@
+/* Double tap : jamais de zoom de la page (iOS, appli installée). Le pincement reste permis dans la visionneuse plein écran. */
+(function(){var dT=0,dX=0,dY=0;function libre(t){return t&&t.closest&&t.closest('input,textarea,select,[contenteditable],#lightbox,.lightbox,.visionneuse');}
+document.addEventListener('touchend',function(e){var p=e.changedTouches&&e.changedTouches[0];if(!p)return;var n=Date.now();if(n-dT<350&&Math.abs(p.clientX-dX)<40&&Math.abs(p.clientY-dY)<40&&!libre(e.target)){e.preventDefault();dT=0;return;}dT=n;dX=p.clientX;dY=p.clientY;},{passive:false});
+document.addEventListener('gesturestart',function(e){if(!libre(e.target))e.preventDefault();},{passive:false});
+document.addEventListener('dblclick',function(e){if(!libre(e.target))e.preventDefault();},{passive:false});})();
 /* Laura F.S.M · F.S.M AI — interface FSM SI (backend GitHub Issues) */
 (function () {
 'use strict';
@@ -48,7 +53,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-68';
+var BUILD = '20261111-69';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
