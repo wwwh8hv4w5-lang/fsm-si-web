@@ -2320,3 +2320,8 @@ html { touch-action: manipulation; }
 .home-marque img { width: 28px; height: 28px; object-fit: contain; }
 .home-marque span { font-size: 11px; letter-spacing: .04em; font-weight: 600; font-style: normal; }
 .home-marque i { font-style: normal; font-weight: 600; }
+
+#fil-validations{display:flex;flex-direction:column;gap:8px;padding:0 0 8px}
+#fil-validations[hidden]{display:none!important}
+#fil-validations .val-fiche h3{margin:0 0 8px;font-size:16px}
+#fil-validations .val-corps{color:var(--muted);font-size:15px;line-height:1.4}

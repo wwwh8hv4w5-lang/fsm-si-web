@@ -20,6 +20,7 @@
   var _recherche = '';
   var _editId = null;
   var _busy = false;
+  var _sansMdp = false;
 
   var TYPES = [
     { id: 'identifiant', tab: 'identifiant', label: 'Identifiant', pluriel: 'Identifiants' },
@@ -108,6 +109,50 @@
       );
     });
   }
+
+  /* Laura FSM SI, compte de Tom uniquement : plus de mot de passe maître.
+     Le BOT et les autres hôtes ne passent pas par ce fichier. Filet : jamais sur l’hôte BOT. */
+  function coffreSansMotDePasse() {
+    try { if (/(?:^|\.)bot\.fsmsibot\.app$/.test(location.hostname)) return false; } catch (e) {}
+    return true;
+  }
+  function creerCleAppareil() {
+    return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  function activerModeAppareil() {
+    return creerCleAppareil().then(function (key) {
+      _key = key;
+      if (!Array.isArray(_entries)) _entries = [];
+      _sansMdp = true;
+      var meta = { v: 2, kdf: 'device', created: Date.now() };
+      return kvSet('cle-appareil', key).then(function () { return kvSet('meta', meta); }).then(function () { return enregistrer(); });
+    }).then(function () { _vue = 'liste'; });
+  }
+  function ouvrirAppareil() {
+    return kvGet('cle-appareil').then(function (key) {
+      if (!key) return Promise.reject(new Error('no device key'));
+      return kvGet('blob').then(function (blob) {
+        if (!blob) { _key = key; _entries = []; _sansMdp = true; _vue = 'liste'; return; }
+        return dechiffrer(key, blob).then(function (data) {
+          if (!data || data.check !== VERROU_OK) return Promise.reject(new Error('bad device blob'));
+          _key = key;
+          _entries = Array.isArray(data.entries) ? data.entries : [];
+          _sansMdp = true;
+          _vue = 'liste';
+        });
+      });
+    });
+  }
+  function migrerVersAppareil() {
+    if (!coffreSansMotDePasse()) return Promise.resolve();
+    return Promise.all([kvGet('blob'), kvGet('meta')]).then(function (pair) {
+      var blob = pair[0], meta = pair[1];
+      var p = Promise.resolve();
+      if (blob) p = p.then(function () { return kvSet('blob-avant-device', blob); });
+      if (meta) p = p.then(function () { return kvSet('meta-avant-device', meta); });
+      return p.then(function () { return activerModeAppareil(); });
+    });
+  }
   function chiffrer(key, obj) {
     var iv = crypto.getRandomValues(new Uint8Array(12));
     var pt = new TextEncoder().encode(JSON.stringify(obj));
@@ -149,6 +194,7 @@
   }
 
   function verrouiller() {
+    if (_sansMdp) return;
     clearTimeout(_timer);
     _timer = 0;
     _key = null;
@@ -236,19 +282,21 @@
     if (!ex) return;
     ex.textContent = '';
     if (!ouverts) return;
-    var lock = el('button', 'round-btn coffre-head-btn', '');
-    lock.type = 'button';
-    lock.id = 'coffreLockBtn';
-    lock.setAttribute('aria-label', 'Verrouiller');
-    lock.innerHTML = ICO.lock;
-    lock.onclick = function (e) { e.preventDefault(); verrouiller(); };
+    if (!_sansMdp) {
+      var lock = el('button', 'round-btn coffre-head-btn', '');
+      lock.type = 'button';
+      lock.id = 'coffreLockBtn';
+      lock.setAttribute('aria-label', 'Verrouiller');
+      lock.innerHTML = ICO.lock;
+      lock.onclick = function (e) { e.preventDefault(); verrouiller(); };
+      ex.appendChild(lock);
+    }
     var plus = el('button', 'round-btn coffre-head-btn', '');
     plus.type = 'button';
     plus.id = 'coffrePlusBtn';
     plus.setAttribute('aria-label', 'Ajouter');
     plus.innerHTML = ICO.plus;
     plus.onclick = function (e) { e.preventDefault(); e.stopPropagation(); ouvrirMenu(plus); };
-    ex.appendChild(lock);
     ex.appendChild(plus);
   }
 
@@ -387,8 +435,10 @@
       imp.onclick = function () { importer(true); };
       card.appendChild(imp);
     } else {
-      card.appendChild(el('h3', '', 'Coffre verrouillé'));
-      card.appendChild(el('p', 'cf-warn', 'Entrez le mot de passe maître. Il n’existe aucun moyen de récupération en cas d’oubli.'));
+      card.appendChild(el('h3', '', coffreSansMotDePasse() ? 'Dernière saisie du mot de passe' : 'Coffre verrouillé'));
+      card.appendChild(el('p', 'cf-warn', coffreSansMotDePasse()
+        ? 'Entrez une dernière fois le mot de passe maître pour transférer le coffre sur cet appareil. Les entrées sont conservées. Ensuite, plus aucun mot de passe ne sera demandé.'
+        : 'Entrez le mot de passe maître. Il n’existe aucun moyen de récupération en cas d’oubli.'));
       var p = champ({ label: 'Mot de passe', secret: true, name: 'unlock' });
       card.appendChild(p);
       var err = el('p', 'cf-err', '');
@@ -430,7 +480,9 @@
       return deriver(mdp, deB64(meta.salt), meta.iterations || ITER).then(function (key) {
         return kvGet('blob').then(function (blob) {
           if (!blob) {
-            _key = key; _entries = []; toucher(); _vue = 'liste'; return;
+            _key = key; _entries = []; toucher(); _vue = 'liste';
+            if (coffreSansMotDePasse()) return migrerVersAppareil();
+            return;
           }
           return dechiffrer(key, blob).then(function (data) {
             if (!data || data.check !== VERROU_OK) return Promise.reject(new Error('bad'));
@@ -438,6 +490,7 @@
             _entries = Array.isArray(data.entries) ? data.entries : [];
             toucher();
             _vue = 'liste';
+            if (coffreSansMotDePasse()) return migrerVersAppareil();
           });
         });
       });
@@ -795,14 +848,34 @@
     _box.appendChild(card);
   }
 
+  function rendreInaccessible(msg) {
+    boutonsTete(false);
+    _box.textContent = '';
+    _box.appendChild(el('p', 'cf-warn', msg || 'Le coffre de cet appareil est inaccessible. Les entrées n’ont pas été effacées.'));
+  }
   function rendre() {
     if (!_box) return;
     if (!_key) {
       kvGet('meta').then(function (meta) {
         if (!_box) return;
+        if (coffreSansMotDePasse()) {
+          if (meta && meta.kdf === 'device') {
+            return ouvrirAppareil().then(function () { rendre(); }).catch(function () {
+              return kvGet('meta-avant-device').then(function (ancien) {
+                if (ancien && ancien.salt) rendreVerrou(false);
+                else rendreInaccessible();
+              });
+            });
+          }
+          if (meta && meta.salt) { rendreVerrou(false); return; }
+          return activerModeAppareil().then(function () { rendre(); }).catch(function () { rendreVerrou(true); });
+        }
         if (meta && meta.salt) rendreVerrou(false);
         else rendreVerrou(true);
-      }).catch(function () { rendreVerrou(true); });
+      }).catch(function () {
+        if (coffreSansMotDePasse()) return activerModeAppareil().then(function () { rendre(); }).catch(function () { rendreVerrou(true); });
+        rendreVerrou(true);
+      });
       return;
     }
     if (_vue === 'detail' && _editId) ouvrirDetail(_editId);
@@ -844,7 +917,8 @@
     verrouiller: verrouiller,
     surFermeture: surFermeture,
     estOuvert: function () { return !!_key; },
-    compter: function () { return (_entries || []).length; }
+    compter: function () { return (_entries || []).length; },
+    sansMotDePasse: coffreSansMotDePasse
   };
   global.Coffre = Coffre;
 })(window);

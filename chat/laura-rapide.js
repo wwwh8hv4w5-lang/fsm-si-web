@@ -12,7 +12,7 @@ function discuter(jeton, corps, surTexte, surEtat) {
   var t0 = performance.now(), premier = 0;
   var ctl = new AbortController();
   var minuteur = setTimeout(function () { ctl.abort(); }, 12000); /* aucun mot en 12 s : on laisse le robot répondre */
-  return fetch(PROXY + '/chat', { credentials: 'include', 
+  var p = fetch(PROXY + '/chat', { credentials: 'include', 
     method: 'POST', signal: ctl.signal,
     headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' },
     body: JSON.stringify(corps)
@@ -48,6 +48,9 @@ function discuter(jeton, corps, surTexte, surEtat) {
     }
     return pompe();
   });
+  p.abort = function () { clearTimeout(minuteur); try { ctl.abort(); } catch (e) {} };
+  p.ctl = ctl;
+  return p;
 }
 
 /* ---------- Cases sécurisées (même look que la case « Secrets » de Grok Bot) ---------- */

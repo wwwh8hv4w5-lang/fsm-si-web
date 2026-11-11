@@ -54,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-76';
+var BUILD = '20261111-78';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -893,7 +893,7 @@ function rafraichir() {
       appliquerHistoire(n, issue, derniers, { partiel: !!encore });
     }).then(function (coms) {
       if (n !== S.conv) return;
-      return appliquerHistoire(n, issue, coms, { partiel: false });
+      return appliquerHistoire(n, issue, coms, { partiel: false }).then(function () { return synchroniserValidations(); });
     });
   });
 }
@@ -1183,6 +1183,7 @@ function bulleLocale(texte) {
 function envoyer(texte, opts) {
   texte = String(texte || '').trim();
   if (!texte) return Promise.resolve();
+  if (!(opts && opts.sansAccord) && traiterAccordChat(texte)) return Promise.resolve();
   if (estLocal()) {
     var id = S.conv;
     bulleLocale(texte);
@@ -1356,10 +1357,31 @@ function afficherReponseComplete(txt) {
 }
 function repondreVite(texte, envoiTom, images) {
   if (!window.LauraRapide || !S.jeton) return;
+  /* Un message encore en traitement : on l’abandonne et on fusionne avec le suivant (une seule réponse). */
+  if (S._rapideTour && !S._rapideTour.fini) {
+    S._rapideTour.gen = (S._rapideTour.gen || 0) + 1;
+    if (S._rapideTour.p && S._rapideTour.p.abort) try { S._rapideTour.p.abort(); } catch (e) {}
+    S._rapideTour.textes.push(texte);
+    S._rapideTour.envois.push(envoiTom || Promise.resolve());
+    if (images && images.length) S._rapideTour.images = (S._rapideTour.images || []).concat(images);
+    return lancerRapide(S._rapideTour);
+  }
+  S._rapideTour = { textes: [texte], envois: [envoiTom || Promise.resolve()], images: images || [], gen: 0, fini: false, p: null };
+  return lancerRapide(S._rapideTour);
+}
+function lancerRapide(tour) {
+  if (!window.LauraRapide || !S.jeton || !tour) return;
+  var gen = tour.gen || 0;
+  var texte = (window.FSMValidations && FSMValidations.fusionnerTextesTour(tour.textes)) || tour.textes[tour.textes.length - 1];
+  var images = tour.images || [];
+  var envoiTom = Promise.all(tour.envois || [Promise.resolve()]);
   var conv0 = S.conv;
   var hist = histoireRapide();
   var moiTxt = images && images.length ? (texteLeger(piecesDe(texte).reste) || (images.length > 1 ? 'Regarde ces images.' : 'Regarde cette image.')) : texteLeger(texte);
-  if (!hist.length || hist[hist.length - 1].content !== moiTxt) hist.push({ role: 'user', content: moiTxt });
+  (tour.textes || [texte]).forEach(function (tx) {
+    var c = texteLeger(tx);
+    if (c && (!hist.length || hist[hist.length - 1].content !== c)) hist.push({ role: 'user', content: c });
+  });
   var encours = S.runEtat && !S._etatGen && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
   var node = null;
   var acc = '';
@@ -1381,7 +1403,8 @@ function repondreVite(texte, envoiTom, images) {
   else etatLigne('travail');
   if (S._etatPeseT) clearTimeout(S._etatPeseT);
   S._etatPeseT = setTimeout(function () { if (!node && S.runEtat && !S.modeVocal && !S._etatGen) etatLigne('pese'); }, 1800);
-  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, conv: typeof conv0 === 'number' && conv0 > 0 ? conv0 : undefined, images: images && images.length ? images : undefined }, function (txt) {
+  var pDisc = LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, conv: typeof conv0 === 'number' && conv0 > 0 ? conv0 : undefined, images: images && images.length ? images : undefined }, function (txt) {
+    if (tour.gen !== gen) return;
     if (conv0 && S.conv !== conv0) return;
     acc = txt;
     if (lect) lect.pousser(txt.replace(/\[\[TACHE\]\]/g, ''));
@@ -1390,6 +1413,7 @@ function repondreVite(texte, envoiTom, images) {
     if (!S.modeVocal) etatLigne('ecrit');
     /* pas de bulle mot à mot : le texte s'accumule, la bulle n'apparaît que complète */
   }, function (phase, outil) {
+    if (tour.gen !== gen) return;
     if (conv0 && S.conv !== conv0) return;
     if (phase === 'outil' && estOutilImage(outil)) {
       if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; }
@@ -1404,7 +1428,10 @@ function repondreVite(texte, envoiTom, images) {
       return;
     }
     if (phase === 'outil') { if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; } if (!S._etatGen) etatLigne('travail'); }
-  }).then(function (r) {
+  });
+  tour.p = pDisc;
+  pDisc.then(function (r) {
+    if (tour.gen !== gen) return;
     window.SI_RAPIDE = r.fin; /* mesure : premier mot, modèle, replis */
     if (lect) lect.finir();
     var corps = r.texte.replace(/\[\[TACHE\]\]/g, '').trim() + '\n\n<!-- fsm-laura' + (r.fin.tache ? ' tache' : '') + ' -->' +
@@ -1419,17 +1446,32 @@ function repondreVite(texte, envoiTom, images) {
       etatLigne('');
     }
     return envoiTom.then(function () {
+      if (tour.gen !== gen) return;
       var conv = conv0 || S.conv;
       if (!conv) throw new Error('sans conversation');
       return api(D() + '/issues/' + conv + '/comments', { method: 'POST', json: { body: corps } }).then(function (c) { Reprise.recent(conv, c); return c; });
-    }).then(function () { return rafraichir(); });
-  }).then(nettoyer, function () { nettoyer(); if (lect) lect.finir(); if (S.attente) etatLigne(S._etatGen ? 'avance' : 'travail', S._etatGen ? { reflet: true } : undefined); });
+    }).then(function () { if (tour.gen !== gen) return; return rafraichir(); });
+  }).then(function () {
+    if (tour.gen !== gen) return;
+    tour.fini = true;
+    if (S._rapideTour === tour) S._rapideTour = null;
+    nettoyer();
+  }, function (e) {
+    if (tour.gen !== gen) { if (lect) lect.finir(); return; }
+    tour.fini = true;
+    if (S._rapideTour === tour) S._rapideTour = null;
+    nettoyer();
+    if (lect) lect.finir();
+    if (e && e.name === 'AbortError') return;
+    if (S.attente) etatLigne(S._etatGen ? 'avance' : 'travail', S._etatGen ? { reflet: true } : undefined);
+  });
 }
 
 /* Crochets pour le PC de Tom (pc.js) : suite de Laura après une action validée, à l'écrit ou en appel. */
 window.FSMChat = {
   jeton: function () { return S.jeton; }, conv: function () { return S.conv; }, depot: function () { return S.depot; },
   enAppel: function () { return !!S.modeVocal; }, texteLeger: texteLeger, envoyer: envoyer,
+  traiterAccord: function (t) { return traiterAccordChat(t); },
   api: function (chemin, o) { return api(chemin, o); },
   /* texte caché (résultat) : Laura continue tout de suite ; sa réponse est postée comme d'habitude */
   continuer: function (texteCache, images) { repondreVite(texteCache, Promise.resolve(), images); },
@@ -2445,6 +2487,10 @@ function sauverTourVocal(tt, coupe) {
   return pr;
 }
 function vocalDirect(blob, type, texteSeul, source) {
+  if (texteSeul && traiterAccordChat(texteSeul)) {
+    vocalEtatUI('listen', '');
+    return;
+  }
   var finParole = S._vocalFinParole || performance.now();
   vocalEtatUI('wait', '');
   S._vocalAppel = true;
@@ -3837,7 +3883,8 @@ document.addEventListener('keydown', function (e) {
 function majCompteUI() {
   $('accName').textContent = S.moiNom || S.moi || '—';
   $('accLogin').textContent = S.moi ? ('@' + S.moi) : '—';
-  $('depotVal').textContent = S.depot || '—';
+  if ($('depotVal') && !$('depotVal').dataset.ordi) $('depotVal').textContent = '—';
+  if (window.Ordinateur && S.jeton) Ordinateur.etat(S.jeton).then(function (st) { if ($('depotVal') && st && st.statut) { $('depotVal').textContent = st.statut; $('depotVal').dataset.ordi = '1'; } }).catch(function () {});
   $('tzVal').textContent = S.tzauto ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris') : (mem.lire('si_tz') || 'Europe/Paris');
   $('tzToggle').classList.toggle('on', S.tzauto);
   $('tzToggle').setAttribute('aria-checked', S.tzauto ? 'true' : 'false');
@@ -3998,14 +4045,91 @@ function ecranApps(box) {
     list.appendChild(el('p', 'invite', 'connecteurs.json est inaccessible.'));
   });
 }
+
+function repondreValidation(i, mot) {
+  mot = mot === 'refuser' ? 'refuser' : 'valider';
+  return api(D() + '/issues/' + i.number + '/comments', { method: 'POST', json: { body: mot } }).then(function () {
+    S.convsVues = 0;
+    if (S._valsOpen) S._valsOpen = (S._valsOpen || []).filter(function (x) { return x.number !== i.number; });
+    dessinerCartesValidations(S._valsOpen || []);
+    var menu = document.getElementById('listeValidationsMenu');
+    if (menu) chargerValidationsDans(menu);
+    return rafraichir();
+  });
+}
+function traiterAccordChat(texte) {
+  var V = window.FSMValidations;
+  if (!V || !S.conv || estLocal()) return false;
+  var oui = V.estAccordCourt(texte), non = V.estRefusCourt(texte);
+  if (!oui && !non) return false;
+  var l = (S._valsOpen || []).filter(function (i) { return V.concerneConv(i, S.conv); });
+  if (!l.length) return false;
+  if (oui && l.some(V.estPaiementValidation)) return false; /* paiement : bouton à l’écran seulement */
+  var cible = l[l.length - 1];
+  if (oui && V.estPaiementValidation(cible)) return false;
+  repondreValidation(cible, oui ? 'valider' : 'refuser').catch(function (e) { alerte(e.message); });
+  return true;
+}
+function dessinerCartesValidations(liste) {
+  var fil = $('fil');
+  if (!fil) return;
+  var host = $('fil-validations');
+  if (!host) { host = document.createElement('div'); host.id = 'fil-validations'; }
+  if (host.parentNode !== fil) fil.appendChild(host);
+  else fil.appendChild(host); /* rester en bas */
+  var V = window.FSMValidations;
+  var conv = S.conv;
+  var l = (liste || []).filter(function (i) { return !V || V.concerneConv(i, conv); });
+  S._valsOpen = liste || [];
+  if (!l.length) { host.innerHTML = ''; host.hidden = true; return; }
+  host.hidden = false;
+  host.innerHTML = '';
+  l.forEach(function (i) {
+    var carte = document.createElement('article');
+    carte.className = 'msg bot val-carte';
+    carte.dataset.val = String(i.number);
+    var box = document.createElement('div'); box.className = 'fiche val-fiche';
+    box.appendChild(el('h3', '', 'Validation #' + i.number + (V ? ' : ' + V.titreValidation(i) : '')));
+    var c = document.createElement('div'); c.className = 'val-corps';
+    c.innerHTML = rendre(String(i.body || '').replace(/Réponds \*\*valider\*\*[^\n]*/, '').replace(/<!--[\s\S]*?-->/g, ''));
+    box.appendChild(c);
+    if (V && V.estPaiementValidation(i)) box.appendChild(el('p', 'invite', 'Paiement : confirme avec le bouton, pas par un oui oral.'));
+    var actes = el('div', 'actes');
+    [['Accepter', 'valider', 'ok'], ['Refuser', 'refuser', '']].forEach(function (a) {
+      var b = el('button', a[2], a[0]); b.type = 'button';
+      b.onclick = function () {
+        if (a[1] === 'valider' && !confirm('Valider cette action ? Elle sera exécutée.')) return;
+        Array.prototype.forEach.call(actes.children, function (x) { x.disabled = true; });
+        repondreValidation(i, a[1]).then(function () {
+          actes.textContent = a[1] === 'valider' ? 'Acceptée. Le résultat arrive dans la conversation.' : 'Refusée.';
+        }).catch(function (e) { Array.prototype.forEach.call(actes.children, function (x) { x.disabled = false; }); alerte(e.message); });
+      };
+      actes.appendChild(b);
+    });
+    box.appendChild(actes);
+    carte.appendChild(box);
+    host.appendChild(carte);
+  });
+  fil.scrollTop = fil.scrollHeight;
+}
+function synchroniserValidations() {
+  if (!S.jeton || !S.conv || estLocal()) return Promise.resolve();
+  var n = S.conv;
+  return api(D() + '/issues?labels=validation&state=open&per_page=50').then(function (l) {
+    if (n !== S.conv) return;
+    dessinerCartesValidations(Array.isArray(l) ? l : []);
+  }).catch(function () {});
+}
+
 function ecranAuth(box) {
+
   var h = el('div', 'row'); h.style.border = '0';
   h.appendChild(el('span', 't', 'Autorisations'));
   var add = el('button', 'add-rule', 'Ajouter une règle'); add.type = 'button';
   h.appendChild(add);
   box.appendChild(h);
   box.appendChild(el('p', 'invite', 'Les actions sensibles (envoyer, publier, écrire ailleurs, supprimer) demandent ta validation — issues étiquetées « validation ».'));
-  var liste = el('div', '');
+  var liste = el('div', ''); liste.id = 'listeValidationsMenu';
   box.appendChild(liste);
   chargerValidationsDans(liste);
   add.onclick = function () {
@@ -4045,10 +4169,9 @@ function chargerValidationsDans(z) {
         b.onclick = function () {
           if (a[1] === 'valider' && !confirm('Valider cette action ? Elle sera exécutée.')) return;
           Array.prototype.forEach.call(actes.children, function (x) { x.disabled = true; });
-          api(D() + '/issues/' + i.number + '/comments', { method: 'POST', json: { body: a[1] } }).then(function () {
+          repondreValidation(i, a[1]).then(function () {
             actes.textContent = a[1] === 'valider' ? 'Validée. Le résultat arrive dans la conversation.' : 'Refusée.';
-            S.convsVues = 0;
-          }).catch(function (e) { alerte(e.message); });
+          }).catch(function (e) { alerte(e.message); Array.prototype.forEach.call(actes.children, function (x) { x.disabled = false; }); });
         };
         actes.appendChild(b);
       });
@@ -4056,6 +4179,13 @@ function chargerValidationsDans(z) {
       z.appendChild(bon);
     });
   }).catch(function (e) { z.textContent = ''; z.appendChild(el('p', 'invite', e.message)); });
+}
+function ecranOrdinateurBot(box) {
+  if (!window.Ordinateur || typeof Ordinateur.panneauReglages !== 'function') {
+    box.appendChild(el('p', 'invite', 'Module ordinateur indisponible. Recharge la page.'));
+    return;
+  }
+  Ordinateur.panneauReglages(box, S.jeton, $('depotVal'));
 }
 function ecranDepot(box) {
   box.appendChild(el('p', 'invite', 'Dépôt GitHub auquel Laura F.S.M est reliée (ordinateur du Bot).'));
@@ -4241,7 +4371,7 @@ $('rowCoffre').onclick = function () { openPush('Coffre-fort', ecranCoffre); };
 $('rowDest').onclick = function () { openPush('Destinataires autorisés', function (box) { if (window.GmailCarte && GmailCarte.ecranDestinataires) GmailCarte.ecranDestinataires(box); else box.appendChild(el('p', 'invite', 'Indisponible.')); }); };
 $('rowApps').onclick = function () { openPush('Connecter des applications', ecranApps); };
 $('rowAuth').onclick = function () { openPush('Autorisations', ecranAuth); };
-$('rowDepot').onclick = function () { openPush('Ordinateur du Bot', ecranDepot); };
+$('rowDepot').onclick = function () { openPush('Ordinateur du Bot', ecranOrdinateurBot); };
 $('rowDevices').onclick = function () { openPush('Gérer vos appareils', ecranDevices); };
 $('rowImport').onclick = function () { openPush('Import Memory', ecranImport); };
 $('rowApparence').onclick = function () { openPush('Apparence', ecranApparence); };
