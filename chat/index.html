@@ -11,12 +11,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
-<meta name="si-build" content="20261111-28">
+<meta name="si-build" content="20261111-29">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/favicon-32.png" sizes="32x32">
 <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/icon-180.png">
-<link rel="stylesheet" href="./style.css?v=20261111-28">
+<link rel="stylesheet" href="./style.css?v=20261111-29">
 </head>
 <body>
 <div id="app">
@@ -33,18 +33,23 @@
   <div class="hero">
     <div class="av lg" style="width:96px;height:96px"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
     <h1>Laura F.S.M</h1>
-    <p class="sub">F.S.M AI · FSM SI</p>
+    <p class="sub">FSM SI LAURA · Connexion HUB</p>
   </div>
   <div id="loginForm" autocomplete="off">
-    <label for="adepot">Dépôt (propriétaire/nom)</label>
-    <input type="text" id="adepot" autocapitalize="off" autocorrect="off" spellcheck="false" value="wwwh8hv4w5-lang/fsm-si" enterkeyhint="next">
-    <label for="ajeton">Jeton GitHub</label>
-    <input type="password" id="ajeton" autocomplete="off" enterkeyhint="go">
+    <label for="ahubuser">Identifiant</label>
+    <input type="text" id="ahubuser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" enterkeyhint="next">
+    <label for="ahubpass">Mot de passe</label>
+    <input type="password" id="ahubpass" autocomplete="current-password" enterkeyhint="go">
     <p id="aerreur"></p>
-    <button type="button" class="btn-orange" id="relier">Relier</button>
+    <button type="button" class="btn-orange" id="relier">Connexion</button>
   </div>
   <div class="howto">
-    <p>Sur GitHub : Settings → Developer settings → Fine-grained tokens. Accès limité au dépôt FSM SI. Permissions : Issues et Contents en lecture et écriture, Actions en lecture. Le jeton reste dans ce navigateur et ne part que vers GitHub.</p>
+    <p>Connexion avec tes identifiants du FSM HUB. Aucun jeton GitHub n’est demandé.</p>
+  </div>
+  <!-- ancien flux (jeton GitHub) conservé hors écran, au cas où le serveur n’aurait pas de jeton -->
+  <div hidden>
+    <input type="text" id="adepot" value="wwwh8hv4w5-lang/fsm-si" tabindex="-1">
+    <input type="password" id="ajeton" tabindex="-1" autocomplete="off">
   </div>
   <p class="legal">FSM SI · F.S.M AI</p>
 </section>
@@ -304,8 +309,8 @@
     <div class="about-fsm">
       <img class="about-fsm-logo" src="./icons/fsm-si-logo.png" alt="FSM SI">
       <div class="about-fsm-name">FSM SI</div>
-      <div class="about-fsm-ver" id="buildTag">20261111-28</div>
-      <p class="about-fsm-legal">Le jeton reste uniquement dans ce navigateur.</p>
+      <div class="about-fsm-ver" id="buildTag">20261111-29</div>
+      <p class="about-fsm-legal">Relié par le FSM HUB. Aucun jeton GitHub n’est stocké dans ce navigateur.</p>
     </div>
   </div>
 </aside>
@@ -325,7 +330,7 @@
 <div id="menuPop" hidden role="menu"></div>
 <div id="sheet" hidden role="dialog" aria-modal="true"></div>
 
-<!-- Créer un Bot (relevé Grok Bot, build 20261111-28) -->
+<!-- Créer un Bot (relevé Grok Bot, build 20261111-29) -->
 <div id="createBackdrop" class="backdrop" hidden></div>
 <aside id="createSheet" class="sheet-up create-sheet" hidden role="dialog" aria-label="Créer un nouveau Bot">
   <div class="sheet-grab create-grab">
@@ -473,14 +478,14 @@
 </div>
 
 </div>
-<script src="./coffre.js?v=20261111-28"></script>
-<script src="./laura-rapide.js?v=20261111-28"></script>
-<script src="./mode.js?v=20261111-28"></script>
-<script src="./ordinateur.js?v=20261111-28"></script>
-<script src="./bot-shapes.js?v=20261111-28"></script>
-<script src="./pc.js?v=20261111-28"></script>
-<script src="./gmail.js?v=20261111-28"></script>
-<script src="./app.js?v=20261111-28"></script>
-<script src="./create-bot.js?v=20261111-28"></script>
+<script src="./coffre.js?v=20261111-29"></script>
+<script src="./laura-rapide.js?v=20261111-29"></script>
+<script src="./mode.js?v=20261111-29"></script>
+<script src="./ordinateur.js?v=20261111-29"></script>
+<script src="./bot-shapes.js?v=20261111-29"></script>
+<script src="./pc.js?v=20261111-29"></script>
+<script src="./gmail.js?v=20261111-29"></script>
+<script src="./app.js?v=20261111-29"></script>
+<script src="./create-bot.js?v=20261111-29"></script>
 </body>
 </html>
