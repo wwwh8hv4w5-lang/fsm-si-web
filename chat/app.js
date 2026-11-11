@@ -9,7 +9,7 @@ var mem = {
 };
 var S = {
   depot: mem.lire('si_depot'), jeton: mem.lire('si_jeton'),
-  conv: Number(mem.lire('si_conv')) || 0,
+  conv: (function () { var c = mem.lire('si_conv'); if (c && c.charAt(0) === 'L') return c; return Number(c) || 0; })(),
   voix: mem.lire('si_voix') === '1', note: mem.lire('si_note') === '1',
   hap: mem.lire('si_hap') !== '0', tzauto: mem.lire('si_tzauto') !== '0',
   notif: mem.lire('si_notif') === '1',
@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-23';
+var BUILD = '20261111-24';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -30,6 +30,15 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
 function alerte(m) { var a = $('alerte'); if (!a) return; a.textContent = m || ''; a.hidden = !m; if (m) setTimeout(function () { if (a.textContent === m) a.hidden = true; }, 9000); }
 function encP(p) { return String(p).split('/').map(encodeURIComponent).join('/'); }
 function hap() { if (S.hap && navigator.vibrate) navigator.vibrate(10); }
+function estLocal(c) { c = c == null ? S.conv : c; return typeof c === 'string' && c.charAt(0) === 'L'; }
+window.ouvrirBotLocal = function (id) { choisir(id, { morph: false }); };
+window.majFilLocal = function (items) {
+  S.items = items || [];
+  S.attente = false;
+  S.pret = true;
+  etatLigne('');
+  majFil(S.items);
+};
 
 function api(chemin, o) {
   o = o || {};
@@ -217,6 +226,7 @@ function montrerHome(instant) {
   fermerMenu();
   fermerSettings();
   closePush(true);
+  if (window.CreateBot) CreateBot.peindreAccueil();
 }
 function montrerChat(viaMorph) {
   S.ecran = 'chat';
@@ -252,9 +262,14 @@ function choisir(n, opts) {
   S.conv = n; mem.ecrire('si_conv', String(n));
   S.els = {}; $('fil').textContent = ''; S.pret = false; S.attente = false;
   if (window.LauraMode) LauraMode.maj();
+  if (window.CreateBot) CreateBot.entete();
   if (!opts.sansEcran) {
-    if (opts.morph) ouvrirChatMorph();
+    if (opts.morph && !estLocal(n)) ouvrirChatMorph();
     else montrerChat(false);
+  }
+  if (estLocal(n)) {
+    if (window.CreateBot) CreateBot.rafraichir();
+    return;
   }
   boucle();
 }
@@ -507,6 +522,7 @@ function bannerBot(corps) {
 $('banner').addEventListener('click', function () { $('banner').classList.remove('show'); montrerChat(false); });
 
 function rafraichir() {
+  if (estLocal()) return window.CreateBot ? CreateBot.rafraichir() : Promise.resolve();
   if (!S.conv) { S.attente = false; etatLigne(''); return Promise.resolve(); }
   var n = S.conv;
   return Promise.all([api(D() + '/issues/' + n), tousCommentaires(n)]).then(function (r) {
@@ -705,6 +721,35 @@ function bulleLocale(texte) {
 function envoyer(texte, opts) {
   texte = String(texte || '').trim();
   if (!texte) return Promise.resolve();
+  if (estLocal()) {
+    var id = S.conv;
+    bulleLocale(texte);
+    if (window.CreateBot) CreateBot.ajouterMsg(id, 'moi', texte);
+    var b = window.CreateBot && CreateBot.botDe(id);
+    var hist = ((b && b.messages) || []).map(function (m) {
+      return { role: m.genre === 'moi' ? 'user' : 'assistant', content: String(m.corps || '') };
+    }).slice(-16);
+    if (window.LauraRapide && S.jeton) {
+      var node = null;
+      return LauraRapide.discuter(S.jeton, { messages: hist, mode: window.LauraMode ? LauraMode.actif() : 'fsmsi' }, function (txt) {
+        if (S.conv !== id) return;
+        if (!node) {
+          node = document.createElement('article'); node.className = 'msg bot rapide neuf';
+          node.innerHTML = '<div class="bubble"></div>';
+          $('fil').appendChild(node);
+        }
+        node.querySelector('.bubble').innerHTML = rendre(String(txt || '').replace(/\[\[TACHE\]\]/g, ''));
+        var fil = $('fil');
+        if (fil.scrollHeight - fil.scrollTop - fil.clientHeight < 240) fil.scrollTop = fil.scrollHeight;
+      }).then(function (r) {
+        var txt = String((r && r.texte) || '').replace(/\[\[TACHE\]\]/g, '').trim();
+        if (node && node.parentNode) node.remove();
+        if (txt && window.CreateBot) CreateBot.ajouterMsg(id, 'tx', txt);
+        if (window.CreateBot) return CreateBot.rafraichir();
+      }).catch(function () { if (node && node.parentNode) node.remove(); });
+    }
+    return Promise.resolve();
+  }
   if (!S.conv && texte.charAt(0) === '/') { alerte('Ouvre d’abord une conversation : les commandes s’envoient dedans.'); return Promise.resolve(); }
   var creationDevant = S.file.some(function (j) { return !j.conv; });
   /* le mode actif (Laura FSM SI / Laura · Grok) voyage avec le message : le robot prend le même cerveau */
@@ -3047,8 +3092,19 @@ function ecranGrille() {
     chargerValidationsDans(zv);
     box.appendChild(el('h3', '', 'Bots'));
     var zb = el('div', 'fiches'); box.appendChild(zb);
+    if (window.CreateBot) {
+      CreateBot.lireBots().forEach(function (b) {
+        var f = el('div', 'fiche');
+        f.innerHTML = (CreateBot.svgPour(b.shape, b.color, 'home-bot-svg') || '');
+        f.appendChild(el('b', '', b.name));
+        var bt = el('button', 'pill-btn', 'Ouvrir'); bt.type = 'button';
+        bt.onclick = function () { closePush(true); choisir(b.id, { morph: false }); };
+        f.appendChild(bt);
+        zb.appendChild(f);
+      });
+    }
     fiches('bots').then(function (bots) {
-      if (!bots.length) { zb.appendChild(el('p', 'invite', 'Aucun Bot dans bots/.')); return; }
+      if (!bots.length && !(window.CreateBot && CreateBot.lireBots().length)) { zb.appendChild(el('p', 'invite', 'Aucun Bot pour l’instant.')); return; }
       bots.forEach(function (b) {
         var f = el('div', 'fiche');
         f.appendChild(el('b', '', '@' + b.nom));
@@ -3099,61 +3155,9 @@ $('btnSearch').onclick = function () {
   }, $('home'));
 };
 
-/* Créer un Bot */
-var SHAPES = ['●','■','▲','◆','★','✦','☀','☁','✿','❖','◉','◎','⬡','▮','▶','❤'];
-var COLORS = ['#7B61FF','#FF2D55','#FF9F0A','#34C759','#0A84FF','#64D2FF','#FFD60A','#BF5AF2','#AC8E68','#8E8E93','#FF6482','#30DB5B','#00C7BE','#FFFFFF'];
-var botSel = { shape: 0, color: '#7B61FF' };
-function ouvrirCreate() {
-  var sg = $('shapeGrid'), cg = $('colorGrid');
-  sg.textContent = ''; cg.textContent = '';
-  var radii = [
-    '50%', '40% 60% 50% 50% / 45% 45% 55% 55%', '20%', '30% 70% 70% 30% / 30% 30% 70% 70%', '50% 50% 40% 60%',
-    '50% 40% 50% 60%', '42% 58% 58% 42%', '50% 50% 30% 70%', '55% 45% 50% 50%', '20% 80% 70% 30% / 40% 40% 60% 60%',
-    '40% 40% 20% 20%', '40% 60% 35% 65%', '30%'
-  ];
-  radii.forEach(function (rad, i) {
-    var b = el('button', 'shape-cell' + (i === botSel.shape ? ' on' : '')); b.type = 'button';
-    var blob = el('span', 'bloblet'); blob.style.borderRadius = rad; blob.style.background = botSel.color;
-    b.appendChild(blob);
-    b.onclick = function () { botSel.shape = i; Array.prototype.forEach.call(sg.children, function (x, j) { x.classList.toggle('on', j === i); }); };
-    sg.appendChild(b);
-  });
-  COLORS.forEach(function (c, i) {
-    var b = el('button', 'swatch' + (c === botSel.color ? ' on' : '')); b.type = 'button';
-    b.style.setProperty('--c', c);
-    b.onclick = function () { botSel.color = c; $('botBlob').style.background = c; Array.prototype.forEach.call(document.querySelectorAll('.bloblet'), function (x) { x.style.background = c; }); Array.prototype.forEach.call(cg.children, function (x) { x.classList.remove('on'); }); b.classList.add('on'); };
-    cg.appendChild(b);
-  });
-  $('botBlob').style.background = botSel.color;
-  $('botName').value = '';
-  $('botCreate').disabled = true;
-  $('createBackdrop').hidden = false;
-  $('createSheet').hidden = false;
-  requestAnimationFrame(function () { $('createSheet').classList.add('open'); });
-}
-function fermerCreate() {
-  $('createSheet').classList.remove('open');
-  setTimeout(function () { $('createSheet').hidden = true; $('createBackdrop').hidden = true; }, 420);
-}
-$('newBtn').onclick = ouvrirCreate;
-$('createClose').onclick = fermerCreate;
-$('createBackdrop').onclick = fermerCreate;
-$('botName').addEventListener('input', function () { $('botCreate').disabled = !this.value.trim(); });
-$('botCreate').onclick = function () {
-  var nom = $('botName').value.trim(); if (!nom) return;
-  var slug = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'bot';
-  var md = '---\nnom: ' + nom + '\nrole: Bot créé depuis Laura F.S.M\nmodele: \noutils: \nforme: ' + SHAPES[botSel.shape] + '\ncouleur: \'' + botSel.color + '\'\n---\n\nPrésentation de @' + slug + '.\n';
-  $('botCreate').disabled = true;
-  var path = 'bots/' + slug + '.md';
-  var body = { message: 'nouveau bot ' + slug, content: btoa(unescape(encodeURIComponent(md))), branch: S.branche };
-  api(D() + '/contents/' + encP(path), { method: 'PUT', json: body }).then(function () {
-    fermerCreate();
-    alerte('Bot @' + slug + ' créé dans le dépôt.');
-    montrerChat(false);
-    $('texte').value = '@' + slug + ' ';
-    $('texte').focus(); taille();
-  }).catch(function (e) { alerte(e.message); $('botCreate').disabled = false; });
-};
+/* Créer un Bot : feuille et archive locale — voir create-bot.js (build 20261111-24). */
+function ouvrirCreate() { if (window.CreateBot) CreateBot.ouvrir(); }
+function fermerCreate() { if (window.CreateBot) CreateBot.fermer(); }
 
 /* ---------- Connexion ---------- */
 function demarrer() {

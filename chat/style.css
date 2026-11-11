@@ -1663,3 +1663,318 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 .hc-sous { padding: 8px 0; }
 .hc-sous .hc-row { min-height: 46px; }
 .hc-sous .hc-sep { margin: 6px 22px; }
+
+/* ===== Build 20261111-24 : Créer un nouveau Bot (relevé Grok Bot, 390×844 @3x) ===== */
+#createBackdrop {
+  background: rgba(0, 0, 0, 0.33);
+  transition: opacity .4s var(--ease-spring);
+  z-index: 30;
+}
+#createSheet {
+  top: calc(var(--safe-top) + 61px);
+  bottom: 0;
+  max-height: none;
+  height: auto;
+  background: #1C1C1C;
+  border-radius: 37px 37px 0 0;
+  padding: 0;
+  transform: translateY(110%);
+  transition: transform .4s var(--ease-spring), top .4s var(--ease-spring);
+  z-index: 31;
+  overflow: hidden;
+}
+#createSheet.open { transform: translateY(0); }
+#createSheet.kb {
+  top: var(--safe-top);
+}
+#createSheet .create-grab {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  padding: 20px 12px 0;
+  flex: none;
+  position: relative;
+  z-index: 2;
+}
+#createSheet .create-title {
+  margin: 0;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  color: #fff;
+  line-height: 22px;
+}
+#createClose.create-x,
+#createSheet .create-x {
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+  background: transparent !important;
+  border: 0 !important;
+  color: #F2F2F2;
+  display: grid;
+  place-items: center;
+  box-shadow: none;
+}
+#createSheet .create-x svg {
+  width: 14px;
+  height: 14px;
+  stroke: #F2F2F2;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+#createSheet .create-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+  padding: 0;
+  min-height: 0;
+}
+.create-preview {
+  position: relative;
+  width: 121px;
+  height: 121px;
+  margin: 44px auto 0;
+  flex: none;
+}
+.create-preview svg#botBlob {
+  width: 121px;
+  height: 121px;
+  display: block;
+  opacity: 0;
+  position: relative;
+  z-index: 1;
+}
+.create-preview.assembled svg#botBlob { opacity: 1; }
+.create-part {
+  position: absolute;
+  border-radius: 50%;
+  background: #6C6C6C;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.create-part.p1 { width: 36px; height: 36px; margin: -18px 0 0 -18px; }
+.create-part.p2 { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; }
+.create-part.p3 { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; }
+#createSheet.open .create-preview.assembling .create-part { opacity: 1; }
+#createSheet.open .create-preview.assembling .p1 {
+  animation: botPart1 .55s var(--ease-spring) forwards;
+}
+#createSheet.open .create-preview.assembling .p2 {
+  animation: botPart2 .55s var(--ease-spring) forwards;
+}
+#createSheet.open .create-preview.assembling .p3 {
+  animation: botPart3 .55s var(--ease-spring) forwards;
+}
+#createSheet.open .create-preview.assembled .create-part { opacity: 0; }
+@keyframes botPart1 {
+  0%   { transform: translate(-38px, 40px) scale(.55); opacity: .9; }
+  70%  { opacity: 1; }
+  100% { transform: translate(0, 0) scale(.2); opacity: 0; }
+}
+@keyframes botPart2 {
+  0%   { transform: translate(42px, 24px) scale(.8); opacity: .85; }
+  70%  { opacity: 1; }
+  100% { transform: translate(0, 0) scale(.2); opacity: 0; }
+}
+@keyframes botPart3 {
+  0%   { transform: translate(-28px, 32px) scale(.8); opacity: .8; }
+  70%  { opacity: 1; }
+  100% { transform: translate(0, 0) scale(.2); opacity: 0; }
+}
+#createSheet #botName {
+  width: auto;
+  margin: 39px 24px 0;
+  height: 54px;
+  padding: 0 18px;
+  background: #272628;
+  border: 0;
+  border-radius: 14px;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -.02em;
+  color: #fff;
+  text-align: center;
+  flex: none;
+  outline: none !important;
+  box-shadow: none !important;
+}
+#createSheet #botName::placeholder { color: #5A595D; }
+#createSheet #botName:focus, #createSheet #botName:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+#createSheet .shape-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 57.5px);
+  justify-content: center;
+  column-gap: 0;
+  row-gap: 14px;
+  margin: 36px auto 0;
+  width: 287.5px;
+  flex: none;
+}
+#createSheet .shape-cell {
+  width: 57.5px;
+  height: 52px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  color: inherit;
+}
+#createSheet .shape-cell .shape-svg,
+#createSheet .shape-cell svg {
+  width: 36px;
+  height: 36px;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+#createSheet .shape-cell.on::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 45px;
+  height: 43px;
+  margin: -21.5px 0 0 -22.5px;
+  border: 1.5px solid #6E6E73;
+  border-radius: 13px;
+  pointer-events: none;
+  z-index: 0;
+}
+#createSheet .swatches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 310px;
+  margin: 28px auto 0;
+  gap: 16.5px 26.5px;
+  flex: none;
+}
+#createSheet .swatch {
+  width: 25px;
+  height: 25px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--c, #fff);
+  box-shadow: none;
+  position: relative;
+  flex: none;
+}
+#createSheet .swatch.on {
+  box-shadow: none;
+}
+#createSheet .swatch.on::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 31px;
+  height: 31px;
+  margin: -15.5px 0 0 -15.5px;
+  border: 1.6px solid #6E6E73;
+  border-radius: 50%;
+  pointer-events: none;
+}
+#createSheet .create-go,
+#createSheet #botCreate.full-btn,
+#createSheet #botCreate {
+  width: auto;
+  margin: auto 37px calc(12px + var(--safe-bot));
+  margin-top: 24px;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 23px;
+  background: #858585;
+  color: #262626;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  flex: none;
+  cursor: default;
+}
+#createSheet #botCreate:disabled {
+  background: #858585;
+  color: #262626;
+  opacity: 1;
+}
+#createSheet #botCreate:not(:disabled) {
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+#createSheet.kb .swatches { display: none; }
+#createSheet.kb .create-preview {
+  width: 88px;
+  height: 88px;
+  margin-top: 16px;
+}
+#createSheet.kb .create-preview svg#botBlob { width: 88px; height: 88px; }
+#createSheet.kb #botName { margin-top: 22px; }
+#createSheet.kb .shape-grid { margin-top: 22px; }
+#createSheet.kb #botCreate {
+  margin-top: auto;
+  background: rgba(133, 133, 133, 0.92);
+}
+
+/* Accueil : bots locaux sous Laura, qui reste le Bot principal */
+.home-bots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px 24px;
+  width: 100%;
+  padding: 28px 24px 8px;
+  box-sizing: border-box;
+}
+.home-bot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  min-width: 72px;
+  max-width: 96px;
+}
+.home-bot-svg, .home-bot svg { width: 64px; height: 64px; display: block; }
+.home-bot .nm {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#chatAv svg.bot-av {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  #createSheet, #createBackdrop, .create-part, .create-preview svg#botBlob {
+    animation: none !important;
+    transition: none !important;
+  }
+  .create-preview svg#botBlob { opacity: 1; }
+  .create-part { display: none; }
+}
+
+#createSheet .shape-cell:nth-child(11) { grid-column: 2; }
+
+#home .home-center { overflow-y: auto; -webkit-overflow-scrolling: touch; }
