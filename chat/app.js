@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-15';
+var BUILD = '20261111-16';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -88,6 +88,7 @@ function retirerPiedRobot(md) {
   var lignes = s.split('\n');
   while (lignes.length) {
     var last = lignes[lignes.length - 1].replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/^\s+|\s+$/g, '');
+    if (!last && /<img\s/i.test(lignes[lignes.length - 1])) break; /* une image de Laura en fin de message n’est pas un pied */
     if (!last) { lignes.pop(); continue; }
     if (/(FSM SI\s*v\s*[\d.]+|appels\s*·)/i.test(last)) { lignes.pop(); continue; }
     break;
@@ -99,6 +100,7 @@ function rendre(md) {
   md = retirerPiedRobot(md);
   md = String(md || '').replace(/\u0001/g, '').replace(/<!--[\s\S]*?-->/g, '');
   md = md.replace(/<details>[\s\S]*?<\/details>/gi, '');
+  md = md.replace(/!\[[^\]]*\]\((https:\/\/github\.com\/[^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi, function (m, u) { var p = cheminDepot(u); if (!p) return m; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
   md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) { var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
   md = md.replace(/```[^\n]*\n([\s\S]*?)```/g, function (m, c) { codes.push(c); return '\n\u0001C' + (codes.length - 1) + '\u0001\n'; });
   var h = esc(md)
@@ -265,6 +267,43 @@ function mediaHtml(corps) {
   });
 }
 
+/* ---------- Images jointes, comme Grok : vignette seule (sans bulle), légende dans sa propre bulle ----------
+   Le bloc « 📎 Fichiers joints … entree/ » reste dans le message pour le robot ; l’interface ne l’affiche pas. */
+var RE_IMG = /\.(png|jpe?g|gif|webp|heic|avif)$/i;
+function piecesDe(corps) {
+  var s = String(corps || ''), imgs = [], dims = {};
+  s.replace(/<!--\s*fsm-pj:\s*(\S+)\s+(\d+)x(\d+)\s*-->/g, function (m, p, w, h) { dims[p] = [+w, +h]; return m; });
+  s = s.replace(/\n*📎 \*\*Fichiers joints\*\*[^\n]*\n((?:[ \t]*- \[[^\]]*\]\([^)\s]+\)[ \t]*(?:\n|$))+)/, function (m, liste) {
+    var autres = [];
+    liste.replace(/- \[([^\]]*)\]\(([^)\s]+)\)/g, function (x, nom, u) {
+      var p = cheminDepot(u);
+      if (p && RE_IMG.test(p)) imgs.push({ p: p, nom: nom, d: dims[p] }); else autres.push('- [' + nom + '](' + u + ')');
+      return x;
+    });
+    return autres.length ? '\n\n' + autres.join('\n') : '';
+  });
+  return { reste: s, imgs: imgs };
+}
+function galerieHtml(imgs, seule) {
+  if (!imgs.length) return '';
+  var n = Math.min(imgs.length, 4);
+  return '<div class="pj-grille' + (imgs.length > 1 ? ' pj-multi' : '') + (seule ? ' bubble pj-seule' : '') + '">' + imgs.map(function (im) {
+    var ar = im.d && im.d[0] && im.d[1] ? ' style="aspect-ratio:' + im.d[0] + '/' + im.d[1] + '"' : '';
+    return '<img class="vue pj" alt="' + esc(im.nom || 'Image') + '" data-p="' + esc(im.p) + '"' + ar + ' decoding="async">';
+  }).join('') + '</div>';
+}
+/* contenu d’un message (hors note vocale) : images d’abord pour Tom, après le texte pour Laura */
+function contenuHtml(corps, moi) {
+  var pj = piecesDe(corps), imgs = pj.imgs.slice();
+  var h = mediaHtml(rendre(pj.reste)).replace(/<img class="vue" alt="Aperçu" data-p="([^"]+)">/g, function (m, p) {
+    imgs.push({ p: p.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>'), nom: 'Image' }); return '';
+  }).replace(/<div>\s*<\/div>/g, '').replace(/^(<div class="vide"><\/div>)+|(<div class="vide"><\/div>)+$/g, '');
+  if (!imgs.length) return '<div class="bubble">' + h + '</div>';
+  var txt = h.replace(/<[^>]+>/g, '').trim() ? '<div class="bubble">' + h + '</div>' : '';
+  var g = galerieHtml(imgs, !txt);
+  return moi ? g + txt : txt + g;
+}
+
 function estNoteVocale(corps) {
   return /^\s*(?:🎤\s*)?Note vocale\s*:/i.test(String(corps || ''));
 }
@@ -343,8 +382,8 @@ function majFil(items) {
       htmlBulle = bulleNoteVocale(tr);
       node.dataset.texte = tr || 'Note vocale';
     } else {
-      htmlBulle = '<div class="bubble">' + mediaHtml(rendre(corpsVu)) + '</div>';
-      node.dataset.texte = texteBrut(corpsVu);
+      htmlBulle = contenuHtml(corpsVu, moi);
+      node.dataset.texte = texteBrut(piecesDe(corpsVu).reste);
     }
     node.innerHTML = htmlBulle + '<time>' + esc(heure(it.date)) + '</time>';
     node.dataset.cle = it.cle;
@@ -633,9 +672,9 @@ function bulleLocale(texte) {
   var node = document.createElement('article');
   node.className = 'msg me local envoi neuf';
   node.dataset.cle = id; node.dataset.qui = 'me';
-  node.dataset.texte = texteBrut(texte);
+  node.dataset.texte = texteBrut(piecesDe(texte).reste);
   node._corps = texte;
-  node.innerHTML = (estNoteVocale(texte) ? bulleNoteVocale(transcriptionPourNote(texte)) : '<div class="bubble">' + mediaHtml(rendre(texte)) + '</div>') + '<time>' + esc(heure(new Date())) + '</time>';
+  node.innerHTML = (estNoteVocale(texte) ? bulleNoteVocale(transcriptionPourNote(texte)) : contenuHtml(texte, true)) + '<time>' + esc(heure(new Date())) + '</time>';
   var fil = $('fil');
   fil.appendChild(node);
   S.els[id] = node;
@@ -644,7 +683,7 @@ function bulleLocale(texte) {
   requestAnimationFrame(function () { fil.scrollTop = fil.scrollHeight; majScrollBtn(); });
   return id;
 }
-function envoyer(texte) {
+function envoyer(texte, opts) {
   texte = String(texte || '').trim();
   if (!texte) return Promise.resolve();
   if (!S.conv && texte.charAt(0) === '/') { alerte('Ouvre d’abord une conversation : les commandes s’envoient dedans.'); return Promise.resolve(); }
@@ -655,7 +694,7 @@ function envoyer(texte) {
   if (!S.runEtat) etatLigne('S’en occupe');
   var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
   /* Voie rapide en parallèle de l’envoi : Laura répond tout de suite ; sa réponse est postée après le message de Tom. */
-  if (texte.charAt(0) !== '/') repondreVite(texte, envoi);
+  if (texte.charAt(0) !== '/') repondreVite(texte, envoi, opts && opts.images);
   return envoi;
 }
 /* Voie rapide : Worker fsm-si-proxy toujours allumé. Laura répond tout de suite, même pendant une tâche.
@@ -664,20 +703,20 @@ function envoyer(texte) {
 function texteLeger(md) {
   return String(md || '').replace(/<!--[\s\S]*?-->/g, '').replace(/<details>[\s\S]*?<\/details>/g, '').replace(/<sub>[\s\S]*?<\/sub>/g, '').trim().slice(0, 6000);
 }
-function repondreVite(texte, envoiTom) {
+function repondreVite(texte, envoiTom, images) {
   if (!window.LauraRapide || !S.jeton) return;
   var conv0 = S.conv;
   var hist = (S.items || []).filter(function (i) { return (i.genre === 'moi' || i.genre === 'tx') && !i.cache; }).slice(-16).map(function (i) {
     return { role: i.genre === 'tx' ? 'assistant' : 'user', content: texteLeger(i.corps) };
   });
   if (!conv0) hist = [];
-  var moiTxt = texteLeger(texte);
+  var moiTxt = images && images.length ? (texteLeger(piecesDe(texte).reste) || (images.length > 1 ? 'Regarde ces images.' : 'Regarde cette image.')) : texteLeger(texte);
   if (!hist.length || hist[hist.length - 1].content !== moiTxt) hist.push({ role: 'user', content: moiTxt });
   var encours = S.runEtat && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
   var node = null;
   var nettoyer = function () { if (node && node.parentNode) node.remove(); if (S._rapideNode === node) S._rapideNode = null; };
   var modeLaura = window.LauraMode ? LauraMode.actif() : 'fsmsi';
-  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura }, function (txt) {
+  LauraRapide.discuter(S.jeton, { messages: hist, vocal: !!S.modeVocal, encours: encours, mode: modeLaura, images: images && images.length ? images : undefined }, function (txt) {
     if (conv0 && S.conv !== conv0) return;
     if (!node) {
       node = document.createElement('article'); node.className = 'msg bot rapide neuf';
@@ -776,9 +815,10 @@ function envoyerSaisie() {
   taille();
   if ($('composer').classList.contains('full')) setFullCompose(false);
   if (pieces.length) {
-    return uploaderPieces(pieces).then(function (bloc) {
-      pieces.forEach(function (p) { if (p.url) URL.revokeObjectURL(p.url); });
-      return envoyer((msgBase.trim() + bloc).trim());
+    var vision = imagesVision(pieces);
+    return Promise.all([uploaderPieces(pieces), vision]).then(function (r) {
+      pieces.forEach(function (p) { if (p.url && !p.garde) URL.revokeObjectURL(p.url); });
+      return envoyer((msgBase.trim() + r[0]).trim(), { images: r[1] });
     }).catch(function (e) { alerte(e.message); if (!t.value) { t.value = v; taille(); } });
   }
   return envoyer(msgBase).then(function () {}, function () {});
@@ -826,7 +866,7 @@ function ajouterFichier(file) {
     box.appendChild(dur);
     v.addEventListener('loadedmetadata', function () { dur.textContent = fmtDur(v.duration); it.dur = v.duration; });
   } else if (isImg) {
-    var img = document.createElement('img'); img.src = it.url; img.alt = file.name; box.appendChild(img);
+    var img = document.createElement('img'); img.onload = function () { it.w = img.naturalWidth; it.h = img.naturalHeight; }; img.src = it.url; img.alt = file.name; box.appendChild(img);
   } else {
     var lab = el('div', 'apercu-nom', file.name);
     lab.style.padding = '20px 12px';
@@ -845,12 +885,32 @@ function ajouterFichier(file) {
   $('attachments').classList.remove('hidden');
   majSendIcon();
 }
+/* Vision : chaque image jointe part aussi à la voie rapide (réduite à 1568 px, JPEG) pour que Laura la voie tout de suite */
+function imagesVision(liste) {
+  var imgs = liste.filter(function (it) { return it.url && /^image\/(png|jpe?g|webp|gif|heic|heif|avif)/i.test(it.file.type || '') || RE_IMG.test(it.file.name || ''); }).slice(0, 4);
+  return Promise.all(imgs.map(function (it) {
+    return new Promise(function (ok) {
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var k = Math.min(1, 1568 / Math.max(im.naturalWidth, im.naturalHeight));
+          var w = Math.max(1, Math.round(im.naturalWidth * k)), h = Math.max(1, Math.round(im.naturalHeight * k));
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+          ok(c.toDataURL('image/jpeg', 0.85));
+        } catch (e) { ok(''); }
+      };
+      im.onerror = function () { ok(''); };
+      im.src = it.url;
+    });
+  })).then(function (l) { return l.filter(Boolean); });
+}
 function safeName(n) { return String(n).replace(/[^\w.\-]+/g, '_').slice(0, 80); }
 function uploaderPieces(liste) {
   liste = liste || S.pending;
   var folder = S.conv ? String(S.conv) : 'nouveau';
   var ts = new Date().toISOString().replace(/[:.]/g, '-');
-  var lignes = [];
+  var lignes = [], dimsPj = [];
   var seq = Promise.resolve();
   liste.forEach(function (it, idx) {
     seq = seq.then(function () {
@@ -864,12 +924,14 @@ function uploaderPieces(liste) {
         return api(D() + '/contents/' + encP(path), { method: 'PUT', json: { message: 'pièce jointe', content: b64, branch: S.branche } }).then(function () {
           var url = 'https://github.com/' + S.depot + '/blob/' + S.branche + '/' + path;
           lignes.push('- [' + it.file.name + '](' + url + ')');
+          /* la vignette du fil réutilise l’image locale : rien à retélécharger */
+          if (it.url && RE_IMG.test(path)) { S.blobs[path] = it.url; it.garde = true; if (it.w && it.h) dimsPj.push('<!-- fsm-pj: ' + path + ' ' + it.w + 'x' + it.h + ' -->'); }
         });
       });
     });
   });
   return seq.then(function () {
-    return '\n\n📎 **Fichiers joints** (déposés dans le dépôt, à lire dans `entree/`) :\n' + lignes.join('\n');
+    return '\n\n📎 **Fichiers joints** (déposés dans le dépôt, à lire dans `entree/`) :\n' + lignes.join('\n') + (dimsPj.length ? '\n' + dimsPj.join('\n') : '');
   });
 }
 $('attachBtn').onclick = function () { $('fileInput').click(); };
@@ -3109,7 +3171,7 @@ else montrerLogin('');
     });
   })();
 
-  window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '#fil .msg'); if (n) ouvrirMenu(n); }, fermer: fermerMenu };
+window.__lp = { ouvrir: function (sel) { var n = document.querySelector(sel || '#fil .msg'); if (n) ouvrirMenu(n); }, fermer: fermerMenu };
 })();
 
 

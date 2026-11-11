@@ -1466,3 +1466,41 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 #menuPop button.mode-row .mode-coche.off { opacity: 0; }
 .react-par { margin: 10px 4px 2px; text-align: center; font-size: 12px; color: #8E8E93; letter-spacing: .01em; }
 .react-par[hidden] { display: none; }
+
+/* ===== Images jointes, comme Grok : vignette seule, coins arrondis, légende dans sa bulle ===== */
+.msg .pj-grille { display: block; margin: 0 0 4px; line-height: 0; }
+.msg.bot .pj-grille { margin: 4px 0 0; }
+.msg .pj-grille.pj-seule { margin: 0; }
+.msg .bubble.pj-seule { background: transparent !important; padding: 0 !important; border-radius: 18px !important; }
+.msg .pj-grille img.vue.pj {
+  display: block; width: 45vw; max-width: 240px; height: auto; max-height: 440px;
+  aspect-ratio: auto 4 / 3; object-fit: cover; border-radius: 18px;
+  background: #1C1C1E; -webkit-touch-callout: none; cursor: zoom-in;
+}
+.msg .pj-grille.pj-multi { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 62vw; max-width: 320px; }
+.msg .pj-grille.pj-multi img.vue.pj { width: 100%; max-width: none; aspect-ratio: 1 / 1 !important; border-radius: 14px; }
+.msg.local.envoi .pj-grille img.vue.pj { opacity: .78; transition: opacity .2s ease; }
+@media (min-width: 735px) { .msg .pj-grille img.vue.pj { width: 240px; } .msg .pj-grille.pj-multi { width: 320px; } }
+
+/* ===== En-tête : fondu sombre et flou sous les pastilles (le texte disparaît en remontant) ===== */
+#chatView .topbar { isolation: isolate; }
+#chatView .topbar::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0;
+  height: calc(100% + 30px); z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,.94) 0%, rgba(0,0,0,.82) 38%, rgba(0,0,0,.45) 68%, rgba(0,0,0,0) 100%);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 52%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 52%, transparent 100%);
+}
+
+/* ===== Flèche vers le bas, comme Grok : petit rond sombre avec ombre, au-dessus du composer ===== */
+#scrollDown {
+  width: 34px; height: 34px;
+  background: rgba(36,36,38,.94);
+  border: .5px solid rgba(255,255,255,.12);
+  box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 1px 3px rgba(0,0,0,.4);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  transform: translateX(-50%) translateY(-4px) scale(.85);
+}
+#scrollDown.show { transform: translateX(-50%) translateY(-4px) scale(1); }
+#scrollDown svg { width: 16px; height: 16px; stroke-width: 2.4; }
