@@ -2174,3 +2174,10 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 @media (prefers-reduced-motion: reduce) {
   .msg.bot.neuf { animation: none !important; }
 }
+
+/* LAURA : écran « Créer un nouveau Bot » verrouillé sur le profil de Laura (photo et nom fixes, pas de choix) */
+#createSheet.verrou-laura .create-preview svg#botBlob { display: none; }
+#createSheet.verrou-laura .create-preview img.create-laura { position: relative; z-index: 1; display: block; width: 121px; height: 121px; border-radius: 50%; object-fit: cover; opacity: 0; transition: opacity .3s ease; }
+#createSheet.verrou-laura .create-preview.assembled img.create-laura { opacity: 1; }
+#createSheet.verrou-laura #botName { pointer-events: none; color: #fff; text-align: center; }
+img.home-bot-svg.laura-photo { border-radius: 50%; object-fit: cover; }

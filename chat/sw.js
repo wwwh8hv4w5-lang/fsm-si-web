@@ -1,8 +1,8 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v56';
-const BUILD = '20261111-56';
+const C = 'laura-fsm-chat-v57';
+const BUILD = '20261111-57';
 const Q = '?v=' + BUILD;   /* mêmes adresses que index.html (avant : SHELL restait sur ?v=…-50 pendant que la page chargeait ?v=…-51) */
-const SHELL = ['./', './index.html', './style.css' + Q, './app.js' + Q, './stt-flux.js' + Q, './stt-flux-worklet.js' + Q, './coffre.js' + Q, './laura-rapide.js' + Q, './mode.js' + Q, './ordinateur.js' + Q, './bot-shapes.js' + Q, './pc.js' + Q, './gmail.js' + Q, './taches.js' + Q,
+const SHELL = ['./', './index.html', './style.css' + Q, './app.js' + Q, './stt-flux.js' + Q, './stt-flux-worklet.js' + Q, './coffre.js' + Q, './laura-rapide.js' + Q, './mode.js' + Q, './ordinateur.js' + Q, './bot-shapes.js' + Q, './create-bot.js' + Q, './pc.js' + Q, './gmail.js' + Q, './taches.js' + Q,
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
   './icons/fsm-si-logo.png', './icons/icon-192.png', './icons/icon-180.png', './icons/icon-512.png',
