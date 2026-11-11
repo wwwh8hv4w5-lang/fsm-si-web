@@ -11,11 +11,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
-<meta name="si-build" content="20261111-4">
+<meta name="si-build" content="20261111-voice">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/laura-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/laura-180.png">
-<link rel="stylesheet" href="./style.css?v=20261111-4">
+<link rel="stylesheet" href="./style.css?v=20261111-voice">
 </head>
 <body>
 <div id="app">
@@ -111,7 +111,7 @@
         <button type="button" class="pill-ico" id="micBtn" aria-label="Dicter">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
         </button>
-        <button type="button" class="pill-ico accent" id="sendBtn" aria-label="Note vocale">
+        <button type="button" class="pill-ico accent" id="sendBtn" aria-label="Mode vocal">
           <svg class="ico-wave" viewBox="0 0 24 24" fill="#fff"><rect x="4.2" y="8" width="3.2" height="8" rx="1.5"/><rect x="10.4" y="4" width="3.2" height="16" rx="1.5"/><rect x="16.6" y="7" width="3.2" height="10" rx="1.5"/></svg>
           <svg class="ico-send hidden" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
         </button>
@@ -268,7 +268,7 @@
     <div class="group">
       <button type="button" class="row danger" id="deco">Se déconnecter</button>
     </div>
-    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-4</span></p>
+    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-voice</span></p>
   </div>
 </aside>
 
@@ -324,6 +324,29 @@
   <button type="button" class="icon-btn close" aria-label="Fermer">✕</button>
 </div>
 
+
+<!-- Mode vocal plein écran -->
+<section id="voiceScreen" hidden>
+  <div class="voice-stage" id="voiceStage">
+    <div class="voice-av-wrap" id="voiceAvWrap">
+      <div class="voice-ring" aria-hidden="true"></div>
+      <div class="voice-av" id="voiceAv"><img src="./icons/laura.png" alt="Laura F.S.M"></div>
+    </div>
+    <canvas id="voiceWave" width="390" height="72" aria-hidden="true"></canvas>
+    <p id="voiceState" class="voice-state">Écoute…</p>
+    <p id="voiceCaption" class="voice-caption"></p>
+  </div>
+  <div class="voice-acts">
+    <button type="button" class="voice-btn" id="voiceMute" aria-label="Couper le micro" aria-pressed="false">
+      <svg class="ico-mic-on" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
+      <svg class="ico-mic-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l16 16"/><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-6.3-3.3"/><path d="M8.1 8.1V11a3.9 3.9 0 0 0 5.4 3.6"/><path d="M5 11a7 7 0 0 0 11.5 5.4"/><path d="M19 11a6.7 6.7 0 0 1-.5 2.5"/><path d="M12 18.9V21"/></svg>
+    </button>
+    <button type="button" class="voice-btn hang" id="voiceHang" aria-label="Raccrocher">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8v2.2c0 .6.4 1.1 1 1.3l2.4.7c.7.2 1.5-.1 1.8-.8l.6-1.3c.2-.4.1-.8-.2-1.1A9.3 9.3 0 0 1 12 10c1.6 0 3.1.4 4.4 1 .3.3.4.7.2 1.1l-.6 1.3c-.3.7.1 1.5.8 1.8l2.4.7c.6.2 1.3-.2 1.4-.8V10a8 8 0 0 0-8-8z"/></svg>
+    </button>
+  </div>
+</section>
+
 <!-- Couche de morphisme avatar (FLIP) -->
 <div id="morph" hidden aria-hidden="true">
   <div class="av" id="morphAv"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
@@ -331,6 +354,6 @@
 </div>
 
 </div>
-<script src="./app.js?v=20261111-4"></script>
+<script src="./app.js?v=20261111-voice"></script>
 </body>
 </html>

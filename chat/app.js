@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-4';
+var BUILD = '20261111-voice';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -153,6 +153,11 @@ function texteBrut(md) {
   return String(md).replace(/<!--[\s\S]*?-->/g, '').replace(/<details>[\s\S]*?<\/details>/g, '').replace(/<sub>[\s\S]*?<\/sub>/g, '').replace(/<[^>]+>/g, '')
     .replace(/```[\s\S]*?```/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '').replace(/[*_`#>|]/g, '').replace(/📎 Fichiers[\s\S]*$/, '').trim();
 }
+function textePourVoix(md) {
+  var t = texteBrut(typeof retirerPiedRobot === 'function' ? retirerPiedRobot(md) : md);
+  t = t.replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').replace(/\s{2,}/g, ' ').replace(/\s+([.,;:!?])/g, '$1').trim();
+  return t;
+}
 function el(nom, cls, texte) { var e = document.createElement(nom); if (cls) e.className = cls; if (texte != null) e.textContent = texte; return e; }
 
 /* ---------- Navigation ---------- */
@@ -243,7 +248,10 @@ function majFil(items) {
     if (!node) {
       node = S.els[it.cle] = document.createElement('article');
       fil.appendChild(node); ajout = true;
-      if (S.pret && S.voix && it.genre === 'tx') dire(texteBrut(it.corps));
+      if (S.pret && it.genre === 'tx') {
+        if (S.modeVocal) vocalSurReponse(it);
+        else if (S.voix) dire(textePourVoix(it.corps));
+      }
       if (S.pret && it.genre === 'tx' && it.cle !== S.lastBotCle && S.ecran !== 'chat') {
         bannerBot(it.corps);
       }
@@ -405,7 +413,7 @@ function majSendIcon() {
   var wave = $('sendBtn').querySelector('.ico-wave');
   if (wave) wave.classList.toggle('hidden', has);
   $('sendBtn').querySelector('.ico-send').classList.toggle('hidden', !has);
-  $('sendBtn').setAttribute('aria-label', has ? 'Envoyer' : 'Note vocale');
+  $('sendBtn').setAttribute('aria-label', has ? 'Envoyer' : 'Mode vocal');
   var ex = $('expandBtn');
   if (ex) ex.classList.toggle('hidden', !($('texte').value.trim() || S.pending.length));
 }
@@ -446,7 +454,7 @@ function envoyerSaisie() {
 }
 $('sendBtn').addEventListener('click', function () {
   if ($('texte').value.trim() || S.pending.length) envoyerSaisie();
-  else enregistrer();
+  else ouvrirModeVocal();
 });
 $('micBtn').addEventListener('click', function () { dicterOuEnregistrer(); });
 $('texte').addEventListener('input', taille);
@@ -683,8 +691,404 @@ function dire(t) {
   if (!t || !window.speechSynthesis) return;
   var u = new SpeechSynthesisUtterance(t.slice(0, 1500));
   u.lang = 'fr-FR';
+  var v = choisirVoixFeminine();
+  if (v) u.voice = v;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
+
+/* ---------- Mode vocal plein écran ---------- */
+S.modeVocal = false;
+S.vocalMuet = false;
+S.vocalEtat = 'idle';
+S._vocalRec = null;
+S._vocalFlux = null;
+S._vocalAn = null;
+S._vocalAc = null;
+S._vocalNiveau = 0;
+S._vocalCible = 0;
+S._vocalAnim = 0;
+S._vocalDernier = '';
+S._vocalCoupe = false;
+S._vocalKeep = 0;
+S._vocalRelance = 0;
+S._vocalFinal = '';
+S._vocalSilence = 0;
+
+function choisirVoixFeminine() {
+  if (!window.speechSynthesis) return null;
+  var list = speechSynthesis.getVoices() || [];
+  if (!list.length) return null;
+  var eviter = /thomas|daniel|paul|nicolas|fred|jean|google français$|fred/i;
+  var preferer = /amélie|amelie|audrey|marie|virginie|denise|hortense|julie|claire|florence|flo\b|samantha|anna|héloïse|heloise/i;
+  var fr = [];
+  for (var i = 0; i < list.length; i++) if (/^fr/i.test(list[i].lang)) fr.push(list[i]);
+  var pool = fr.length ? fr : list;
+  var j, best = null;
+  for (j = 0; j < pool.length; j++) if (preferer.test(pool[j].name) && !eviter.test(pool[j].name)) return pool[j];
+  for (j = 0; j < pool.length; j++) if (!eviter.test(pool[j].name) && /^fr/i.test(pool[j].lang)) { best = pool[j]; break; }
+  return best || pool[0] || null;
+}
+if (window.speechSynthesis) {
+  speechSynthesis.getVoices();
+  speechSynthesis.addEventListener('voiceschanged', function () { choisirVoixFeminine(); });
+}
+
+function vocalEtatUI(etat, caption) {
+  S.vocalEtat = etat;
+  var scr = $('voiceScreen');
+  if (!scr) return;
+  scr.classList.remove('listen', 'speak', 'wait', 'muted');
+  if (S.vocalMuet) scr.classList.add('muted');
+  if (etat) scr.classList.add(etat);
+  var st = $('voiceState');
+  var labels = {
+    listen: S.vocalMuet ? 'Micro coupé' : 'Écoute…',
+    wait: 'S’en occupe…',
+    speak: 'Laura parle…',
+    idle: 'Touchez pour parler'
+  };
+  if (st) st.textContent = labels[etat] || '';
+  if (caption != null && $('voiceCaption')) $('voiceCaption').textContent = caption;
+}
+
+function vocalBarres(niveau) {
+  var cv = $('voiceWave');
+  if (!cv) return;
+  var ctx = cv.getContext('2d');
+  var w = cv.width, h = cv.height;
+  ctx.clearRect(0, 0, w, h);
+  var n = 24, gap = 4, bar = (w - gap * (n - 1)) / n;
+  var t = performance.now() / 1000;
+  for (var i = 0; i < n; i++) {
+    var mid = Math.abs(i - (n - 1) / 2) / ((n - 1) / 2);
+    var pulse = 0.25 + 0.75 * niveau * (0.45 + 0.55 * Math.sin(t * 7 + i * 0.55));
+    var hon = (1 - mid * 0.45) * pulse;
+    var bh = Math.max(6, hon * (h - 8));
+    var x = i * (bar + gap);
+    var y = (h - bh) / 2;
+    ctx.fillStyle = S.vocalEtat === 'speak' ? '#F25C05' : '#FFFFFF';
+    ctx.globalAlpha = 0.35 + 0.65 * hon;
+    var r = bar / 2;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, bar, bh, r);
+    else ctx.rect(x, y, bar, bh);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  var av = $('voiceAv');
+  if (av) av.style.transform = 'scale(' + (1 + Math.min(0.07, niveau * 0.08)) + ')';
+}
+
+function vocalAnimer(on) {
+  cancelAnimationFrame(S._vocalAnim);
+  if (!on) { S._vocalNiveau = 0; vocalBarres(0.12); return; }
+  function frame() {
+    if (!S.modeVocal) return;
+    var cible = S._vocalCible;
+    if (S._vocalAn) {
+      var data = S._vocalData;
+      S._vocalAn.getByteTimeDomainData(data);
+      var sum = 0;
+      for (var i = 0; i < data.length; i++) {
+        var v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      cible = Math.min(1, Math.sqrt(sum / data.length) * 4);
+    }
+    S._vocalNiveau += (cible - S._vocalNiveau) * 0.28;
+    vocalBarres(S._vocalNiveau);
+    S._vocalCible *= 0.92;
+    S._vocalAnim = requestAnimationFrame(frame);
+  }
+  S._vocalAnim = requestAnimationFrame(frame);
+}
+
+function vocalCouperMicro() {
+  if (S._vocalAc && S._vocalAc.close) try { S._vocalAc.close(); } catch (e) {}
+  S._vocalAc = null; S._vocalAn = null; S._vocalData = null;
+  if (S._vocalFlux) {
+    S._vocalFlux.getTracks().forEach(function (t) { t.stop(); });
+    S._vocalFlux = null;
+  }
+}
+
+function vocalOndeMicro() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
+    if (!S.modeVocal || S.vocalEtat !== 'listen' || S.vocalMuet) {
+      flux.getTracks().forEach(function (t) { t.stop(); });
+      return;
+    }
+    vocalCouperMicro();
+    S._vocalFlux = flux;
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)();
+      var src = ac.createMediaStreamSource(flux);
+      var an = ac.createAnalyser();
+      an.fftSize = 256;
+      src.connect(an);
+      S._vocalAc = ac; S._vocalAn = an; S._vocalData = new Uint8Array(an.fftSize);
+      if (ac.state === 'suspended' && ac.resume) ac.resume();
+    } catch (e) {}
+  }).catch(function () { /* la reconnaissance peut quand même marcher */ });
+}
+
+function vocalStopRec() {
+  clearTimeout(S._vocalRelance);
+  clearTimeout(S._vocalSilence);
+  var r = S._vocalRec;
+  S._vocalRec = null;
+  if (r) {
+    try { r.onend = null; r.onerror = null; r.onresult = null; r.stop(); } catch (e) {}
+  }
+}
+
+function vocalEnvoyerTexte(txt) {
+  txt = String(txt || '').replace(/\s+/g, ' ').trim();
+  if (!txt || !S.modeVocal) return;
+  vocalStopRec();
+  vocalCouperMicro();
+  S._vocalFinal = '';
+  vocalEtatUI('wait', txt);
+  S._vocalCible = 0.15;
+  envoyer(txt).then(function () {}, function (e) {
+    if (!S.modeVocal) return;
+    vocalEtatUI('listen', e && e.message ? e.message : 'Envoi impossible.');
+    if (!S.vocalMuet) vocalEcouter();
+  });
+}
+
+function vocalEcouter() {
+  if (!S.modeVocal || S.vocalMuet) return;
+  if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') return;
+  vocalStopRec();
+  S._vocalCoupe = false;
+  vocalEtatUI('listen', $('voiceCaption') && !/impossible|disponible|autoris|touchez/i.test($('voiceCaption').textContent) ? $('voiceCaption').textContent : '');
+  S._vocalCible = 0.2;
+  vocalOndeMicro();
+  if (!SR) {
+    vocalEtatUI('idle', 'La dictée en direct n’est pas disponible sur ce navigateur. Tu peux écrire dans le chat, ou enregistrer une note vocale avec le micro du compositeur.');
+    return;
+  }
+  var reco = new SR();
+  S._vocalRec = reco;
+  reco.lang = 'fr-FR';
+  reco.interimResults = true;
+  reco.continuous = true;
+  reco.maxAlternatives = 1;
+  S._vocalFinal = '';
+  reco.onresult = function (e) {
+    if (!S.modeVocal || S.vocalMuet || S.vocalEtat === 'speak') return;
+    var prov = '', fin = S._vocalFinal;
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) fin += t;
+      else prov += t;
+    }
+    S._vocalFinal = fin;
+    var aff = (fin + ' ' + prov).replace(/\s+/g, ' ').trim();
+    if (aff && $('voiceCaption')) $('voiceCaption').textContent = aff;
+    S._vocalCible = Math.min(1, 0.35 + aff.length * 0.01);
+    clearTimeout(S._vocalSilence);
+    if (fin.trim() && !prov.trim()) {
+      S._vocalSilence = setTimeout(function () {
+        if (S.modeVocal && S.vocalEtat === 'listen') vocalEnvoyerTexte(S._vocalFinal);
+      }, 900);
+    }
+  };
+  reco.onerror = function (e) {
+    var err = e && e.error;
+    if (err === 'no-speech' || err === 'aborted') return;
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
+      vocalEtatUI('idle', 'Micro refusé : autorise-le dans Réglages, puis touche l’écran pour réessayer.');
+      return;
+    }
+    if (err === 'network') {
+      if ($('voiceState')) $('voiceState').textContent = 'Réseau indisponible pour la dictée';
+    }
+  };
+  reco.onend = function () {
+    if (S._vocalRec !== reco) return;
+    S._vocalRec = null;
+    if (!S.modeVocal || S.vocalMuet) return;
+    if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') return;
+    var texte = (S._vocalFinal || '').trim();
+    if (texte) { vocalEnvoyerTexte(texte); return; }
+    S._vocalRelance = setTimeout(function () {
+      if (S.modeVocal && S.vocalEtat === 'listen' && !S.vocalMuet) vocalEcouter();
+    }, 180);
+  };
+  try { reco.start(); }
+  catch (err) {
+    vocalEtatUI('idle', 'Touchez l’écran pour lancer l’écoute.');
+  }
+}
+
+function decouperVoix(t, max) {
+  max = max || 420;
+  t = String(t || '');
+  if (t.length <= max) return t ? [t] : [];
+  var parts = [], rest = t;
+  while (rest.length) {
+    if (rest.length <= max) { parts.push(rest); break; }
+    var morceau = rest.slice(0, max);
+    var c = Math.max(morceau.lastIndexOf('. '), morceau.lastIndexOf('? '), morceau.lastIndexOf('! '), morceau.lastIndexOf(', '));
+    if (c < max * 0.4) c = morceau.lastIndexOf(' ');
+    if (c < 1) c = max;
+    else c = c + 1;
+    parts.push(rest.slice(0, c).trim());
+    rest = rest.slice(c).trim();
+  }
+  return parts;
+}
+
+function vocalParler(texte, fin) {
+  texte = String(texte || '').trim();
+  if (!texte || !window.speechSynthesis) { if (fin) fin(); return; }
+  speechSynthesis.cancel();
+  clearInterval(S._vocalKeep);
+  S._vocalCoupe = false;
+  var parts = decouperVoix(texte, 420);
+  var i = 0;
+  var voix = choisirVoixFeminine();
+  function suite() {
+    if (S._vocalCoupe || !S.modeVocal) { clearInterval(S._vocalKeep); if (fin) fin(); return; }
+    if (i >= parts.length) { clearInterval(S._vocalKeep); if (fin) fin(); return; }
+    var u = new SpeechSynthesisUtterance(parts[i++]);
+    u.lang = 'fr-FR';
+    u.rate = 1.02;
+    u.pitch = 1.04;
+    if (voix) u.voice = voix;
+    u.onboundary = function () { S._vocalCible = 0.85; };
+    u.onend = suite;
+    u.onerror = suite;
+    try { speechSynthesis.speak(u); } catch (e) { suite(); }
+  }
+  S._vocalKeep = setInterval(function () {
+    if (!S.modeVocal || S._vocalCoupe) { clearInterval(S._vocalKeep); return; }
+    try {
+      if (speechSynthesis.speaking && !speechSynthesis.paused) {
+        speechSynthesis.pause();
+        speechSynthesis.resume();
+      }
+    } catch (e) {}
+  }, 9000);
+  suite();
+}
+
+function vocalSurReponse(it) {
+  if (!S.modeVocal || !it) return;
+  if (S._vocalDernier === it.cle) return;
+  S._vocalDernier = it.cle;
+  var t = textePourVoix(it.corps);
+  if (!t) {
+    vocalEtatUI('listen', '');
+    if (!S.vocalMuet) vocalEcouter();
+    return;
+  }
+  vocalStopRec();
+  vocalCouperMicro();
+  vocalEtatUI('speak', t);
+  S._vocalCible = 0.5;
+  vocalParler(t, function () {
+    if (!S.modeVocal) return;
+    if (S.vocalMuet) { vocalEtatUI('listen', t); return; }
+    vocalEtatUI('listen', '');
+    vocalEcouter();
+  });
+}
+
+function vocalInterrompre() {
+  if (!S.modeVocal) return;
+  if (S.vocalEtat === 'speak') {
+    S._vocalCoupe = true;
+    try { speechSynthesis.cancel(); } catch (e) {}
+    vocalEtatUI('listen', '');
+    if (!S.vocalMuet) vocalEcouter();
+    return;
+  }
+  if (S.vocalEtat === 'idle' || (S.vocalEtat === 'listen' && !S._vocalRec)) {
+    if (!S.vocalMuet) vocalEcouter();
+  }
+}
+
+function ouvrirModeVocal() {
+  if (!S.jeton) return;
+  if ($('composer').classList.contains('full')) setFullCompose(false);
+  S.modeVocal = true;
+  S.vocalMuet = false;
+  S._vocalCoupe = false;
+  S._vocalFinal = '';
+  $('voiceMute').classList.remove('muted');
+  $('voiceMute').setAttribute('aria-pressed', 'false');
+  $('voiceMute').querySelector('.ico-mic-on').classList.remove('hidden');
+  $('voiceMute').querySelector('.ico-mic-off').classList.add('hidden');
+  $('voiceScreen').hidden = false;
+  themeColor('#000000');
+  vocalEtatUI('listen', '');
+  vocalAnimer(true);
+  vocalEcouter();
+}
+
+function fermerModeVocal() {
+  S.modeVocal = false;
+  S._vocalCoupe = true;
+  vocalStopRec();
+  vocalCouperMicro();
+  vocalAnimer(false);
+  clearInterval(S._vocalKeep);
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+  S.vocalEtat = 'idle';
+  S.vocalMuet = false;
+  if ($('voiceScreen')) {
+    $('voiceScreen').hidden = true;
+    $('voiceScreen').classList.remove('listen', 'speak', 'wait', 'muted');
+  }
+  if ($('voiceCaption')) $('voiceCaption').textContent = '';
+  if (S.ecran === 'chat') themeColor('#000000');
+}
+
+function basculerMuetVocal() {
+  if (!S.modeVocal) return;
+  S.vocalMuet = !S.vocalMuet;
+  $('voiceMute').classList.toggle('muted', S.vocalMuet);
+  $('voiceMute').setAttribute('aria-pressed', S.vocalMuet ? 'true' : 'false');
+  $('voiceMute').querySelector('.ico-mic-on').classList.toggle('hidden', S.vocalMuet);
+  $('voiceMute').querySelector('.ico-mic-off').classList.toggle('hidden', !S.vocalMuet);
+  if (S.vocalMuet) {
+    vocalStopRec();
+    vocalCouperMicro();
+    if (S.vocalEtat === 'listen') vocalEtatUI('listen', $('voiceCaption').textContent);
+    if ($('voiceState') && S.vocalEtat !== 'speak') $('voiceState').textContent = 'Micro coupé';
+  } else if (S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait') {
+    vocalEcouter();
+  }
+}
+
+$('voiceHang').addEventListener('click', function (e) { e.stopPropagation(); fermerModeVocal(); });
+$('voiceMute').addEventListener('click', function (e) { e.stopPropagation(); basculerMuetVocal(); });
+$('voiceStage').addEventListener('click', function () { vocalInterrompre(); });
+window.addEventListener('keydown', function (e) {
+  if (!S.modeVocal) return;
+  if (e.key === 'Escape') fermerModeVocal();
+});
+
+window.__voix = {
+  ouvrir: ouvrirModeVocal,
+  fermer: fermerModeVocal,
+  muet: basculerMuetVocal,
+  etat: function () { return S.vocalEtat; },
+  caption: function () { return $('voiceCaption') && $('voiceCaption').textContent; },
+  texte: textePourVoix,
+  simuler: function (kind, txt) {
+    if (kind === 'listen') { S.modeVocal = true; vocalEtatUI('listen', txt || ''); S._vocalCible = 0.55; }
+    else if (kind === 'wait') { S.modeVocal = true; vocalEtatUI('wait', txt || ''); S._vocalCible = 0.2; }
+    else if (kind === 'speak') { S.modeVocal = true; vocalEtatUI('speak', txt || ''); S._vocalCible = 0.8; }
+    else if (kind === 'muted') { S.modeVocal = true; if (!S.vocalMuet) basculerMuetVocal(); vocalEtatUI('listen', txt || ''); }
+    else if (kind === 'final') vocalEnvoyerTexte(txt);
+    vocalBarres(S._vocalCible || 0.4);
+  }
+};
 
 /* ---------- Scroll bas + composer plein écran ---------- */
 function majScrollBtn() {
@@ -983,6 +1387,7 @@ $('backBtn').addEventListener('click', function () { fermerChatMorph(); });
       || !$('iosAlert').hidden
       || ($('lightbox') && !$('lightbox').hidden)
       || ($('createSheet') && !$('createSheet').hidden)
+      || ($('voiceScreen') && !$('voiceScreen').hidden)
       || $('composer').classList.contains('full');
   }
   function pointerXY(e) {
