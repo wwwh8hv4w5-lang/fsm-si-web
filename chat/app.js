@@ -48,7 +48,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-65';
+var BUILD = '20261111-66';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -2425,7 +2425,7 @@ function vocalDirect(blob, type, texteSeul, source) {
   if (texteSeul) meta.texte = texteSeul;   /* résultat d'une action PC validée pendant l'appel, ou texte de la transcription en continu : pas d'audio */
   if (source === 'flux') meta.stt = 'flux';
   LauraRapide.voix.appel(S.jeton, texteSeul ? null : blob, meta, {
-    entendu: function (t) { entendu = t; tt.tom = String(t || '').trim(); if (t && $('voiceCaption')) $('voiceCaption').textContent = t; },
+    entendu: function (t) { entendu = t; tt.tom = String(t || '').trim(); },   /* gardé pour l'historique, jamais affiché */
     capture: vocalCaptureEcran,
     texte: function (txt) { tt.laura = String(txt || '').replace(/\[\[TACHE\]\]/g, '').trim(); if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
     parle: function () {
@@ -2485,12 +2485,12 @@ function vocalCaptureEcran(c) {
   (window.SI_VOIX_CAPTURES = window.SI_VOIX_CAPTURES || []).push(url);
   garderTourVocal(corps);
 }
-/* Transcription en continu (stt-flux.js) : texte intermédiaire affiché, texte final → Laura tout de suite. */
+/* Transcription en continu (stt-flux.js) : texte intermédiaire jamais affiché, texte final → Laura tout de suite. */
 function vocalFluxRappels() {
   return {
     ferme: function () { return !S.modeVocal || S.vocalMuet || S.vocalEtat === 'speak'; },
     bargeIn: function () { var v = !!S._fluxBargeIn; S._fluxBargeIn = false; return v; },
-    partiel: function (t) { if (S.modeVocal && S.vocalEtat === 'listen' && t && $('voiceCaption')) $('voiceCaption').textContent = t; },
+    partiel: function () {},   /* jamais affiché : la parole de Tom n'est pas écrite à l'écran (statut seul, comme Grok Bot) */
     final: vocalFluxFinal
   };
 }
@@ -2775,7 +2775,7 @@ function vocalEnvoyerTexte(txt) {
   if (!txt || !S.modeVocal) return;
   vocalStopRec();
   S._vocalFinal = '';
-  vocalEtatUI('wait', txt);
+  vocalEtatUI('wait', '');
   S._vocalCible = 0.15;
   envoyer(txt).then(function () {
     if (S.modeVocal && S.attente) { clearTimeout(S.minuteur); boucle(); }
@@ -2816,7 +2816,6 @@ function vocalEcouter() {
     }
     S._vocalFinal = fin;
     var aff = (fin + (prov ? (fin ? ' ' : '') + prov : '')).replace(/\s+/g, ' ').trim();
-    if (aff && $('voiceCaption')) $('voiceCaption').textContent = aff;
     S._vocalCible = Math.min(1, 0.4 + aff.length * 0.02);
     clearTimeout(S._vocalSilence);
     if (fin.trim() && !prov.trim()) {
