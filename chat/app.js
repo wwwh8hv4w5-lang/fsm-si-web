@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-27';
+var BUILD = '20261111-28';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -418,6 +418,7 @@ function majFil(items) {
     if (!moi && window.LauraRapide) LauraRapide.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
     if (!moi && window.Ordinateur) Ordinateur.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
     if (!moi && window.PCTom) PCTom.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle });
+    if (!moi && window.GmailCarte) GmailCarte.cartes(node, it.corps);
     piedMessage(node, it);
   });
   Object.keys(S.els).forEach(function (k) {
@@ -825,6 +826,7 @@ function repondreVite(texte, envoiTom, images) {
     if (!node._raf) node._raf = requestAnimationFrame(function () {
       node._raf = 0;
       node.querySelector('.bubble').innerHTML = rendre(String(node._txt || '').replace(/\[\[TACHE\]\]/g, ''));
+      if (window.GmailCarte) GmailCarte.cartes(node, String(node._txt || ''));
       var fil = $('fil');
       if (fil.scrollHeight - fil.scrollTop - fil.clientHeight < 240) fil.scrollTop = fil.scrollHeight;
     });

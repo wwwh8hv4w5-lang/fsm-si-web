@@ -346,6 +346,7 @@ function appel(jeton, blob, meta, h) {
           if (j.pcm) { if (!premierPcm) premierPcm = performance.now() - t0; var b = pcmVersBuffer(j.pcm, j.rate); if (b) programmer(b, gen); if (h.parle) h.parle(); }
           if (j.audio_echec) { V.enAttente++; voixNavigateur(j.phrase, gen, function () { V.enAttente--; verifierFin(gen); }); }
           if (j.pc_demande && window.PCTom) PCTom.demandeVocale(j.pc_demande);
+          if (j.gmail_brouillon && window.GmailCarte) GmailCarte.demandeVocale(j.gmail_brouillon);
           if (j.fin) fin = j;
           if (j.erreur) { var e = new Error(j.erreur); e.etape = j.etape; throw e; }
         }

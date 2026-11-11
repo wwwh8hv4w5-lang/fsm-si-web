@@ -1979,7 +1979,7 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 
 #home .home-center { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
-/* ===== Build 20261111-27 : logo officiel FSM SI, bloc à propos comme Grok Bot ===== */
+/* ===== Build 20261111-28 : logo officiel FSM SI, bloc à propos comme Grok Bot ===== */
 .about-fsm {
   display: flex;
   flex-direction: column;

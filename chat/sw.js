@@ -1,7 +1,7 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v27';
-const BUILD = '20261111-27';
-const SHELL = ['./', './index.html', './style.css?v=20261111-27', './app.js?v=20261111-27', './coffre.js?v=20261111-27', './laura-rapide.js?v=20261111-27', './mode.js?v=20261111-27', './ordinateur.js?v=20261111-27', './bot-shapes.js?v=20261111-27', './create-bot.js?v=20261111-27', './pc.js?v=20261111-27',
+const C = 'laura-fsm-chat-v28';
+const BUILD = '20261111-28';
+const SHELL = ['./', './index.html', './style.css?v=20261111-28', './app.js?v=20261111-28', './coffre.js?v=20261111-28', './laura-rapide.js?v=20261111-28', './mode.js?v=20261111-28', './ordinateur.js?v=20261111-28', './bot-shapes.js?v=20261111-28', './create-bot.js?v=20261111-28', './pc.js?v=20261111-28', './gmail.js?v=20261111-28',
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
   './icons/fsm-si-logo.png', './icons/icon-192.png', './icons/icon-180.png', './icons/icon-512.png',
