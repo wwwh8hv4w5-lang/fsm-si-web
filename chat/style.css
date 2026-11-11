@@ -1356,7 +1356,8 @@ textarea.cf-input { resize: vertical; min-height: 72px; }
 .msg.me.neuf { transform-origin: 100% 100%; }
 .msg.bot.neuf { transform-origin: 0 100%; }
 /* longs historiques : le navigateur saute le rendu des bulles hors écran */
-#fil > .msg { content-visibility: auto; contain-intrinsic-size: auto 72px; }
+/* flex-shrink: 0 : sans lui, le fil (flex colonne) écrase à 0 px les bulles hors écran (contenu sauté = hauteur min 0) → historique « effacé » après relance */
+#fil > .msg { content-visibility: auto; contain-intrinsic-size: auto 72px; flex-shrink: 0; }
 #fil > .msg.has-react, #fil > .msg.neuf, #fil > .msg.nonlu { content-visibility: visible; }
 #fil { contain: layout paint; will-change: scroll-position; }
 /* envoi en file : la bulle est là tout de suite, légèrement estompée tant que GitHub n’a pas répondu */
