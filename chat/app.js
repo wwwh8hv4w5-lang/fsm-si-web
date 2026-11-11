@@ -54,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-82';
+var BUILD = '20261111-83';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -1232,7 +1232,14 @@ function envoyer(texte, opts) {
   if (!S.runEtat) etatLigne('S’en occupe');
   var envoi = new Promise(function (ok, ko) { job.ok = ok; job.ko = ko; S.file.push(job); pomper(); });
   /* Voie rapide en parallèle de l’envoi : Laura répond tout de suite ; sa réponse est postée après le message de Tom. */
-  if (texte.charAt(0) !== '/' && !(opts && opts.sansRapide)) repondreVite(texte, envoi, opts && opts.images);
+  if (texte.charAt(0) !== '/' && !(opts && opts.sansRapide)) {
+    /* 11/11 (25) : sans réseau, la réponse rapide part au retour de la connexion (le message attend sur l’appareil). */
+    if (navigator.onLine === false) {
+      etatLigne('En attente du réseau');
+      var auRetour = function () { window.removeEventListener('online', auRetour); repondreVite(texte, envoi, opts && opts.images); };
+      window.addEventListener('online', auRetour);
+    } else repondreVite(texte, envoi, opts && opts.images);
+  }
   return envoi;
 }
 /* Voie rapide : Worker fsm-si-proxy toujours allumé. Laura répond tout de suite, même pendant une tâche.
@@ -1512,8 +1519,19 @@ function pomper() {
     pomper();
   }, function (e) {
     S.envoi = false;
-    job.essais++;
     var node = S.els[job.id];
+    /* 11/11 (25) : pas de réseau → on attend son retour sans compter d’essai ni marquer l’échec. */
+    if (navigator.onLine === false || (e && !e.status && /fetch|network|réseau|Load failed/i.test(String(e.message || '')))) {
+      if (node) node.title = 'En attente du réseau';
+      if (!S._attenteReseau) {
+        S._attenteReseau = true;
+        var reprendre = function () { window.removeEventListener('online', reprendre); S._attenteReseau = false; setTimeout(pomper, 400); };
+        window.addEventListener('online', reprendre);
+        if (navigator.onLine !== false) setTimeout(function () { if (S._attenteReseau) { window.removeEventListener('online', reprendre); S._attenteReseau = false; pomper(); } }, 15000);
+      }
+      return;
+    }
+    job.essais++;
     if (e && e.status !== 401 && e.status !== 403 && e.status !== 404 && job.essais < 4) {
       setTimeout(pomper, 1200 * job.essais);
       return;
@@ -3920,6 +3938,60 @@ $('deco').onclick = function () {
   });
 };
 
+/* 11/11 (A1) : déconnecter tous les appareils — toutes les sessions, celle-ci comprise, ne valent plus rien. */
+if ($('decoPartout')) $('decoPartout').onclick = function () {
+  iosAlerte('Déconnecter tous les appareils ?', 'Tous tes appareils, celui-ci compris, devront se reconnecter avec tes identifiants du FSM HUB.', function () {
+    fetch(PROXY + '/session/sortie-partout', { method: 'POST', credentials: 'include' }).catch(function () {}).then(function () {
+      mem.oter('si_jeton'); S.jeton = ''; S.viaProxy = false; clearTimeout(S.minuteur);
+      fermerSettings(); closePush(true); montrerLogin('');
+    });
+  });
+};
+/* 11/11 (23) : Raccourci Siri « Demande à Laura » — jeton personnel affiché une seule fois, révocable. */
+function apiProxy(chemin, o) {
+  o = o || {};
+  var h = { 'Content-Type': 'application/json' };
+  if (S.jeton && S.jeton !== 'cookie') h.Authorization = 'Bearer ' + S.jeton;
+  return fetch(PROXY + chemin, { method: o.method || 'GET', credentials: 'include', cache: 'no-store', headers: h, body: o.json ? JSON.stringify(o.json) : undefined }).then(function (r) {
+    return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.erreur || ('réponse ' + r.status)); return d; });
+  });
+}
+if ($('rowRaccourci')) $('rowRaccourci').onclick = function () {
+  openPush('Raccourci Siri', function (box) {
+    box.appendChild(el('p', 'invite', 'Parle à Laura depuis Siri ou un double tapotement au dos de l’iPhone, sans ouvrir l’appli. La question et la réponse arrivent aussi dans la discussion.'));
+    var etapes = el('div', 'invite', '');
+    etapes.innerHTML = '<ol style="margin:8px 0 0 18px;padding:0;line-height:1.5">' +
+      '<li>Touche « Créer un jeton » et copie-le.</li>' +
+      '<li>App Raccourcis → + → « Dicter du texte », puis « Obtenir le contenu de l’URL ».</li>' +
+      '<li>URL : <b>https://laura.fsmsibot.app/raccourci</b> · Méthode POST · En-têtes : <b>Authorization</b> = « Bearer » + le jeton, <b>Accept</b> = text/plain · Corps JSON : <b>texte</b> = Texte dicté.</li>' +
+      '<li>Ajoute « Énoncer le texte » avec le résultat, puis nomme le raccourci « Demande à Laura ».</li></ol>';
+    box.appendChild(etapes);
+    var sortie = el('p', 'invite', '');
+    var creer = el('button', 'cf-btn primary', 'Créer un jeton');
+    creer.type = 'button';
+    creer.onclick = function () {
+      creer.disabled = true;
+      apiProxy('/raccourci/jeton', { method: 'POST', json: {} }).then(function (d) {
+        sortie.textContent = '';
+        var code = el('code', '', d.jeton); code.style.wordBreak = 'break-all'; code.style.userSelect = 'all';
+        sortie.appendChild(code);
+        var cp = el('button', 'cf-btn', 'Copier'); cp.type = 'button';
+        cp.onclick = function () { if (navigator.clipboard) navigator.clipboard.writeText(d.jeton).then(function () { alerte('Copié'); }); };
+        sortie.appendChild(cp);
+        sortie.appendChild(el('p', 'invite', 'Ce jeton ne sera plus affiché. Garde-le seulement dans le raccourci.'));
+      }, function (e) { sortie.textContent = 'Impossible : ' + e.message; }).then(function () { creer.disabled = false; });
+    };
+    var revoquer = el('button', 'cf-btn ghost', 'Révoquer tous les jetons');
+    revoquer.type = 'button';
+    revoquer.onclick = function () {
+      iosAlerte('Révoquer les jetons ?', 'Les raccourcis déjà créés ne marcheront plus.', function () {
+        apiProxy('/raccourci/jeton', { method: 'DELETE' }).then(function (d) { alerte((d.revoques || 0) + ' jeton(s) révoqué(s)'); }, function (e) { alerte(e.message); });
+      });
+    };
+    box.appendChild(creer); box.appendChild(revoquer); box.appendChild(sortie);
+  });
+};
+
 var pushFrom = null;
 function openPush(title, build, fromEl) {
   pushFrom = fromEl || $('settingsSheet');
@@ -4741,6 +4813,13 @@ fetch(PROXY + '/session', { cache: 'no-store', credentials: 'include' }).then(fu
     var done = function () { if (window.alerte) alerte('Copié'); fermerMenu(); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, done);
     else done();
+  };
+  /* 11/11 : « Écouter » — Laura lit le message à voix haute (même voix que les réponses lues). */
+  if ($('reactEcouter')) $('reactEcouter').onclick = function () {
+    if (!cible) return;
+    var v = textePourVoix(cible.dataset.texte || '');
+    fermerMenu();
+    if (v) dire(v);
   };
   $('reactSelect').onclick = function () {
     if (!cible) return;
