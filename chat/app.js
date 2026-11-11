@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-11';
+var BUILD = '20261111-12';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -1914,7 +1914,8 @@ function mesurerCarte() {
   if (!r.a0.width || !r.a1.width) return null;
   var morph = $('morph'), av = $('morphAv'), nm = $('morphName');
   if (morph && av && nm) {
-    av.style.width = r.a0.width + 'px'; av.style.height = r.a0.height + 'px';
+    /* taille finale (grande) puis réduction : l’image reste nette pendant l’animation */
+    av.style.width = r.a1.width + 'px'; av.style.height = r.a1.height + 'px';
     nm.textContent = NOM;
     nm.style.fontSize = '16px'; nm.style.fontWeight = '500';
     nm.style.maxWidth = (r.n0.width || 200) + 'px';
@@ -1946,7 +1947,7 @@ function appliquerCarte(p) {
       $('homeAv').style.opacity = '0'; $('homeName').style.opacity = '0';
       nm.style.opacity = '1';
     }
-    var s = lerp(1, r.a1.width / r.a0.width, p);
+    var s = lerp(r.a0.width / r.a1.width, 1, p);
     av.style.transform = 'translate3d(' + lerp(r.a0.left, r.a1.left, p) + 'px,' + lerp(r.a0.top, r.a1.top, p) + 'px,0) scale(' + s + ')';
     nm.style.transform = 'translate3d(' + lerp(r.n0.left, r.n1.left, p) + 'px,' + lerp(r.n0.top, r.n1.top, p) + 'px,0)';
     var court = p > 0.55;
