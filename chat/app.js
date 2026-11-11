@@ -23,13 +23,13 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-50';
+var BUILD = '20261111-51';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
 window.SI_ouvrirConv = function (n) { if (n && S.pret) choisir(Number(n)); };
 window.SI_rafraichir = function () { return rafraichir(); };
-window.SI_pret = function () { return !!S.pret && S.ecran !== 'login'; };
+window.SI_pret = function () { return S.ecran === 'home' || S.ecran === 'chat'; };
 window.SI_alerte = function (m) { alerte(m); };
 window.SI_notifActive = function (v) { S.notif = !!v; mem.ecrire('si_notif', v ? '1' : '0'); try { majCompteUI(); } catch (e) {} };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
