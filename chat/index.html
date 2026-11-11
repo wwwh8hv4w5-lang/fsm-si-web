@@ -11,11 +11,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
-<meta name="si-build" content="20261111-9">
+<meta name="si-build" content="20261111-10">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/laura-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/laura-180.png">
-<link rel="stylesheet" href="./style.css?v=20261111-9">
+<link rel="stylesheet" href="./style.css?v=20261111-10">
 </head>
 <body>
 <div id="app">
@@ -34,14 +34,14 @@
     <h1>Laura F.S.M</h1>
     <p class="sub">F.S.M AI · FSM SI</p>
   </div>
-  <form id="loginForm" autocomplete="off">
+  <div id="loginForm" autocomplete="off">
     <label for="adepot">Dépôt (propriétaire/nom)</label>
-    <input type="text" id="adepot" autocapitalize="off" autocorrect="off" spellcheck="false" value="wwwh8hv4w5-lang/fsm-si">
+    <input type="text" id="adepot" autocapitalize="off" autocorrect="off" spellcheck="false" value="wwwh8hv4w5-lang/fsm-si" enterkeyhint="next">
     <label for="ajeton">Jeton GitHub</label>
-    <input type="password" id="ajeton" autocomplete="off">
+    <input type="password" id="ajeton" autocomplete="off" enterkeyhint="go">
     <p id="aerreur"></p>
-    <button type="submit" class="btn-orange" id="relier">Relier</button>
-  </form>
+    <button type="button" class="btn-orange" id="relier">Relier</button>
+  </div>
   <div class="howto">
     <p>Sur GitHub : Settings → Developer settings → Fine-grained tokens. Accès limité au dépôt FSM SI. Permissions : Issues et Contents en lecture et écriture, Actions en lecture. Le jeton reste dans ce navigateur et ne part que vers GitHub.</p>
   </div>
@@ -112,7 +112,7 @@
         <button type="button" class="pill-ico" id="attachBtn" aria-label="Joindre">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
-        <textarea id="texte" rows="1" placeholder="Demander à Laura F.S.M…" aria-label="Message"></textarea>
+        <textarea id="texte" rows="1" placeholder="Demander à Laura F.S.M…" aria-label="Message" enterkeyhint="send"></textarea>
         <button type="button" class="expand-btn hidden" id="expandBtn" aria-label="Plein écran">
           <svg class="ico-expand" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
           <svg class="ico-collapse hidden" viewBox="0 0 24 24"><path d="M3 8h5V3M16 3v5h5M3 16h5v5M16 21v-5h5"/></svg>
@@ -146,10 +146,10 @@
       <button type="button" class="circ-btn" id="searchNext" aria-label="Résultat suivant">
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <input id="findInput" type="search" placeholder="Recherche" aria-label="Rechercher dans la conversation">
+      <input id="findInput" type="search" tabindex="-1" placeholder="Recherche" aria-label="Rechercher dans la conversation">
       <button type="button" id="searchDone">Terminé</button>
     </div>
-    <input id="fileInput" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,.md,.json,application/*" hidden>
+    <input id="fileInput" type="file" tabindex="-1" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,.md,.json,application/*" hidden>
   </footer>
 </section>
 
@@ -277,7 +277,7 @@
     <div class="group">
       <button type="button" class="row danger" id="deco">Se déconnecter</button>
     </div>
-    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-9</span></p>
+    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-10</span></p>
   </div>
 </aside>
 
@@ -307,7 +307,7 @@
   </div>
   <div class="sheet-scroll create-body">
     <div class="blob" id="botBlob" aria-hidden="true"></div>
-    <input id="botName" type="text" placeholder="Nommez votre Bot" maxlength="40" autocomplete="off">
+    <input id="botName" type="text" tabindex="-1" placeholder="Nommez votre Bot" maxlength="40" autocomplete="off">
     <div class="shape-grid" id="shapeGrid"></div>
     <div class="swatches" id="colorGrid"></div>
     <button type="button" class="full-btn" id="botCreate" disabled>Créer</button>
@@ -386,7 +386,7 @@
     <div class="group" id="flagReasons"></div>
     <label class="cf-field flag-autre" hidden>
       <span class="cf-lab">Préciser</span>
-      <textarea id="flagAutre" class="cf-input" rows="3" maxlength="240"></textarea>
+      <textarea id="flagAutre" tabindex="-1" class="cf-input" rows="3" maxlength="240"></textarea>
     </label>
     <button type="button" class="cf-btn primary" id="flagSend">Envoyer</button>
     <button type="button" class="cf-btn ghost" id="flagCancel">Annuler</button>
@@ -420,11 +420,11 @@
       <h3>Voix</h3>
       <label class="vp-row">
         <span>Voix</span>
-        <select id="voiceSel"></select>
+        <select id="voiceSel" tabindex="-1"></select>
       </label>
       <label class="vp-row">
         <span>Vitesse</span>
-        <input type="range" id="voiceRate" min="0.75" max="1.4" step="0.05" value="1">
+        <input type="range" id="voiceRate" tabindex="-1" min="0.75" max="1.4" step="0.05" value="1">
         <span id="voiceRateVal">1,00×</span>
       </label>
       <button type="button" class="vp-ok" id="voicePrefsOk">OK</button>
@@ -439,7 +439,7 @@
 </div>
 
 </div>
-<script src="./coffre.js?v=20261111-9"></script>
-<script src="./app.js?v=20261111-9"></script>
+<script src="./coffre.js?v=20261111-10"></script>
+<script src="./app.js?v=20261111-10"></script>
 </body>
 </html>

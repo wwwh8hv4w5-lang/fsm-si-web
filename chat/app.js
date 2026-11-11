@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-9';
+var BUILD = '20261111-10';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -86,11 +86,13 @@ function rendre(md) {
   var codes = [], imgs = [];
   md = retirerPiedRobot(md);
   md = String(md || '').replace(/\u0001/g, '').replace(/<!--[\s\S]*?-->/g, '');
+  md = md.replace(/<details>[\s\S]*?<\/details>/gi, '');
   md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) { var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
   md = md.replace(/```[^\n]*\n([\s\S]*?)```/g, function (m, c) { codes.push(c); return '\n\u0001C' + (codes.length - 1) + '\u0001\n'; });
   var h = esc(md)
-    .replace(/&lt;details&gt;\s*&lt;summary&gt;([\s\S]*?)&lt;\/summary&gt;/g, '\n<details><summary>$1</summary>\n')
-    .replace(/&lt;\/details&gt;/g, '\n</details>\n')
+    .replace(/&lt;details&gt;[\s\S]*?&lt;\/details&gt;/g, '')
+    .replace(/&lt;\/?details[^&]*&gt;/g, '')
+    .replace(/&lt;\/?summary[^&]*&gt;/g, '')
     .replace(/&lt;sub&gt;([\s\S]*?)&lt;\/sub&gt;/g, '');
   var out = [], liste = false, table = false;
   function clore() { if (liste) { out.push('</ul>'); liste = false; } if (table) { out.push('</table>'); table = false; } }
@@ -162,6 +164,14 @@ function el(nom, cls, texte) { var e = document.createElement(nom); if (cls) e.c
 
 /* ---------- Navigation ---------- */
 function themeColor(c) { var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', c); }
+function champsFocusables(actifs) {
+  var allow = {};
+  (actifs || []).forEach(function (n) { if (n) allow[n.id || n] = true; });
+  Array.prototype.forEach.call(document.querySelectorAll('input, textarea, select'), function (el) {
+    var on = !!(el.id && allow[el.id]);
+    el.tabIndex = on ? 0 : -1;
+  });
+}
 function montrerLogin(err) {
   S.ecran = 'login';
   $('login').hidden = false;
@@ -170,12 +180,14 @@ function montrerLogin(err) {
   $('adepot').value = S.depot || 'wwwh8hv4w5-lang/fsm-si';
   $('ajeton').value = '';
   $('aerreur').textContent = err || '';
+  champsFocusables([$('adepot'), $('ajeton')]);
   themeColor('#141414');
 }
 function montrerHome(instant) {
   S.ecran = 'home';
   $('login').hidden = true;
   $('home').hidden = false;
+  champsFocusables([]);
   if (instant) {
     $('chatView').hidden = true;
     resetCard();
@@ -190,6 +202,7 @@ function montrerChat(viaMorph) {
   $('login').hidden = true;
   $('home').hidden = false; /* reste derrière pour le morph */
   $('chatView').hidden = false;
+  champsFocusables([$('texte')]);
   themeColor('#000000');
   if (!viaMorph) resetCard();
   setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 40);
@@ -238,6 +251,39 @@ function mediaHtml(corps) {
   });
 }
 
+function estNoteVocale(corps) {
+  return /^\s*(?:🎤\s*)?Note vocale\s*:/i.test(String(corps || ''));
+}
+function cheminNoteVocale(corps) {
+  var m = String(corps || '').match(/Note vocale\s*:\s*(\S+)/i);
+  return m ? m[1].trim() : '';
+}
+function extraireCitationVocale(corps) {
+  var s = String(corps || '').replace(/^\uFEFF/, '');
+  var m = s.match(/<!--\s*fsm-vocal:\s*([\s\S]*?)-->/);
+  if (m) {
+    return { texte: m[1].replace(/\s+/g, ' ').trim(), reste: s.replace(m[0], '').replace(/^\s+/, '') };
+  }
+  m = s.match(/^\s*>\s*«\s*([\s\S]*?)\s*»\s*(?:\n+|$)/);
+  if (m) {
+    return { texte: m[1].replace(/\s+/g, ' ').trim(), reste: s.slice(m[0].length).replace(/^\s+/, '') };
+  }
+  return null;
+}
+function memorerTranscriptionVocale(texte) {
+  if (!texte) return;
+  S._dernVocal = texte;
+}
+function transcriptionPourNote(corps) {
+  return S._dernVocal || '';
+}
+function bulleNoteVocale(transcription) {
+  var lab = transcription || 'Note vocale';
+  var hauteurs = [6, 10, 14, 9, 16, 8, 12, 7, 15, 10, 6];
+  var bars = hauteurs.map(function (h) { return '<i style="height:' + h + 'px"></i>'; }).join('');
+  return '<div class="bubble vocal"><span class="vocal-wave" aria-hidden="true">' + bars + '</span><span class="vocal-lab">' + esc(lab) + '</span></div>';
+}
+
 function majFil(items) {
   var fil = $('fil');
   var bas = fil.scrollHeight - fil.scrollTop - fil.clientHeight < 140;
@@ -261,14 +307,40 @@ function majFil(items) {
     node._corps = it.corps;
     var moi = it.genre === 'moi' || it.genre === 'ordre';
     node.className = 'msg ' + (moi ? (it.genre === 'ordre' ? 'ordre' : 'me') : 'bot');
-    node.innerHTML = '<div class="bubble">' + mediaHtml(rendre(it.corps)) + '</div><time>' + esc(heure(it.date)) + '</time>';
+    var corpsVu = it.corps;
+    var voc = extraireCitationVocale(corpsVu);
+    if (voc) {
+      corpsVu = voc.reste;
+      memorerTranscriptionVocale(voc.texte);
+    }
+    var htmlBulle;
+    if (moi && estNoteVocale(it.corps)) {
+      var tr = transcriptionPourNote(it.corps);
+      htmlBulle = bulleNoteVocale(tr);
+      node.dataset.texte = tr || 'Note vocale';
+    } else {
+      htmlBulle = '<div class="bubble">' + mediaHtml(rendre(corpsVu)) + '</div>';
+      node.dataset.texte = texteBrut(corpsVu);
+    }
+    node.innerHTML = htmlBulle + '<time>' + esc(heure(it.date)) + '</time>';
     node.dataset.cle = it.cle;
-    node.dataset.texte = texteBrut(it.corps);
     node.dataset.qui = moi ? 'me' : 'bot';
     brancher(node);
     piedMessage(node, it);
   });
   Object.keys(S.els).forEach(function (k) { if (!vus[k]) { S.els[k].remove(); delete S.els[k]; } });
+  if (S._dernVocal) {
+    items.forEach(function (it) {
+      if (!(it.genre === 'moi' && estNoteVocale(it.corps))) return;
+      var n = S.els[it.cle];
+      if (!n) return;
+      var lab = n.querySelector('.vocal-lab');
+      if (lab && lab.textContent === 'Note vocale') {
+        lab.textContent = S._dernVocal;
+        n.dataset.texte = S._dernVocal;
+      }
+    });
+  }
   if (ajout && (bas || !S.pret)) fil.scrollTop = fil.scrollHeight;
   majScrollBtn();
 }
@@ -398,7 +470,7 @@ function etatActions() {
     var runs = (d && d.workflow_runs) || [];
     var run = runs.find(function (r) { return r.status === 'queued' || r.status === 'in_progress' || r.status === 'waiting' || r.status === 'pending'; });
     if (!run) {
-      if (S.attente) etatLigne('En train d’écrire…');
+      if (S.attente) etatLigne('S’en occupe');
       else etatLigne('');
       return;
     }
@@ -419,7 +491,7 @@ function etatActions() {
       });
       var nom = ((step && step.name) || (job && job.name) || '').trim();
       var low = nom.toLowerCase();
-      if (/écrit|ecrit|write|reply|répond|repond|comment|message/i.test(low)) etatLigne('En train d’écrire…');
+      if (/écrit|ecrit|write|reply|répond|repond|comment|message/i.test(low)) etatLigne('S’en occupe');
       else if (/assemble|pièce|piece/i.test(low)) etatLigne('Assemble les pièces');
       else if (/pas à pas|pas a pas|step by step|avance/i.test(low)) etatLigne('Avance pas à pas');
       else if (nom && /^[\wÀ-ÿ’' .:-]{3,60}$/.test(nom) && /[àâéèêëîïôùûçÀ-ÿ ]/.test(nom)) etatLigne(nom);
@@ -891,7 +963,9 @@ function estPwaIos() {
   return estIOS() && !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
 }
 function dicteeNavigateurOk() {
-  return !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note && !estPwaIos();
+  /* Whisper (OpenRouter) is the default on every device. Browser STT is only a fallback. */
+  if (!S._sttRepliNavigateur) return false;
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note;
 }
 function debloquerAudio() {
   try {
@@ -961,7 +1035,11 @@ function vocalEnvoyerAudio(blob, type) {
 function vocalEcouterMedia() {
   if (!S.modeVocal || S.vocalMuet) return;
   if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') return;
-  if (!navigator.mediaDevices || !window.MediaRecorder) return;
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    S._sttRepliNavigateur = true;
+    if ((window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note) vocalEcouter();
+    return;
+  }
   vocalStopRec();
   vocalStopMediaRec(true);
   navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(function (flux) {
@@ -1013,6 +1091,12 @@ function vocalEcouterMedia() {
       if (Date.now() - debut > 30000) { try { rec.stop(); } catch (e2) {} clearInterval(S._vocalSilInt); }
     }, 100);
   }).catch(function () {
+    /* Cannot record: fall back to the browser recognizer if it exists. */
+    S._sttRepliNavigateur = true;
+    if ((window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note) {
+      vocalEcouter();
+      return;
+    }
     vocalEtatUI('idle', '');
   });
 }
@@ -1475,11 +1559,13 @@ function ouvrirRecherche() {
   $('composeRow').hidden = true;
   $('chatSearchBar').hidden = false;
   $('findInput').value = '';
+  champsFocusables([$('findInput')]);
   $('findInput').focus();
 }
 function fermerRecherche() {
   $('chatSearchBar').hidden = true;
   $('composeRow').hidden = false;
+  champsFocusables([$('texte')]);
   hits = []; hitI = -1;
   Array.prototype.forEach.call($('fil').querySelectorAll('mark.hit'), function (m) {
     var t = document.createTextNode(m.textContent); m.parentNode.replaceChild(t, m);
@@ -2414,13 +2500,17 @@ function demarrer() {
     boucle();
   });
 }
-$('loginForm').addEventListener('submit', function (e) {
-  e.preventDefault();
+function relierCompte(e) {
+  if (e) e.preventDefault();
   S.depot = $('adepot').value.trim().replace(/^https:\/\/github\.com\//, '').replace(/\/+$/, '');
   S.jeton = $('ajeton').value.trim();
   if (!/^[\w.-]+\/[\w.-]+$/.test(S.depot) || !S.jeton) { $('aerreur').textContent = 'Indique le dépôt sous la forme propriétaire/nom, et le jeton.'; return; }
   $('aerreur').textContent = 'Vérification.';
   demarrer().then(function () { mem.ecrire('si_depot', S.depot); mem.ecrire('si_jeton', S.jeton); }, function (err) { S.jeton = ''; $('aerreur').textContent = err.message; });
+}
+$('relier').addEventListener('click', relierCompte);
+$('loginForm').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') relierCompte(e);
 });
 
 if ('serviceWorker' in navigator) {
