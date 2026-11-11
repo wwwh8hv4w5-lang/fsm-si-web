@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-8';
+var BUILD = '20261111-9';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -442,6 +442,7 @@ function majSendIcon() {
   var wave = $('sendBtn').querySelector('.ico-wave');
   if (wave) wave.classList.toggle('hidden', has);
   $('sendBtn').querySelector('.ico-send').classList.toggle('hidden', !has);
+  $('sendBtn').classList.toggle('has-text', has);
   $('sendBtn').setAttribute('aria-label', has ? 'Envoyer' : 'Mode vocal');
   var ex = $('expandBtn');
   if (ex) ex.classList.toggle('hidden', !($('texte').value.trim() || S.pending.length));
@@ -802,39 +803,41 @@ function vocalBarres(niveau) {
   var rect = cv.getBoundingClientRect();
   var dpr = window.devicePixelRatio || 1;
   var w = Math.max(2, Math.round((rect.width || 200) * dpr));
-  var h = Math.max(2, Math.round((rect.height || 52) * dpr));
+  var h = Math.max(2, Math.round((rect.height || 44) * dpr));
   if (cv.width !== w) cv.width = w;
   if (cv.height !== h) cv.height = h;
   var ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, w, h);
-  var n = 26, gap = Math.max(2.5 * dpr, w * 0.012), bar = (w - gap * (n - 1)) / n;
-  var t = performance.now() / 1000;
+  var gap = 2 * dpr;
+  var bar = Math.max(3.2 * dpr, 4 * dpr);
+  var n = Math.max(10, Math.floor((w + gap) / (bar + gap)));
+  var tps = performance.now() / 1000;
   var freq = S._vocalFreq;
   if (S._vocalAn && freq) {
     try { S._vocalAn.getByteFrequencyData(freq); } catch (e) { freq = null; }
   }
+  var niveauN = Math.max(0, Math.min(1, niveau || 0));
   for (var i = 0; i < n; i++) {
-    var pos = i / (n - 1);
-    var shape = Math.pow(pos, 0.65);
-    var mic = niveau;
+    var pos = i / Math.max(1, n - 1);
+    var mic = niveauN;
     if (freq && freq.length) {
-      var idx = Math.min(freq.length - 1, Math.floor((0.08 + pos * 0.5) * freq.length));
-      mic = Math.max(mic, freq[idx] / 220);
+      var idx = Math.min(freq.length - 1, Math.floor((0.06 + pos * 0.55) * freq.length));
+      mic = Math.max(mic, freq[idx] / 210);
     }
-    var wobble = 0.55 + 0.45 * Math.sin(t * 9 + i * 0.65);
-    var hon = (0.08 + 0.92 * shape) * (0.08 + Math.min(1, mic) * wobble);
-    hon = Math.max(0.06, Math.min(1, hon));
-    var minDot = Math.max(3.2 * dpr, bar * 0.9);
-    var isDot = shape < 0.28 && hon < 0.4;
-    var bh = isDot ? minDot : (minDot + hon * (h - minDot - 2 * dpr));
-    var bw = isDot ? minDot : bar;
-    var x = i * (bar + gap) + (bar - bw) / 2;
+    var wobble = 0.62 + 0.38 * Math.sin(tps * 10 + i * 0.55);
+    var hon = Math.max(0.05, Math.min(1, mic * wobble));
+    var isDot = i < 3;
+    var minH = isDot ? Math.max(3 * dpr, bar) : Math.max(h * 0.36, bar * 2.2);
+    var bh = isDot ? minH : (minH + hon * (h - minH - 2 * dpr));
+    var bw = isDot ? minH : bar;
+    var slot = bar + gap;
+    var x = i * slot + (bar - bw) / 2;
     var y = (h - bh) / 2;
-    ctx.fillStyle = '#FF4B8A';
-    ctx.globalAlpha = 0.5 + 0.5 * hon;
+    ctx.fillStyle = '#FF2D8A';
+    ctx.globalAlpha = 1;
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, bw, bh, bw / 2);
-    else { ctx.arc(x + bw / 2, h / 2, bw / 2, 0, Math.PI * 2); }
+    else ctx.arc(x + bw / 2, y + bh / 2, bw / 2, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -880,6 +883,140 @@ function vocalCouperMicro() {
   }
 }
 
+
+function estIOS() {
+  return /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function estPwaIos() {
+  return estIOS() && !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+}
+function dicteeNavigateurOk() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !S.note && !estPwaIos();
+}
+function debloquerAudio() {
+  try {
+    if (window.speechSynthesis) {
+      var u = new SpeechSynthesisUtterance('\u200B');
+      u.lang = 'fr-FR';
+      u.volume = 0.01;
+      u.rate = 1;
+      u.pitch = 1;
+      speechSynthesis.speak(u);
+      S._voixDebloquee = true;
+    }
+  } catch (e) {}
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) {
+      if (!S._voixCtx) S._voixCtx = new AC();
+      if (S._voixCtx.state === 'suspended' && S._voixCtx.resume) S._voixCtx.resume();
+      var ctx = S._voixCtx;
+      var buf = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    }
+  } catch (e) {}
+}
+function typeEnregistrement() {
+  if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+  var types = ['audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
+  for (var i = 0; i < types.length; i++) if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+  return '';
+}
+function vocalStopMediaRec(annuler) {
+  clearInterval(S._vocalSilInt);
+  var rec = S._vocalMr;
+  if (!rec) return;
+  S._vocalAnnuleMr = !!annuler;
+  S._vocalMr = null;
+  try { rec.stop(); } catch (e) {}
+}
+function vocalEnvoyerAudio(blob, type) {
+  type = type || blob.type || 'audio/mp4';
+  var ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
+  var chemin = 'entree/vocal/' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
+  vocalEtatUI('wait', '');
+  var lecteur = new FileReader();
+  lecteur.onload = function () {
+    var b64 = String(lecteur.result || '').split(',')[1];
+    if (!b64) {
+      vocalEtatUI('listen', '');
+      if (!S.vocalMuet) vocalEcouter();
+      return;
+    }
+    api(D() + '/contents/' + encP(chemin), { method: 'PUT', json: { message: 'note vocale', content: b64, branch: S.branche } })
+      .then(function () { return envoyer('🎤 Note vocale : ' + chemin); })
+      .then(function () {
+        if (S.modeVocal && S.attente) { clearTimeout(S.minuteur); boucle(); }
+      }, function (e) {
+        if (!S.modeVocal) return;
+        vocalEtatUI('listen', '');
+        if (!S.vocalMuet) vocalEcouter();
+      });
+  };
+  lecteur.readAsDataURL(blob);
+}
+function vocalEcouterMedia() {
+  if (!S.modeVocal || S.vocalMuet) return;
+  if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') return;
+  if (!navigator.mediaDevices || !window.MediaRecorder) return;
+  vocalStopRec();
+  vocalStopMediaRec(true);
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(function (flux) {
+    if (!S.modeVocal || S.vocalMuet) { flux.getTracks().forEach(function (tr) { tr.stop(); }); return; }
+    vocalCouperMicro();
+    S._vocalFlux = flux;
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended' && ac.resume) ac.resume();
+      var src = ac.createMediaStreamSource(flux);
+      var an = ac.createAnalyser();
+      an.fftSize = 256;
+      an.smoothingTimeConstant = 0.55;
+      src.connect(an);
+      S._vocalAc = ac; S._vocalAn = an;
+      S._vocalData = new Uint8Array(an.fftSize);
+      S._vocalFreq = new Uint8Array(an.frequencyBinCount);
+    } catch (e) {}
+    var mime = typeEnregistrement();
+    var morceaux = [];
+    var rec;
+    try { rec = mime ? new MediaRecorder(flux, { mimeType: mime }) : new MediaRecorder(flux); }
+    catch (err) { rec = new MediaRecorder(flux); }
+    S._vocalMr = rec;
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) morceaux.push(e.data); };
+    rec.onstop = function () {
+      if (S._vocalMr && S._vocalMr !== rec) return;
+      S._vocalMr = null;
+      clearInterval(S._vocalSilInt);
+      var typ = rec.mimeType || mime || 'audio/mp4';
+      if (S._vocalAnnuleMr) { S._vocalAnnuleMr = false; return; }
+      if (!morceaux.length) {
+        if (S.modeVocal && !S.vocalMuet && S.vocalEtat === 'listen') setTimeout(function () { vocalEcouter(); }, 220);
+        return;
+      }
+      vocalEnvoyerAudio(new Blob(morceaux, { type: typ }), typ);
+    };
+    try { rec.start(); } catch (err) { return; }
+    vocalEtatUI('listen', '');
+    var parle = false, silencieux = 0, debut = Date.now();
+    S._vocalSilInt = setInterval(function () {
+      if (!S.modeVocal || S._vocalMr !== rec) { clearInterval(S._vocalSilInt); return; }
+      var niv = S._vocalNiveau || 0;
+      if (niv > 0.18) { parle = true; silencieux = 0; }
+      else if (parle) {
+        silencieux++;
+        if (silencieux >= 9) { try { rec.stop(); } catch (e2) {} clearInterval(S._vocalSilInt); }
+      }
+      if (Date.now() - debut > 30000) { try { rec.stop(); } catch (e2) {} clearInterval(S._vocalSilInt); }
+    }, 100);
+  }).catch(function () {
+    vocalEtatUI('idle', '');
+  });
+}
+
 function vocalOndeMicro() {
   if (S.vocalMuet) return;
   if (S._vocalAn) return;
@@ -914,6 +1051,7 @@ function vocalStopRec() {
   if (r) {
     try { r.onend = null; r.onerror = null; r.onresult = null; r.stop(); } catch (e) {}
   }
+  vocalStopMediaRec(true);
 }
 
 function vocalEnvoyerTexte(txt) {
@@ -937,11 +1075,10 @@ function vocalEcouter() {
   if (S.vocalEtat === 'speak' || S.vocalEtat === 'wait') return;
   vocalStopRec();
   S._vocalCoupe = false;
-  vocalEtatUI('listen', $('voiceCaption') && !/impossible|disponible|autoris|touchez/i.test($('voiceCaption').textContent) ? $('voiceCaption').textContent : '');
+  vocalEtatUI('listen', '');
   S._vocalCible = 0.2;
-  vocalOndeMicro();
-  if (!SR) {
-    vocalEtatUI('idle', 'La dictée en direct n’est pas disponible sur ce navigateur. Tu peux écrire dans le chat, ou enregistrer une note vocale avec le micro du compositeur.');
+  if (!dicteeNavigateurOk()) {
+    vocalEcouterMedia();
     return;
   }
   var reco = new SR();
@@ -976,7 +1113,8 @@ function vocalEcouter() {
     var err = e && e.error;
     if (err === 'no-speech' || err === 'aborted') return;
     if (err === 'not-allowed' || err === 'service-not-allowed') {
-      vocalEtatUI('idle', 'Micro refusé : autorise-le dans Réglages, puis touche l’écran pour réessayer.');
+      S.note = true;
+      vocalEcouterMedia();
       return;
     }
     if (err === 'network') {
@@ -996,7 +1134,8 @@ function vocalEcouter() {
   };
   try { reco.start(); }
   catch (err) {
-    vocalEtatUI('idle', 'Touchez l’écran pour lancer l’écoute.');
+    S.note = true;
+    vocalEcouterMedia();
   }
 }
 
@@ -1071,7 +1210,6 @@ function vocalSurReponse(it) {
   vocalStopRec();
   vocalEtatUI('speak', t);
   S._vocalCible = 0.55;
-  vocalOndeMicro();
   vocalParler(t, function () {
     if (!S.modeVocal) return;
     if (S.vocalMuet) { vocalEtatUI('listen', t); return; }
@@ -1131,6 +1269,7 @@ function fermerVoixPrefs() {
 function ouvrirModeVocal() {
   if (!S.jeton) return;
   if ($('composer').classList.contains('full')) setFullCompose(false);
+  debloquerAudio();
   S.modeVocal = true;
   S.vocalMuet = false;
   S._vocalCoupe = false;
@@ -1141,12 +1280,15 @@ function ouvrirModeVocal() {
   $('voiceMute').querySelector('.ico-mic-off').classList.add('hidden');
   $('voiceScreen').hidden = false;
   $('chatView').classList.add('voice-on');
+  if ($('texte')) {
+    S._phVocal = $('texte').getAttribute('placeholder');
+    $('texte').setAttribute('placeholder', 'Demander à Laura F.S.M · F.S.M AI');
+  }
   fermerVoixPrefs();
   if ($('voiceDock')) $('voiceDock').style.transform = '';
   themeColor('#000000');
   vocalEtatUI('listen', '');
   vocalAnimer(true);
-  vocalOndeMicro();
   vocalEcouter();
   if (S.attente) { clearTimeout(S.minuteur); boucle(); }
 }
@@ -1169,6 +1311,10 @@ function fermerModeVocal() {
   if ($('chatView')) $('chatView').classList.remove('voice-on');
   if ($('voiceCaption')) $('voiceCaption').textContent = '';
   if ($('voiceDock')) $('voiceDock').style.transform = '';
+  if ($('texte') && S._phVocal != null) {
+    $('texte').setAttribute('placeholder', S._phVocal);
+    S._phVocal = null;
+  }
   if (S.ecran === 'chat') themeColor('#000000');
 }
 
@@ -1185,7 +1331,6 @@ function basculerMuetVocal() {
     if (S.vocalEtat === 'listen') vocalEtatUI('listen', $('voiceCaption').textContent);
     if ($('voiceState') && S.vocalEtat !== 'speak') $('voiceState').textContent = 'Micro coupé';
   } else {
-    vocalOndeMicro();
     if (S.vocalEtat !== 'speak' && S.vocalEtat !== 'wait') vocalEcouter();
   }
 }
@@ -1220,14 +1365,14 @@ window.addEventListener('keydown', function (e) {
   function move(e) {
     if (!on) return;
     var t = e.touches ? e.touches[0] : e;
-    var dy = Math.max(0, t.clientY - y0);
+    var dy = t.clientY - y0;
     dock.style.transform = 'translateY(' + dy + 'px)';
   }
   function end(e) {
     if (!on) return; on = false;
     var t = e.changedTouches ? e.changedTouches[0] : e;
-    var dy = t ? Math.max(0, t.clientY - y0) : 0;
-    if (dy > 80) fermerModeVocal();
+    var dy = t ? (t.clientY - y0) : 0;
+    if (dy < -70) fermerModeVocal();
     else dock.style.transform = '';
   }
   dock.addEventListener('touchstart', start, { passive: true });
@@ -1239,6 +1384,7 @@ window.__voix = {
   ouvrir: ouvrirModeVocal,
   fermer: fermerModeVocal,
   muet: basculerMuetVocal,
+  debloquer: debloquerAudio,
   prefs: ouvrirVoixPrefs,
   etat: function () { return S.vocalEtat; },
   caption: function () { return $('voiceCaption') && $('voiceCaption').textContent; },
@@ -1560,7 +1706,6 @@ $('backBtn').addEventListener('click', function () { if (S.modeVocal) { fermerMo
       || !$('iosAlert').hidden
       || ($('lightbox') && !$('lightbox').hidden)
       || ($('createSheet') && !$('createSheet').hidden)
-      || ($('voiceScreen') && !$('voiceScreen').hidden)
       || ($('reactSheet') && !$('reactSheet').hidden)
       || ($('flagSheet') && !$('flagSheet').hidden)
       || S._lpOuvert
