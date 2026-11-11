@@ -12,13 +12,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
-<meta name="si-build" content="20261111-54">
+<meta name="si-build" content="20261111-55">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/favicon.ico" sizes="any">
 <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="./icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/icon-180.png">
-<link rel="stylesheet" href="./style.css?v=20261111-54">
+<link rel="stylesheet" href="./style.css?v=20261111-55">
 </head>
 <body>
 <div id="app">
@@ -60,9 +60,6 @@
   <header class="home-top">
     <button type="button" class="round-btn" id="btnSettings" aria-label="Réglages">
       <img src="./icons/tom.png" alt="">
-    </button>
-    <button type="button" class="round-btn plus" id="newBtn" aria-label="Créer un nouveau Bot">
-      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </header>
   <div class="home-center">
@@ -311,7 +308,7 @@
     <div class="about-fsm">
       <img class="about-fsm-logo" src="./icons/fsm-si-logo.png" alt="FSM SI">
       <div class="about-fsm-name">FSM SI</div>
-      <div class="about-fsm-ver" id="buildTag">20261111-54</div>
+      <div class="about-fsm-ver" id="buildTag">20261111-55</div>
       <p class="about-fsm-legal">Relié par le FSM HUB. Aucun jeton GitHub n’est stocké dans ce navigateur.</p>
     </div>
   </div>
@@ -332,28 +329,7 @@
 <div id="menuPop" hidden role="menu"></div>
 <div id="sheet" hidden role="dialog" aria-modal="true"></div>
 
-<!-- Créer un Bot (relevé Grok Bot, build 20261111-54) -->
-<div id="createBackdrop" class="backdrop" hidden></div>
-<aside id="createSheet" class="sheet-up create-sheet" hidden role="dialog" aria-label="Créer un nouveau Bot">
-  <div class="sheet-grab create-grab">
-    <button type="button" class="create-x" id="createClose" aria-label="Fermer">
-      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
-    <h2 class="create-title">Créer un nouveau Bot</h2>
-  </div>
-  <div class="create-body">
-    <div class="create-preview" id="botPreview" aria-hidden="true">
-      <span class="create-part p1"></span>
-      <span class="create-part p2"></span>
-      <span class="create-part p3"></span>
-      <svg id="botBlob" viewBox="0 0 100 100"><path id="botBlobPath" fill="#6C6C6C" fill-rule="evenodd" d=""/></svg>
-    </div>
-    <input id="botName" type="text" tabindex="-1" placeholder="Nommez votre Bot" maxlength="40" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done">
-    <div class="shape-grid" id="shapeGrid"></div>
-    <div class="swatches" id="colorGrid"></div>
-    <button type="button" class="create-go" id="botCreate" disabled>Créer</button>
-  </div>
-</aside>
+<!-- « Créer un nouveau Bot » retiré de LAURA (build 20261111-55, demande de Tom) : le Worker refuse aussi create-bot.js sur cet hôte. -->
 
 <!-- Alerte iOS -->
 <div id="iosAlert" hidden>
@@ -456,7 +432,7 @@
     <p id="voiceState" class="voice-state">Écoute…</p>
     <p id="voiceCaption" class="voice-caption"></p>
   </div>
-  <!-- Réglages de l’appel, plein écran (relevé Grok Bot, build 20261111-54) -->
+  <!-- Réglages de l’appel, plein écran (relevé Grok Bot, build 20261111-55) -->
   <div id="voicePrefs" class="voice-prefs" hidden role="dialog" aria-label="Réglages de la voix">
     <button type="button" class="vp-replier" id="voicePrefsOk" aria-label="Replier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
     <div class="vp-tete">
@@ -486,16 +462,15 @@
 </div>
 
 </div>
-<script src="./coffre.js?v=20261111-54"></script>
-<script src="./laura-rapide.js?v=20261111-54"></script>
-<script src="./mode.js?v=20261111-54"></script>
-<script src="./ordinateur.js?v=20261111-54"></script>
-<script src="./bot-shapes.js?v=20261111-54"></script>
-<script src="./pc.js?v=20261111-54"></script>
-<script src="./gmail.js?v=20261111-54"></script>
-<script src="./stt-flux.js?v=20261111-54"></script>
-<script src="./app.js?v=20261111-54"></script>
-<script src="./taches.js?v=20261111-54"></script>
-<script src="./create-bot.js?v=20261111-54"></script>
+<script src="./coffre.js?v=20261111-55"></script>
+<script src="./laura-rapide.js?v=20261111-55"></script>
+<script src="./mode.js?v=20261111-55"></script>
+<script src="./ordinateur.js?v=20261111-55"></script>
+<script src="./bot-shapes.js?v=20261111-55"></script>
+<script src="./pc.js?v=20261111-55"></script>
+<script src="./gmail.js?v=20261111-55"></script>
+<script src="./stt-flux.js?v=20261111-55"></script>
+<script src="./app.js?v=20261111-55"></script>
+<script src="./taches.js?v=20261111-55"></script>
 </body>
 </html>
