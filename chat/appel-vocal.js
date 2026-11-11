@@ -1,4 +1,4 @@
-/* Appel vocal partagé FSM SI (build 20261111-70) — même moteur que l'appel de LAURA :
+/* Appel vocal partagé FSM SI (build 20261111-71) — même moteur que l'appel de LAURA :
    micro ouvert tout l'appel, transcription en continu (stt-flux.js, relais /stt-flux vers xAI) avec repli sur l'enregistrement,
    fin de tour à 0,5 s de silence (« finalize »), réponse en voix PCM phrase par phrase (laura-rapide.js, /voix en SSE),
    coupure de la voix quand on parle par-dessus (barge-in), reprise propre au retour au premier plan (iPhone).
@@ -14,7 +14,7 @@ function noter(x) { A.journal.push([Date.now(), x]); if (A.journal.length > 60) 
 function $(i) { return document.getElementById(i); }
 var LR = function () { return window.LauraRapide && LauraRapide.voix; };
 var T = { listen: 'Écoute…', wait: 'Réfléchit…', speak: 'Parle…', idle: 'Touche pour parler', muet: 'Micro coupé',
-          toucher: 'Touche l’écran pour reprendre l’appel.', micKo: 'Micro indisponible : touche pour réessayer.', micRefus: 'Micro refusé : touche pour réessayer.' };
+          toucher: 'Touche l’écran pour reprendre l’appel.', repris: 'Appel repris', micKo: 'Micro indisponible : touche pour réessayer.', micRefus: 'Micro refusé : touche pour réessayer.' };
 function t(k) { return (A.o.textes && A.o.textes[k]) || T[k]; }
 
 /* ---------- interface : la pastille d'appel de LAURA (avatar, vague réelle, pause/réglages, micro, raccrocher) ---------- */
@@ -300,7 +300,7 @@ function direct(blob, type, texteSeul, source) {
   V.appel(A.o.jeton || 'cookie', texteSeul ? null : blob, meta, {
     entendu: function (x) { entendu = x; tt.tom = String(x || '').trim(); },   /* gardé pour l'historique, jamais affiché */
     capture: function (c) { if (A.o.surCapture) try { A.o.surCapture(c); } catch (e) {} },   /* capture de l'ordinateur pendant l'appel : montrée dans le fil, jamais lue */
-    texte: function (x) { tt.laura = String(x || '').trim(); if (parlait && $('avCaption')) $('avCaption').textContent = x; },
+    texte: function (x) { tt.laura = String(x || '').trim(); },   /* v71 : la réponse est dite, jamais écrite (ni sous-titre) */
     parle: function () {
       if (parlait || !A.appel || tour !== A.tour) return;
       parlait = true; A.speakAt = performance.now();
@@ -402,7 +402,15 @@ function toucher() {
   A.coupeOS = true;
   reprise('toucher');
 }
-document.addEventListener('visibilitychange', function () { if (!A.on) return; if (!document.hidden) reprise('visible'); });
+/* iPhone : une appli de l'écran d'accueil perd le micro dès qu'elle passe en arrière-plan ou que l'écran se verrouille
+   (WebKit arrête la capture, bug 236509) ; au retour, l'appel reprend tout seul et le dit dans la barre. */
+document.addEventListener('visibilitychange', function () {
+  if (!A.on) return;
+  if (document.hidden) { A.cacheDepuis = Date.now(); noter('cache'); return; }
+  var absent = A.cacheDepuis ? Date.now() - A.cacheDepuis : 0; A.cacheDepuis = 0;
+  reprise('visible');
+  if (absent > 3000 && $('avCaption') && !A.tapReprise) { $('avCaption').textContent = t('repris'); setTimeout(function () { if ($('avCaption') && $('avCaption').textContent === t('repris')) $('avCaption').textContent = ''; }, 3000); }
+});
 window.addEventListener('pageshow', function (e) { if (e.persisted) reprise('pageshow'); });
 document.addEventListener('resume', function () { reprise('resume'); });
 
