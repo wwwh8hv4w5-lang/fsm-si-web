@@ -1,6 +1,6 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v60';
-const BUILD = '20261111-60';
+const C = 'laura-fsm-chat-v61';
+const BUILD = '20261111-61';
 const Q = '?v=' + BUILD;   /* mêmes adresses que index.html (avant : SHELL restait sur ?v=…-50 pendant que la page chargeait ?v=…-51) */
 const SHELL = ['./', './index.html', './style.css' + Q, './app.js' + Q, './stt-flux.js' + Q, './stt-flux-worklet.js' + Q, './coffre.js' + Q, './laura-rapide.js' + Q, './mode.js' + Q, './ordinateur.js' + Q, './bot-shapes.js' + Q, './create-bot.js' + Q, './pc.js' + Q, './gmail.js' + Q, './taches.js' + Q,
   './manifest.webmanifest',
