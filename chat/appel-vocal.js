@@ -1,4 +1,4 @@
-/* Appel vocal partagé FSM SI (build 20261111-72) — même moteur que l'appel de LAURA :
+/* Appel vocal partagé FSM SI (build 20261111-73) — même moteur que l'appel de LAURA :
    micro ouvert tout l'appel, transcription en continu (stt-flux.js, relais /stt-flux vers xAI) avec repli sur l'enregistrement,
    fin de tour à 0,5 s de silence (« finalize »), réponse en voix PCM phrase par phrase (laura-rapide.js, /voix en SSE),
    coupure de la voix quand on parle par-dessus (barge-in), reprise propre au retour au premier plan (iPhone).
@@ -300,7 +300,8 @@ function direct(blob, type, texteSeul, source) {
   V.appel(A.o.jeton || 'cookie', texteSeul ? null : blob, meta, {
     entendu: function (x) { entendu = x; tt.tom = String(x || '').trim(); },   /* gardé pour l'historique, jamais affiché */
     capture: function (c) { if (A.o.surCapture) try { A.o.surCapture(c); } catch (e) {} },   /* capture de l'ordinateur pendant l'appel : montrée dans le fil, jamais lue */
-    aide: function (x) { if (A.o.surAide) try { A.o.surAide(x); } catch (e) {} },   /* carte « Prendre le contrôle » (FSM SI BOT), jamais lue */
+    aide: function (x) { if (A.o.surAide) try { A.o.surAide(x); } catch (e) {} },
+    coffre: function (x) { if (A.o.surCoffre) try { A.o.surCoffre(x); } catch (e) {} },   /* case sécurisée (FSM SI BOT), jamais lue */   /* carte « Prendre le contrôle » (FSM SI BOT), jamais lue */
     texte: function (x) { tt.laura = String(x || '').trim(); },   /* v71 : la réponse est dite, jamais écrite (ni sous-titre) */
     parle: function () {
       if (parlait || !A.appel || tour !== A.tour) return;
