@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-voice';
+var BUILD = '20261111-6';
 window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
@@ -2011,7 +2011,7 @@ function ecranGrille() {
     var zv = el('div', ''); box.appendChild(zv);
     chargerValidationsDans(zv);
     box.appendChild(el('h3', '', 'Bots'));
-    var zb = el('div', ''); box.appendChild(zb);
+    var zb = el('div', 'fiches'); box.appendChild(zb);
     fiches('bots').then(function (bots) {
       if (!bots.length) { zb.appendChild(el('p', 'invite', 'Aucun Bot dans bots/.')); return; }
       bots.forEach(function (b) {
