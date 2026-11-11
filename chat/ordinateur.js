@@ -91,7 +91,16 @@ var CSS = [
 '.si-ordi{margin:8px 0 2px;background:#1C1C1E;border-radius:16px;padding:14px;color:#fff;max-width:340px;font:15px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}',
 '.si-ordi h5{margin:0 0 4px;font-size:15px;font-weight:600;display:flex;gap:8px;align-items:center}.si-ordi p{margin:0 0 12px;color:#8E8E93;font-size:13px}',
 '.si-ordi .bts{display:flex;gap:8px}.si-ordi button{flex:1;border:0;border-radius:12px;font-weight:600;font-size:15px;padding:11px 8px;background:#2C2C2E;color:#fff}.si-ordi button.p{background:#F25C05}',
-'.si-ordi .ok{color:#8E8E93;font-size:14px}'
+'.si-ordi .ok{color:#8E8E93;font-size:14px}',
+'.ordi-reg{margin:0 0 8px}',
+'.ordi-reg .actes{display:flex;gap:8px;margin:8px 0 4px;flex-wrap:wrap}',
+'.ordi-reg .actes button{flex:1;min-width:120px;border:0;border-radius:12px;font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:10px 8px;background:#2C2C2E;color:#fff}',
+'.ordi-reg .actes button.p{background:#F25C05}',
+'.ordi-reg .ligne{display:block;width:100%;text-align:left;background:transparent;border:0;border-top:1px solid #2C2C2E;padding:12px 0;color:#fff;font:15px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}',
+'.ordi-reg .ligne b{display:block;font-weight:600}',
+'.ordi-reg .ligne.danger b{color:#FF453A}',
+'.ordi-reg .ligne .s{display:block;margin-top:3px;color:#8E8E93;font-size:13px;font-weight:400}',
+'.ordi-reg .ligne .val{float:right;color:#8E8E93;font-weight:500}'
 ].join('\n');
 function style() { if ($('ordi-css')) return; var s = e('style'); s.id = 'ordi-css'; s.textContent = CSS; document.head.appendChild(s); }
 var ICO = {
@@ -575,6 +584,85 @@ function cartes(node, corps, o) {
   });
 }
 
-window.Ordinateur = { BUREAU: BUREAU, ouvrir: ouvrir, fermer: fermer, vignette: vignette, etat: etat, cartes: cartes, specs: specs, estCapture: estCapture, image: image,
-  _test: { versBureau: versBureau, etatVue: function () { return V && { mode: V.mode, z: V.z, tx: V.tx, ty: V.ty, trackpad: V.trackpad, cx: V.cx, cy: V.cy, connecte: !!V.rfb, ms: V.ms }; } } };
+
+function niveauDisque(utilise, total) {
+  var t = Number(total) || 0, u = Number(utilise);
+  if (!t || t <= 0 || utilise == null || utilise === '' || !isFinite(u) || u < 0) return { niveau: 'inconnu', libelle: 'Indisponible' };
+  var p = u / t;
+  if (p >= 0.95) return { niveau: 'plein', libelle: 'Plein' };
+  if (p >= 0.80) return { niveau: 'bas', libelle: 'Bas' };
+  return { niveau: 'normal', libelle: 'Normal' };
+}
+function dateInstantane(iso) {
+  if (!iso) return '';
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
+  } catch (x) { return ''; }
+}
+/* Page Réglages « Ordinateur du Bot » (Laura et BOT) : vignette, état, actions, réinitialiser, espace disque. */
+function panneauReglages(conteneur, jeton, valEl) {
+  style();
+  if (jeton) jetonCourant = jeton;
+  var wrap = e('div', 'ordi-reg');
+  conteneur.appendChild(wrap);
+  vignette(wrap, jetonCourant, valEl);
+  var actes = e('div', 'actes');
+  function pill(lab, cls, fn) { var b = e('button', cls || '', lab); b.type = 'button'; b.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); fn(); }; actes.appendChild(b); return b; }
+  pill('Voir en direct', '', function () { ouvrir({ jeton: jetonCourant, main: false }); });
+  pill('Prendre le contrôle', 'p', function () { ouvrir({ jeton: jetonCourant, main: true }); });
+  pill('Éteindre', '', function () {
+    if (!confirm('Éteindre l’ordinateur maintenant ?')) return;
+    api('/arreter', { method: 'POST', body: {} }).then(function () { rafraichir(); }).catch(function (err) { alert(err.message || 'Arrêt impossible'); });
+  });
+  wrap.appendChild(actes);
+
+  var reset = e('button', 'ligne danger'); reset.type = 'button';
+  reset.innerHTML = '<b>Réinitialiser l’ordinateur</b><span class="s">Reconstruire à partir de votre dernier instantané enregistré. Les modifications très récentes peuvent être perdues.</span>';
+  reset.onclick = function (ev) {
+    ev.preventDefault(); ev.stopPropagation();
+    etat(jetonCourant).then(function (st) {
+      if (!(st && st.instantane && st.instantane.present)) {
+        alert('Aucun instantané enregistré. Rien n’a été modifié.');
+        return;
+      }
+      if (!confirm('Réinitialiser l’ordinateur à partir du dernier instantané enregistré ?\n\nLes modifications très récentes peuvent être perdues.')) return;
+      return api('/reinitialiser', { method: 'POST', body: {} }).then(function (r) {
+        if (r && r.ok === false) { alert(r.erreur || 'Réinitialisation impossible.'); return; }
+        rafraichir();
+      });
+    }).catch(function (err) { alert(err.message || 'État de l’ordinateur indisponible.'); });
+  };
+  wrap.appendChild(reset);
+
+  var disk = e('div', 'ligne');
+  disk.innerHTML = '<b>Espace disque</b><span class="val" data-disque>…</span><span class="s">État réel du disque de l’ordinateur.</span>';
+  wrap.appendChild(disk);
+
+  function rafraichir() {
+    return etat(jetonCourant).then(function (st) {
+      if (valEl && st && st.statut) valEl.textContent = st.statut;
+      var inst = st && st.instantane;
+      var s = reset.querySelector('.s');
+      if (s) {
+        var base = 'Reconstruire à partir de votre dernier instantané enregistré. Les modifications très récentes peuvent être perdues.';
+        var quand = inst && inst.present && inst.maj ? dateInstantane(inst.maj) : '';
+        s.textContent = inst && inst.present ? (quand ? (base + ' Dernier instantané : ' + quand + ' (heure de Paris).') : base) : 'Aucun instantané enregistré pour le moment. Une réinitialisation ne peut pas être lancée.';
+      }
+      var d = (st && st.disque) || {};
+      var niv = d.libelle || niveauDisque(d.utilise, d.total).libelle;
+      var elN = disk.querySelector('[data-disque]');
+      if (elN) elN.textContent = niv;
+    }).catch(function () {
+      var elN = disk.querySelector('[data-disque]');
+      if (elN) elN.textContent = 'Indisponible';
+    });
+  }
+  rafraichir();
+  return wrap;
+}
+
+window.Ordinateur = { BUREAU: BUREAU, ouvrir: ouvrir, fermer: fermer, vignette: vignette, panneauReglages: panneauReglages, etat: etat, cartes: cartes, specs: specs, estCapture: estCapture, image: image,
+  _test: { versBureau: versBureau, niveauDisque: niveauDisque, dateInstantane: dateInstantane, etatVue: function () { return V && { mode: V.mode, z: V.z, tx: V.tx, ty: V.ty, trackpad: V.trackpad, cx: V.cx, cy: V.cy, connecte: !!V.rfb, ms: V.ms }; } } };
 })();
