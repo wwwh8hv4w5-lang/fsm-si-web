@@ -23,7 +23,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-58';
+var BUILD = '20261111-59';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -151,6 +151,37 @@ var Reprise = {
     Reprise.ecrire('si_recents', l.filter(function (x) { return !ids[x.c.id]; }));
     if (!manque.length) return liste;
     return liste.concat(manque).sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || (a.id - b.id); });
+  }
+};
+/* Dernière conversation gardée sur l’appareil : on la peint tout de suite à l’ouverture, puis on réconcilie avec le serveur. */
+var Hist = {
+  cle: function (n) { return 'si_hist:' + n; },
+  lire: function (n) {
+    var d = Reprise.lire(Hist.cle(n), null);
+    return (d && d.items && d.items.length) ? d : null;
+  },
+  ecrire: function (n, items) {
+    if (!n || !items || !items.length) return;
+    var slim = items.filter(function (it) { return it && it.cle && !it.cache; }).map(function (it) {
+      return { cle: it.cle, genre: it.genre, date: it.date, corps: it.corps, react: it.react };
+    });
+    var paquet = function (l) { return { t: Date.now(), items: l }; };
+    var max = 700000;
+    while (slim.length > 20 && JSON.stringify(paquet(slim)).length > max) slim = slim.slice(Math.ceil(slim.length / 5) || 1);
+    try { Reprise.ecrire(Hist.cle(n), paquet(slim)); }
+    catch (e) {
+      while (slim.length > 20) {
+        slim = slim.slice(-Math.ceil(slim.length * 0.6));
+        try { Reprise.ecrire(Hist.cle(n), paquet(slim)); return; } catch (e2) {}
+      }
+    }
+  },
+  peindre: function (n) {
+    var d = Hist.lire(n);
+    if (!d) return false;
+    S.items = d.items;
+    majFil(d.items);
+    return true;
   }
 };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -428,13 +459,39 @@ function choisir(n, opts) {
     if (window.CreateBot) CreateBot.rafraichir();
     return;
   }
+  /* même tour que le vidage : pas de frame vide si une copie locale existe déjà */
+  Hist.peindre(n);
   boucle();
 }
-function tousCommentaires(n, page, acc) {
-  page = page || 1; acc = acc || [];
-  return api(D() + '/issues/' + n + '/comments?per_page=100&page=' + page + '&_=' + Date.now()).then(function (l) {
-    acc = acc.concat(l);
-    return l.length === 100 && page < 6 ? tousCommentaires(n, page + 1, acc) : Reprise.fusion(n, acc);
+function pageCommentaires(n, page) {
+  return api(D() + '/issues/' + n + '/comments?per_page=100&page=' + page + '&_=' + Date.now());
+}
+/* Les commentaires GitHub sont les plus anciens en page 1. On prend les 6 dernières pages
+   (les plus récentes, ≤ 600) et on les demande en parallèle après la dernière — plus de chaîne
+   oldest-first qui retardait le premier message jusqu’à la fin. */
+function tousCommentaires(n, total, surDerniere) {
+  var pages = Math.max(1, Math.ceil((Number(total) || 0) / 100));
+  var premiere = Math.max(1, pages - 5);
+  var derniere = pages;
+  return pageCommentaires(n, derniere).then(function (last) {
+    last = last || [];
+    var plus = Promise.resolve(last);
+    if (last.length === 100 && derniere - premiere < 5) {
+      derniere += 1;
+      plus = pageCommentaires(n, derniere).then(function (extra) { return last.concat(extra || []); });
+    }
+    return plus.then(function (fin) {
+      if (typeof surDerniere === 'function') surDerniere(fin, premiere < derniere);
+      var req = [];
+      for (var p = premiere; p < derniere; p++) req.push(pageCommentaires(n, p));
+      if (!req.length) return Reprise.fusion(n, fin);
+      return Promise.all(req).then(function (avant) {
+        var acc = [];
+        avant.forEach(function (l) { acc = acc.concat(l || []); });
+        acc = acc.concat(fin);
+        return Reprise.fusion(n, acc);
+      });
+    });
   });
 }
 
@@ -548,7 +605,7 @@ function majFil(items) {
   var ajout = false, vus = {};
   /* les messages du serveur s’insèrent avant les envois encore en file */
   var ancre = fil.querySelector('.msg.local, .msg.rapide');
-  items.forEach(function (it) {
+  items.forEach(function (it, i) {
     vus[it.cle] = 1;
     if (it.cache) {
       if (it.direAppel && S.pret && S.modeVocal && !(S._dits = S._dits || {})[it.cle]) { S._dits[it.cle] = 1; vocalSurReponse(it); }
@@ -567,7 +624,13 @@ function majFil(items) {
       } else {
       node = S.els[it.cle] = document.createElement('article');
       if (S.pret) node._neuf = true;
-      if (ancre) fil.insertBefore(node, ancre); else fil.appendChild(node);
+      var suivant = null;
+      for (var j = i + 1; j < items.length; j++) {
+        if (S.els[items[j].cle] && !items[j].cache) { suivant = S.els[items[j].cle]; break; }
+      }
+      if (suivant) fil.insertBefore(node, suivant);
+      else if (ancre) fil.insertBefore(node, ancre);
+      else fil.appendChild(node);
       ajout = true;
       }
       if (S.pret && it.genre === 'tx' && !rapide) {
@@ -733,67 +796,90 @@ function bannerBot(corps) {
 }
 $('banner').addEventListener('click', function () { $('banner').classList.remove('show'); montrerChat(false); });
 
+function itemsDepuis(issue, commentaires) {
+  var items = [];
+  var titre = String(issue.title || ''), corps = String(issue.body || '');
+  var reacts = {}, ids = {};
+  var ajR = function (cle, em) { (reacts[cle] = reacts[cle] || []).push(em); };
+  items.push({ cle: 'i' + issue.number, genre: issue.user && issue.user.type === 'Bot' ? 'tx' : 'moi', date: issue.created_at, corps: corps.indexOf(titre) === 0 ? corps : (corps ? '**' + titre + '**\n\n' + corps : titre) });
+  reactionsGithub(issue.reactions).forEach(function (em) { ajR('i' + issue.number, em); });
+  (commentaires || []).forEach(function (c) { ids[String(c.id)] = 1; });
+  (commentaires || []).forEach(function (c) {
+    var b = String(c.body || ''), genre;
+    /* Appel vocal : jamais de bulle dans le chat, mais gardé pour la continuité (historique, robot). */
+    var ap = appelDe(b);
+    if (ap || /<!--\s*fsm-appel-lent/.test(b)) {
+      items.push({ cle: 'c' + c.id, genre: 'appel', cache: true, date: c.created_at, corps: b, appel: ap || { tom: '', laura: '', tache: true, lent: true } });
+      return;
+    }
+    if (c.user && c.user.type === 'Bot') genre = b.indexOf('robot-progress') >= 0 ? 'encours' : b.indexOf('robot-commande') >= 0 ? 'note' : 'tx';
+    else if (b.indexOf('<!-- fsm-laura') >= 0) genre = 'tx';
+    else genre = b.trim().charAt(0) === '/' ? 'ordre' : 'moi';
+    if (genre === 'encours') noterProgres(b, c.updated_at || c.created_at);
+    if (genre === 'encours' || genre === 'note') {
+      /* indicateur dédié plutôt qu’une bulle de statut */
+      return;
+    }
+    var it = { cle: 'c' + c.id, genre: genre, date: c.created_at, corps: b };
+    if (genre === 'tx' && b.indexOf('fsm-reagir') >= 0) {
+      reactionsMarqueurs(b).forEach(function (x) {
+        var id = String(x.id).replace(/^#/, ''), cle;
+        if (/^[ic]\d+$/.test(id)) cle = id;
+        else if (/^\d+$/.test(id)) cle = ids[id] ? 'c' + id : (Number(id) === issue.number ? 'i' + id : 'c' + id);
+        if (cle && x.emoji) ajR(cle, x.emoji);
+      });
+      if (corpsVisibleVide(b)) it.cache = true;
+    }
+    if (genre === 'tx' && b.indexOf('fsm-appel-reponse') >= 0) { it.cache = true; it.direAppel = true; }
+    reactionsGithub(c.reactions).forEach(function (em) { ajR('c' + c.id, em); });
+    items.push(it);
+  });
+  items.forEach(function (it) {
+    var l = reacts[it.cle] || [], vu = {};
+    it.react = l.filter(function (em) { var k = normEmo(em); if (vu[k]) return false; vu[k] = 1; return true; });
+  });
+  return items;
+}
+function appliquerHistoire(n, issue, commentaires, opts) {
+  opts = opts || {};
+  if (n !== S.conv) return;
+  var items = itemsDepuis(issue, commentaires);
+  var utiles = items.filter(function (i) { return i.genre !== 'ordre' && !(i.genre === 'appel' && !i.appel.tache); });
+  var dernier = utiles[utiles.length - 1];
+  var attend = (!!dernier && (dernier.genre === 'moi' || dernier.genre === 'appel' || (dernier.genre === 'tx' && dernier.corps.indexOf('<!-- fsm-laura tache') >= 0))) || S.file.length > 0;
+  S.items = items;
+  if (!opts.partiel) S.attente = attend;
+  majFil(items);
+  if (window.PCTom && !opts.partiel) { try { PCTom.apresRafraichir(n, String(issue.title || ''), items); } catch (e) {} }
+  if (opts.partiel) return;
+  Hist.ecrire(n, items);
+  var premier = !S.pret;
+  S.pret = true;
+  if (premier) reprendreConv(n, commentaires, items);
+  if (attend) return etatActions();
+  etatLigne('');
+}
 function rafraichir() {
   if (estLocal()) return window.CreateBot ? CreateBot.rafraichir() : Promise.resolve();
   if (!S.conv) { S.attente = false; etatLigne(''); return Promise.resolve(); }
   var n = S.conv;
-  return Promise.all([api(D() + '/issues/' + n), tousCommentaires(n)]).then(function (r) {
+  /* d’abord l’issue (pour le nombre de commentaires), puis la dernière page — on peint les messages récents
+     sans attendre les pages plus anciennes, récupérées ensuite en parallèle. */
+  return api(D() + '/issues/' + n).then(function (issue) {
     if (n !== S.conv) return;
-    var issue = r[0], items = [];
-    var titre = String(issue.title || ''), corps = String(issue.body || '');
-    var reacts = {}, ids = {};
-    var ajR = function (cle, em) { (reacts[cle] = reacts[cle] || []).push(em); };
-    items.push({ cle: 'i' + issue.number, genre: issue.user && issue.user.type === 'Bot' ? 'tx' : 'moi', date: issue.created_at, corps: corps.indexOf(titre) === 0 ? corps : (corps ? '**' + titre + '**\n\n' + corps : titre) });
-    reactionsGithub(issue.reactions).forEach(function (em) { ajR('i' + issue.number, em); });
-    r[1].forEach(function (c) { ids[String(c.id)] = 1; });
-    r[1].forEach(function (c) {
-      var b = String(c.body || ''), genre;
-      /* Appel vocal : jamais de bulle dans le chat, mais gardé pour la continuité (historique, robot). */
-      var ap = appelDe(b);
-      if (ap || /<!--\s*fsm-appel-lent/.test(b)) {
-        items.push({ cle: 'c' + c.id, genre: 'appel', cache: true, date: c.created_at, corps: b, appel: ap || { tom: '', laura: '', tache: true, lent: true } });
-        return;
-      }
-      if (c.user && c.user.type === 'Bot') genre = b.indexOf('robot-progress') >= 0 ? 'encours' : b.indexOf('robot-commande') >= 0 ? 'note' : 'tx';
-      else if (b.indexOf('<!-- fsm-laura') >= 0) genre = 'tx';
-      else genre = b.trim().charAt(0) === '/' ? 'ordre' : 'moi';
-      if (genre === 'encours') noterProgres(b, c.updated_at || c.created_at);
-      if (genre === 'encours' || genre === 'note') {
-        /* indicateur dédié plutôt qu’une bulle de statut */
-        return;
-      }
-      var it = { cle: 'c' + c.id, genre: genre, date: c.created_at, corps: b };
-      if (genre === 'tx' && b.indexOf('fsm-reagir') >= 0) {
-        reactionsMarqueurs(b).forEach(function (x) {
-          var id = String(x.id).replace(/^#/, ''), cle;
-          if (/^[ic]\d+$/.test(id)) cle = id;
-          else if (/^\d+$/.test(id)) cle = ids[id] ? 'c' + id : (Number(id) === issue.number ? 'i' + id : 'c' + id);
-          if (cle && x.emoji) ajR(cle, x.emoji);
-        });
-        if (corpsVisibleVide(b)) it.cache = true;
-      }
-      if (genre === 'tx' && b.indexOf('fsm-appel-reponse') >= 0) { it.cache = true; it.direAppel = true; }
-      reactionsGithub(c.reactions).forEach(function (em) { ajR('c' + c.id, em); });
-      items.push(it);
+    var deja = !!($('fil') && $('fil').querySelector('.msg'));
+    return tousCommentaires(n, issue && issue.comments, function (derniers, encore) {
+      if (n !== S.conv) return;
+      /* ne pas écraser une copie locale plus complète par la seule dernière page */
+      if (encore && deja) return;
+      appliquerHistoire(n, issue, derniers, { partiel: !!encore });
+    }).then(function (coms) {
+      if (n !== S.conv) return;
+      return appliquerHistoire(n, issue, coms, { partiel: false });
     });
-    items.forEach(function (it) {
-      var l = reacts[it.cle] || [], vu = {};
-      it.react = l.filter(function (em) { var k = normEmo(em); if (vu[k]) return false; vu[k] = 1; return true; });
-    });
-    var utiles = items.filter(function (i) { return i.genre !== 'ordre' && !(i.genre === 'appel' && !i.appel.tache); });
-    var dernier = utiles[utiles.length - 1];
-    var attend = (!!dernier && (dernier.genre === 'moi' || dernier.genre === 'appel' || (dernier.genre === 'tx' && dernier.corps.indexOf('<!-- fsm-laura tache') >= 0))) || S.file.length > 0;
-    S.items = items;
-    S.attente = attend;
-    majFil(items);
-    if (window.PCTom) { try { PCTom.apresRafraichir(n, titre, items); } catch (e) {} }
-    var premier = !S.pret;
-    S.pret = true;
-    if (premier) reprendreConv(n, r[1], items);
-    if (attend) return etatActions();
-    etatLigne('');
   });
 }
+
 function boucle() {
   clearTimeout(S.minuteur); arreterTic(S.minuteur);
   if (!S.jeton) return;
@@ -1493,7 +1579,7 @@ document.addEventListener('drop', function (e) {
   Array.prototype.forEach.call(e.dataTransfer.files || [], ajouterFichier);
 });
 
-/* ---------- Visionneuse (relevé Grok Bot, build 20261111-58) ---------- */
+/* ---------- Visionneuse (relevé Grok Bot, build 20261111-59) ---------- */
 function imagesDuFil() {
   return Array.prototype.filter.call(document.querySelectorAll('#fil img.vue'), function (n) {
     return n.src && !n.classList.contains('perdue') && (n.classList.contains('pj') || n.classList.contains('ecran') || n.getAttribute('data-u') || n.getAttribute('data-p'));
@@ -4156,6 +4242,12 @@ function fermerCreate() { if (window.CreateBot) CreateBot.fermer(); }
 
 /* ---------- Connexion ---------- */
 function demarrer() {
+  var ecran = mem.lire('si_ecran');
+  /* l’historique de la conversation ouverte ne doit pas attendre /user, /repos ni la liste des 60 issues */
+  if (ecran === 'chat' && S.conv && !estLocal(S.conv)) {
+    montrerHome(true);
+    choisir(S.conv, { morph: false });
+  }
   return Promise.all([api('/user'), api(D())]).then(function (r) {
     S.moi = r[0].login; S.moiNom = r[0].name || r[0].login;
     S.branche = r[1].default_branch || 'main';
@@ -4163,11 +4255,10 @@ function demarrer() {
     majCompteUI();
     return chargerConvs();
   }).then(function () {
-    var ecran = mem.lire('si_ecran');
-    montrerHome(true);
-    /* relance : on rouvre exactement la conversation qui était ouverte */
-    if (ecran === 'chat' && S.conv && !estLocal(S.conv)) { choisir(S.conv, { morph: false }); }
-    else boucle();
+    if (!(ecran === 'chat' && S.conv && !estLocal(S.conv))) {
+      montrerHome(true);
+      boucle();
+    }
     /* messages d’une nouvelle conversation jamais partis : déjà créée ? sinon on la crée */
     var corpsIssues = S.convs.map(function (i) { return String(i.body || ''); }).join('\n');
     Reprise.boite().forEach(function (x) {
@@ -4240,6 +4331,16 @@ if ('serviceWorker' in navigator) {
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'fsm-ouvrir-conv' && e.data.conv && S.pret) { choisir(Number(e.data.conv)); } if (e.data && e.data.type === 'fsm-ouvrir-conv' && window.LauraTaches) LauraTaches.relire(); });
 setTimeout(function () { if (S.notif && window.LauraTaches && LauraTaches.pushPossible() && Notification.permission === 'granted') LauraTaches.activerPush(true).catch(function () {}); }, 4000);
 if ($('buildTag')) $('buildTag').textContent = BUILD;
+/* copie locale tout de suite, avant /session (pas d’appel HUB /api/me sur ce GET) */
+(function peindreAuPlusTot() {
+  if (window.FSM_BLOQUEE) return;
+  var ecran = mem.lire('si_ecran');
+  if (ecran !== 'chat' || !S.conv || estLocal(S.conv)) return;
+  if (!Hist.lire(S.conv)) return;
+  montrerHome(true);
+  montrerChat(false);
+  Hist.peindre(S.conv);
+})();
 fetch(PROXY + '/session', { cache: 'no-store', credentials: 'include' }).then(function (r) { return r.json(); }).then(function (e) {
   if (e && e.ok) {
     appliquerSession(e);
