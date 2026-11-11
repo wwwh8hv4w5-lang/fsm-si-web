@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-47';
+var BUILD = '20261111-48';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* ---------- Reprise à la relance (build 20261111-34) ----------
@@ -1632,7 +1632,7 @@ function vocalCouperMicro() {
   }
 }
 
-/* ---------- Appel vocal en arrière-plan (build 20261111-45) ----------
+/* ---------- Appel vocal en arrière-plan (build 20261111-48) ----------
    L’appel continue quand la fenêtre perd le focus, est cachée ou réduite : rien ne coupe le micro sur blur/hidden.
    - Minuteries fiables : un petit Worker cadence la détection de parole (100 ms) et l’attente des réponses,
      car le navigateur ralentit setTimeout/setInterval des onglets cachés (1 s, puis 1 min après 5 min sur Chrome).
@@ -1847,13 +1847,15 @@ function sauverTourVocal(tt, coupe) {
   S._appelSauves = (S._appelSauves || []).concat([pr.catch(function () {})]);
   return pr;
 }
-function vocalDirect(blob, type, texteSeul) {
+function vocalDirect(blob, type, texteSeul, source) {
   var finParole = S._vocalFinParole || performance.now();
   vocalEtatUI('wait', '');
   S._vocalAppel = true;
   var entendu = '', parlait = false;
   var tt = S._vocalEnCours = { tom: '', laura: '', tache: false, final: false, sauve: false, audioFini: false };
-  var mesure = { fin_parole: Math.round(finParole), debut_envoi: Math.round(performance.now()) };
+  var mesure = { fin_parole: Math.round(finParole), debut_envoi: Math.round(performance.now()), stt: source === 'flux' ? 'flux' : (texteSeul ? 'texte' : 'lot') };
+  mesure.fin_parole_vers_envoi_ms = mesure.debut_envoi - mesure.fin_parole;
+  if (source === 'flux') S._fluxDernier = texteSeul;
   var tour = S._vocalTour = (S._vocalTour || 0) + 1;
   var hist = histoireRapide();
   var encours = S.runEtat && !S._etatGen && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
@@ -1866,9 +1868,11 @@ function vocalDirect(blob, type, texteSeul) {
   var pv = prefsVoix();
   var meta = { messages: hist, encours: encours, voix: pv.voix, vitesse: pv.vitesse, langue: pv.langue };
   if (modeVoix()) meta.mode = modeVoix();
-  if (texteSeul) meta.texte = texteSeul;   /* résultat d'une action PC validée pendant l'appel : pas d'audio */
+  if (texteSeul) meta.texte = texteSeul;   /* résultat d'une action PC validée pendant l'appel, ou texte de la transcription en continu : pas d'audio */
+  if (source === 'flux') meta.stt = 'flux';
   LauraRapide.voix.appel(S.jeton, texteSeul ? null : blob, meta, {
     entendu: function (t) { entendu = t; tt.tom = String(t || '').trim(); if (t && $('voiceCaption')) $('voiceCaption').textContent = t; },
+    capture: vocalCaptureEcran,
     texte: function (txt) { tt.laura = String(txt || '').replace(/\[\[TACHE\]\]/g, '').trim(); if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
     parle: function () {
       if (parlait || !S._vocalAppel || tour !== S._vocalTour) return;
@@ -1912,6 +1916,47 @@ function vocalDirect(blob, type, texteSeul) {
     /* Voie rapide indisponible : on repasse par l’ancien chemin (note vocale + robot). */
     vocalEnvoyerAudioLent(blob, type);
   });
+}
+/* Capture d'écran de Laura pendant un appel (évènement ordi_capture de /voix) : postée dans le fil comme message de Laura
+   (marqueur fsm-laura : le robot l'ignore, elle n'est jamais lue à voix haute), visible tout de suite et après rechargement. */
+function vocalCaptureEcran(c) {
+  var url = String((c && c.url) || '');
+  if (!/^(https:\/\/|\/)[^\s"'<>]+$/.test(url)) return;
+  var page = c.panneau && /^(https:\/\/|\/)[^\s"'<>()]+$/.test(String(c.panneau)) ? String(c.panneau) : '';
+  var corps = '<img src="' + url + '" alt="Écran de Laura' + (c.titre ? ' : ' + esc(String(c.titre)).replace(/"/g, '') : '') + '">' +
+    (page ? '\n\n[Voir mon écran en direct](' + page + ')' : '') + '\n\n<!-- fsm-laura capture -->' + (modeVoix() ? '\n<!-- fsm-mode: ' + modeVoix() + ' -->' : '');
+  (window.SI_VOIX_CAPTURES = window.SI_VOIX_CAPTURES || []).push(url);
+  garderTourVocal(corps);
+}
+/* Transcription en continu (stt-flux.js) : texte intermédiaire affiché, texte final → Laura tout de suite. */
+function vocalFluxRappels() {
+  return {
+    ferme: function () { return !S.modeVocal || S.vocalMuet || S.vocalEtat === 'speak'; },
+    bargeIn: function () { var v = !!S._fluxBargeIn; S._fluxBargeIn = false; return v; },
+    partiel: function (t) { if (S.modeVocal && S.vocalEtat === 'listen' && t && $('voiceCaption')) $('voiceCaption').textContent = t; },
+    final: vocalFluxFinal
+  };
+}
+function vocalFluxFinal(texte, info) {
+  if (!S.modeVocal || S.vocalMuet || S.vocalEtat === 'speak') return;   /* pendant que Laura parle : la coupure locale décide */
+  var rec = S._vocalMr;
+  if (!rec || !rec._fluxFin) return;
+  texte = String(texte || '').trim();
+  /* fin de tour venue de xAI seule : seulement si le micro a vraiment entendu Tom (jamais l'écho de Laura) */
+  if (!(info && info.force) && performance.now() - (S._vocalFinParole || 0) > 2500) return;
+  if (texte && S.vocalEtat === 'wait') {
+    /* Tom a continué sa phrase après la fin de tour : la réponse en route est annulée, la phrase entière repart */
+    if (!S._vocalAppel || !S._fluxDernier) return;
+    S._vocalTour = (S._vocalTour || 0) + 1; S._vocalAppel = false;
+    if (window.LauraRapide) LauraRapide.voix.stop();
+    S._fluxReprise = S._fluxDernier;
+    vocalEtatUI('listen', '');
+  }
+  var complet = texte && S._fluxReprise ? S._fluxReprise + ' ' + texte : texte;
+  if (rec._fluxFin(complet, info) && texte) {
+    S._fluxReprise = '';
+    (window.SI_VOIX_FLUX = window.SI_VOIX_FLUX || []).push({ t: Date.now(), finalize_ms: info && info.finalize_ms, force: !!(info && info.force), n: complet.length });
+  }
 }
 function vocalEnvoyerAudioLent(blob, type) {
   type = type || blob.type || 'audio/mp4';
@@ -1968,6 +2013,8 @@ function vocalEcouterMedia(pendantParole, propre) {
         if (ac.state === 'suspended' && ac.resume) ac.resume();
         var src = ac.createMediaStreamSource(flux);
         S._vocalSrc = src;
+        /* transcription en continu : capture brute branchée sur le même micro, session WebSocket ouverte pour tout l'appel */
+        if (window.SttFlux && S.jeton) { SttFlux.brancher(ac, src); SttFlux.ouvrir(S.jeton, (prefsVoix().langue || 'fr-FR').slice(0, 2), vocalFluxRappels()); }
         var an = ac.createAnalyser();
         an.fftSize = 256;
         an.smoothingTimeConstant = 0.55;
@@ -2004,16 +2051,44 @@ function vocalEcouterMedia(pendantParole, propre) {
     var parle = false, silencieux = 0, fort = 0, debut = Date.now(), debutParole = 0, haut = 0, fond = [], voixPendant = 0, etaitLaura = false, reprise = 0, envoi = false;
     /* Fin de parole : on envoie ce qui a été dit SANS arrêter l’enregistrement. Si Tom reprend la parole avant que
        Laura réponde (simple pause), la réponse en route est annulée et la phrase entière repart d’un bloc. */
-    var envoyerTour = function () {
+    var attenteFlux = 0;
+    /* texte = transcription en continu (le bloc audio part avec, en secours) ; sans texte : ancien chemin (transcription d'un bloc) */
+    var envoyerBloc = function (texte) {
       envoi = true; rec._propre = false;
+      if (attenteFlux) { clearTimeout(attenteFlux); attenteFlux = 0; }
+      if (!texte) S._fluxReprise = '';   /* l'enregistrement entier repart : il contient déjà le début de la phrase */
       try { rec.requestData(); } catch (e) {}
       setTimeout(function () {
         envoi = false;
         if (S._vocalMr !== rec || !S.modeVocal) return;
         var typ = rec.mimeType || mime || 'audio/mp4';
         parle = false; silencieux = 0; fort = 0;
-        vocalEnvoyerAudio(new Blob(morceaux.slice(), { type: typ }), typ);
-      }, 40);
+        var blob = new Blob(morceaux.slice(), { type: typ });
+        if (texte && window.LauraRapide && S.jeton && !S._voixLente) vocalDirect(blob, typ, texte, 'flux');
+        else vocalEnvoyerAudio(blob, typ);
+      }, texte ? 0 : 40);
+    };
+    /* Fin de parole (0,5 s de silence) : avec la transcription en continu, « finalize » → texte final ≈ 0,1 s après, et Laura
+       démarre aussitôt. Pas de texte en 0,9 s (flux coupé, rien compris) : ancien chemin avec l'enregistrement. */
+    var envoyerTour = function () {
+      if (window.SttFlux && SttFlux.sain() && SttFlux.finir()) {
+        if (attenteFlux) return;
+        parle = false; silencieux = 0; fort = 0;
+        attenteFlux = setTimeout(function () {
+          attenteFlux = 0;
+          if (S._vocalMr !== rec || !S.modeVocal || envoi || S.vocalEtat !== 'listen') return;
+          SttFlux.echec('pas de texte final en 0,9 s');
+          envoyerBloc('');
+        }, 900);
+        return;
+      }
+      envoyerBloc('');
+    };
+    rec._fluxFin = function (texte, info) {
+      if (S._vocalMr !== rec || envoi) return false;
+      if (!texte) { if (attenteFlux && info && info.force) { SttFlux.echec('texte final vide'); envoyerBloc(''); } return false; }
+      envoyerBloc(texte);
+      return true;
     };
     rec._int = ticFiable(function () {
       if (!S.modeVocal || S._vocalMr !== rec) { arreterTic(rec._int); return; }
@@ -2037,6 +2112,7 @@ function vocalEcouterMedia(pendantParole, propre) {
           (window.SI_VOIX_COUPURES = window.SI_VOIX_COUPURES || []).push(Date.now());
           fond = [];
           S._vocalAppel = false; S._vocalCoupe = true;
+          S._fluxBargeIn = true;   /* transcription en continu : les 400 ms de voix qui ont coupé Laura sont envoyées */
           sauverTourVocal(S._vocalEnCours, true);
           if (window.LauraRapide) LauraRapide.voix.stop();
           vocalEtatUI('listen', '');
@@ -2052,6 +2128,7 @@ function vocalEcouterMedia(pendantParole, propre) {
           S._vocalTour = (S._vocalTour || 0) + 1;
           S._vocalAppel = false;
           if (window.LauraRapide) LauraRapide.voix.stop();
+          S._fluxReprise = S._fluxDernier || '';   /* transcription en continu : la suite sera ajoutée au début déjà transcrit */
           (window.SI_VOIX_REPRISES = window.SI_VOIX_REPRISES || []).push(Date.now());
           parle = true; fort = 3; silencieux = 0; S._vocalFinParole = performance.now();
           vocalEtatUI('listen', '');
@@ -2419,6 +2496,8 @@ function fermerModeVocal() {
   S._vocalAppel = false;
   ArrierePlan.arreter();
   if (window.LauraRapide) { LauraRapide.voix.stop(); if (LauraRapide.voix.sessionAppel) LauraRapide.voix.sessionAppel(false); }
+  if (window.SttFlux) SttFlux.fermer();
+  S._fluxDernier = ''; S._fluxReprise = '';
   S._vocalCoupe = true;
   vocalStopRec();
   vocalCouperMicro();

@@ -358,6 +358,7 @@ function appel(jeton, blob, meta, h) {
           if (j.audio_echec) { V.enAttente++; voixNavigateur(j.phrase, gen, function () { V.enAttente--; verifierFin(gen); }); }
           if (j.pc_demande && window.PCTom) PCTom.demandeVocale(j.pc_demande);
           if (j.gmail_brouillon && window.GmailCarte) GmailCarte.demandeVocale(j.gmail_brouillon);
+          if (j.ordi_capture && h.capture) h.capture(j.ordi_capture);   /* capture d'écran de Laura pendant l'appel : montrée dans le fil, jamais lue */
           if (j.fin) fin = j;
           if (j.erreur) { var e = new Error(j.erreur); e.etape = j.etape; throw e; }
         }
