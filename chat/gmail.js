@@ -85,7 +85,7 @@ function memoEcrire(id, patch) {
 function jeton() { return (window.FSMChat && FSMChat.jeton && FSMChat.jeton()) || ''; }
 function api(chemin, o) {
   o = o || {};
-  var opt = { method: o.method || (o.json ? 'POST' : 'GET'), headers: { Authorization: 'Bearer ' + jeton() }, cache: 'no-store' };
+  var opt = { method: o.method || (o.json ? 'POST' : 'GET'), credentials: 'include', headers: { Authorization: 'Bearer ' + jeton() }, cache: 'no-store' };
   if (o.json) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(o.json); }
   return fetch(PROXY + chemin, opt).then(function (r) {
     return r.json().then(function (d) {

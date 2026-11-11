@@ -16,9 +16,12 @@ var S = {
   moi: '', moiNom: '', branche: 'main',
   els: {}, attente: false, pret: false, minuteur: 0, blobs: {},
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
-  runEtat: '', lastBotCle: '', pending: []
+  runEtat: '', lastBotCle: '', pending: [], viaProxy: false
 };
-var BUILD = '20261111-28';
+var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
+  ? location.origin
+  : 'https://fsm-si-proxy.fsmdev66.workers.dev';
+var BUILD = '20261111-29';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -42,21 +45,26 @@ window.majFilLocal = function (items) {
 
 function api(chemin, o) {
   o = o || {};
-  /* délai garanti : une requête suspendue ne doit jamais figer la boucle ni l’envoi */
   var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   var lim = o.delai || ((o.method && o.method !== 'GET') ? 60000 : 20000);
   var tm = ctl ? setTimeout(function () { try { ctl.abort(); } catch (e) {} }, lim) : 0;
-  return fetch('https://api.github.com' + chemin, {
+  var via = S.viaProxy;
+  var url = via ? (PROXY + '/gh' + chemin) : ('https://api.github.com' + chemin);
+  var h = { Accept: o.accept || 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  if (S.jeton && S.jeton !== 'cookie') h.Authorization = 'Bearer ' + S.jeton;
+  if (o.json) h['Content-Type'] = 'application/json';
+  return fetch(url, {
     method: o.method || 'GET',
     signal: ctl ? ctl.signal : undefined,
     cache: 'no-store',
-    headers: Object.assign({ Authorization: 'Bearer ' + S.jeton, Accept: o.accept || 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, o.json ? { 'Content-Type': 'application/json' } : {}),
+    credentials: via ? 'include' : 'omit',
+    headers: h,
     body: o.json ? JSON.stringify(o.json) : (o.body || undefined)
   }).then(function (r) {
     clearTimeout(tm);
-    if (r.status === 401) throw Object.assign(new Error('Jeton refusé par GitHub : vérifie-le dans Réglages.'), { status: 401 });
+    if (r.status === 401) throw Object.assign(new Error(via ? 'Session expirée. Reconnecte-toi avec le FSM HUB.' : 'Jeton refusé par GitHub : vérifie-le dans Réglages.'), { status: 401 });
     if (!r.ok) {
-      var err = new Error('GitHub a répondu ' + r.status + (r.status === 403 || r.status === 404 ? ' : le jeton a-t-il accès à ce dépôt, avec les bonnes permissions ?' : ''));
+      var err = new Error(via ? ('Le dépôt a répondu ' + r.status) : ('GitHub a répondu ' + r.status + (r.status === 403 || r.status === 404 ? ' : le jeton a-t-il accès à ce dépôt, avec les bonnes permissions ?' : '')));
       err.status = r.status;
       throw err;
     }
@@ -65,7 +73,7 @@ function api(chemin, o) {
     return r.status === 204 ? null : r.json();
   }, function (e) {
     clearTimeout(tm);
-    if (e && e.name === 'AbortError') throw new Error('GitHub ne répond pas (délai dépassé). Nouvel essai automatique.');
+    if (e && e.name === 'AbortError') throw new Error((via ? 'Le dépôt' : 'GitHub') + ' ne répond pas (délai dépassé). Nouvel essai automatique.');
     throw e;
   });
 }
@@ -207,10 +215,12 @@ function montrerLogin(err) {
   $('login').hidden = false;
   $('home').hidden = true;
   $('chatView').hidden = true;
-  $('adepot').value = S.depot || 'wwwh8hv4w5-lang/fsm-si';
-  $('ajeton').value = '';
+  if ($('ahubuser')) $('ahubuser').value = '';
+  if ($('ahubpass')) $('ahubpass').value = '';
+  if ($('ajeton')) $('ajeton').value = '';
+  if ($('adepot') && !S.depot) $('adepot').value = 'wwwh8hv4w5-lang/fsm-si';
   $('aerreur').textContent = err || '';
-  champsFocusables([$('adepot'), $('ajeton')]);
+  champsFocusables([$('ahubuser') || $('adepot'), $('ahubpass') || $('ajeton')]);
   themeColor('#141414');
 }
 function montrerHome(instant) {
@@ -2700,8 +2710,9 @@ $('notifToggle').onclick = function () {
   hap();
 };
 $('deco').onclick = function () {
-  iosAlerte('Se déconnecter ?', 'Le jeton sera oublié sur cet appareil.', function () {
-    mem.oter('si_jeton'); S.jeton = ''; clearTimeout(S.minuteur);
+  iosAlerte('Se déconnecter ?', 'Tu devras te reconnecter avec tes identifiants du FSM HUB.', function () {
+    mem.oter('si_jeton'); S.jeton = ''; S.viaProxy = false; clearTimeout(S.minuteur);
+    fetch(PROXY + '/session/sortie', { method: 'POST', credentials: 'include' }).catch(function () {});
     fermerSettings(); closePush(true); montrerLogin('');
   });
 };
@@ -3190,11 +3201,36 @@ function demarrer() {
     boucle();
   });
 }
+function appliquerSession(e) {
+  S.viaProxy = true;
+  if (e && e.session) S.jeton = e.session;
+  else if (!S.jeton) S.jeton = 'cookie';
+  S.depot = S.depot || (e && e.depot) || 'wwwh8hv4w5-lang/fsm-si';
+  if (e && e.user) { S.moi = e.user.username || S.moi; S.moiNom = e.user.nom || S.moiNom || S.moi; }
+  mem.ecrire('si_depot', S.depot);
+}
 function relierCompte(e) {
   if (e) e.preventDefault();
-  S.depot = $('adepot').value.trim().replace(/^https:\/\/github\.com\//, '').replace(/\/+$/, '');
-  S.jeton = $('ajeton').value.trim();
-  if (!/^[\w.-]+\/[\w.-]+$/.test(S.depot) || !S.jeton) { $('aerreur').textContent = 'Indique le dépôt sous la forme propriétaire/nom, et le jeton.'; return; }
+  var user = ($('ahubuser') && $('ahubuser').value.trim()) || '';
+  var pass = ($('ahubpass') && $('ahubpass').value) || '';
+  if (user && pass) {
+    $('aerreur').textContent = 'Vérification.';
+    return fetch(PROXY + '/session', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    }).then(function (r) { return r.json().then(function (d) { return { r: r, d: d }; }); })
+      .then(function (x) {
+        if (!x.d || !x.d.ok) { $('aerreur').textContent = (x.d && x.d.erreur) || 'Identifiant ou mot de passe incorrect.'; return; }
+        if ($('ahubpass')) $('ahubpass').value = '';
+        appliquerSession(x.d);
+        return demarrer();
+      }, function () { $('aerreur').textContent = 'Connexion indisponible pour le moment.'; });
+  }
+  /* repli : ancien flux jeton GitHub, seulement si le serveur n’a pas de jeton */
+  S.depot = ($('adepot') && $('adepot').value.trim() || '').replace(/^https:\/\/github\.com\//, '').replace(/\/+$/, '');
+  S.jeton = ($('ajeton') && $('ajeton').value.trim()) || '';
+  if (!/^[\w.-]+\/[\w.-]+$/.test(S.depot) || !S.jeton) { $('aerreur').textContent = 'Renseigne ton identifiant et ton mot de passe du FSM HUB.'; return; }
   $('aerreur').textContent = 'Vérification.';
   demarrer().then(function () { mem.ecrire('si_depot', S.depot); mem.ecrire('si_jeton', S.jeton); }, function (err) { S.jeton = ''; $('aerreur').textContent = err.message; });
 }
@@ -3222,8 +3258,17 @@ if ('serviceWorker' in navigator) {
   }).catch(function () {});
 }
 if ($('buildTag')) $('buildTag').textContent = BUILD;
-if (S.depot && S.jeton) demarrer().catch(function (e) { montrerLogin(e.message); });
-else montrerLogin('');
+fetch(PROXY + '/session', { cache: 'no-store', credentials: 'include' }).then(function (r) { return r.json(); }).then(function (e) {
+  if (e && e.ok) {
+    appliquerSession(e);
+    return demarrer().catch(function (err) { montrerLogin(err.message); });
+  }
+  if (S.depot && S.jeton) return demarrer().catch(function (err) { montrerLogin(err.message); });
+  montrerLogin('');
+}, function () {
+  if (S.depot && S.jeton) demarrer().catch(function (err) { montrerLogin(err.message); });
+  else montrerLogin('');
+});
 
 /* ---------- Appui long sur un message ---------- */
 (function () {

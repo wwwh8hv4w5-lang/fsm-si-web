@@ -11,7 +11,7 @@ function discuter(jeton, corps, surTexte) {
   var t0 = performance.now(), premier = 0;
   var ctl = new AbortController();
   var minuteur = setTimeout(function () { ctl.abort(); }, 12000); /* aucun mot en 12 s : on laisse le robot répondre */
-  return fetch(PROXY + '/chat', {
+  return fetch(PROXY + '/chat', { credentials: 'include', 
     method: 'POST', signal: ctl.signal,
     headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' },
     body: JSON.stringify(corps)
@@ -87,7 +87,7 @@ function e(nom, cls, txt) { var x = document.createElement(nom); if (cls) x.clas
 function ico(nom) { var s = document.createElement('span'); s.style.display = 'contents'; s.innerHTML = IC[nom]; return s.firstChild; }
 
 function ranger(jeton, nom, valeur, libelle, description) {
-  return fetch(PROXY + '/coffre/' + encodeURIComponent(nom), {
+  return fetch(PROXY + '/coffre/' + encodeURIComponent(nom), { credentials: 'include', 
     method: 'PUT', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' },
     body: JSON.stringify({ valeur: valeur, libelle: libelle, description: description })
   }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d && d.erreur || 'coffre ' + r.status); return d; }); });
@@ -283,7 +283,7 @@ function lecteur(jeton, surFin) {
   function phrase(p) {
     var t = nettoyerVoix(p); if (!t) return;
     V.enAttente++;
-    var req = fetch(PROXY + '/tts', { method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' }, body: JSON.stringify({ texte: t }) })
+    var req = fetch(PROXY + '/tts', { credentials: 'include',  method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' }, body: JSON.stringify({ texte: t }) })
       .then(function (r) { if (!r.ok) throw new Error('tts ' + r.status); return r.arrayBuffer(); })
       .then(function (a) { var c = ctxAudio(); if (!c) throw new Error('audio'); return new Promise(function (ok, ko) { c.decodeAudioData(a, ok, ko); }); });
     file = file.then(function () { return req; }).then(function (buf) {
@@ -325,7 +325,7 @@ function appel(jeton, blob, meta, h) {
   var horsDelai = false;
   var delai = setTimeout(function () { if (!premierPcm) { horsDelai = true; try { ctl.abort(); } catch (e) {} } }, 15000);
   V.trous = 0; V.trouMs = 0;
-  return fetch(PROXY + '/voix', { method: 'POST', headers: { Authorization: 'Bearer ' + jeton }, body: fd, signal: ctl.signal }).then(function (r) {
+  return fetch(PROXY + '/voix', { credentials: 'include',  method: 'POST', headers: { Authorization: 'Bearer ' + jeton }, body: fd, signal: ctl.signal }).then(function (r) {
     if (!r.ok || !r.body) throw new Error('voix ' + r.status);
     var rd = r.body.getReader(), dec = new TextDecoder(), buf = '';
     function pompe() {
@@ -358,7 +358,7 @@ function appel(jeton, blob, meta, h) {
 }
 
 function transcrire(jeton, blob) {
-  return fetch(PROXY + '/stt', { method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': blob.type || 'audio/mp4' }, body: blob })
+  return fetch(PROXY + '/stt', { credentials: 'include',  method: 'POST', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': blob.type || 'audio/mp4' }, body: blob })
     .then(function (r) { return r.json().then(function (d) { if (!r.ok || typeof d.texte !== 'string') throw new Error('stt ' + r.status); return d.texte; }); });
 }
 
