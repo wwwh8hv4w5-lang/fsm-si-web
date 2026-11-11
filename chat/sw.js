@@ -1,10 +1,11 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v25';
-const BUILD = '20261111-26';
-const SHELL = ['./', './index.html', './style.css?v=20261111-26', './app.js?v=20261111-26', './coffre.js?v=20261111-26', './laura-rapide.js?v=20261111-26', './mode.js?v=20261111-26', './ordinateur.js?v=20261111-26', './bot-shapes.js?v=20261111-26', './create-bot.js?v=20261111-26', './pc.js?v=20261111-26',
+const C = 'laura-fsm-chat-v27';
+const BUILD = '20261111-27';
+const SHELL = ['./', './index.html', './style.css?v=20261111-27', './app.js?v=20261111-27', './coffre.js?v=20261111-27', './laura-rapide.js?v=20261111-27', './mode.js?v=20261111-27', './ordinateur.js?v=20261111-27', './bot-shapes.js?v=20261111-27', './create-bot.js?v=20261111-27', './pc.js?v=20261111-27',
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
-  './icons/icon-192.png', './icons/tom.png', './icons/favicon-32.png'];
+  './icons/fsm-si-logo.png', './icons/icon-192.png', './icons/icon-180.png', './icons/icon-512.png',
+  './icons/tom.png', './icons/favicon-32.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(C).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

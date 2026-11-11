@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-26';
+var BUILD = '20261111-27';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -3219,7 +3219,7 @@ if ('serviceWorker' in navigator) {
     });
   }).catch(function () {});
 }
-if ($('buildTag')) $('buildTag').textContent = 'chat ' + BUILD;
+if ($('buildTag')) $('buildTag').textContent = BUILD;
 if (S.depot && S.jeton) demarrer().catch(function (e) { montrerLogin(e.message); });
 else montrerLogin('');
 
