@@ -5,20 +5,20 @@
 <script src="/installer.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Laura F.S.M</title>
-<meta name="description" content="Laura F.S.M · F.S.M AI — interface FSM SI.">
+<meta name="description" content="Laura F.S.M · FSM SI — interface FSM SI.">
 <meta name="theme-color" content="#141414">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
-<meta name="si-build" content="20261111-80">
+<meta name="si-build" content="20261111-82">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/favicon.ico" sizes="any">
 <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="./icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/icon-180.png">
-<link rel="stylesheet" href="./style.css?v=20261111-80">
+<link rel="stylesheet" href="./style.css?v=20261111-82">
 </head>
 <body>
 <div id="app">
@@ -26,7 +26,7 @@
 <div id="banner" class="banner" hidden>
   <div class="av"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
   <div class="bn-body">
-    <div class="bn-top"><b id="bannerName">Laura F.S.M · F.S.M AI</b><span id="bannerWhen">maintenant</span></div>
+    <div class="bn-top"><b id="bannerName">Laura F.S.M · FSM SI</b><span id="bannerWhen">maintenant</span></div>
     <p id="bannerText"></p>
   </div>
 </div>
@@ -68,7 +68,7 @@
   <div class="home-center">
     <button type="button" class="home-hero" id="homeAvatar" aria-label="Ouvrir Laura F.S.M">
       <div class="av xl" id="homeAv"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
-      <div class="home-name" id="homeName" title="Laura F.S.M · F.S.M AI">Laura F.S.M · F...</div>
+      <div class="home-name" id="homeName" title="Laura F.S.M · FSM SI">Laura F.S.M · F...</div>
     </button>
     <div class="home-bots" id="homeBots" hidden></div>
   </div>
@@ -90,7 +90,7 @@
 <div id="homeCtx" hidden role="dialog" aria-label="Actions du Bot">
  <div class="hc-col" id="hcCol">
   <div class="hc-preview" id="hcPreview">
-    <div class="hc-head"><div class="av"><img src="./icons/laura.png" alt=""></div><b>Laura F.S.M · F.S.M AI</b></div>
+    <div class="hc-head"><div class="av"><img src="./icons/laura.png" alt=""></div><b>Laura F.S.M · FSM SI</b></div>
     <div class="hc-bulle" id="hcBulle"></div>
   </div>
   <div class="hc-menu" id="hcMenu" role="menu">
@@ -116,7 +116,7 @@
     </button>
     <div class="who pill" id="chatWho">
       <div class="av" id="chatAv"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
-      <div class="nm" id="chatName">Laura F.S.M · F.S.M AI</div>
+      <div class="nm" id="chatName">Laura F.S.M · FSM SI</div>
     </div>
     <button type="button" class="frost-btn" id="menuBtn" aria-label="Options">
       <svg viewBox="0 0 24 24" class="dots-h"><circle cx="6" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.35" fill="currentColor" stroke="none"/></svg>
@@ -319,7 +319,7 @@
     <div class="about-fsm">
       <img class="about-fsm-logo" src="./icons/fsm-si-logo.png" alt="FSM SI">
       <div class="about-fsm-name">FSM SI</div>
-      <div class="about-fsm-ver" id="buildTag">20261111-80</div>
+      <div class="about-fsm-ver" id="buildTag">20261111-82</div>
       <p class="about-fsm-legal">Relié par le FSM HUB. Aucun jeton GitHub n’est stocké dans ce navigateur.</p>
     </div>
   </div>
@@ -359,7 +359,9 @@
     <input id="botName" type="text" tabindex="-1" placeholder="Nommez votre Bot" maxlength="40" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done">
     <div class="shape-grid" id="shapeGrid"></div>
     <div class="swatches" id="colorGrid"></div>
-    <button type="button" class="create-go" id="botCreate" disabled>Créer</button>
+    <!-- Bouton « Créer » sous la photo de profil supprimé (demande de Tom, 11/11 22 h 02) : Laura est unique.
+         Sa discussion s’ouvre par la photo de l’accueil ; cette feuille ne fait que montrer son profil. -->
+    <p class="create-note" id="botNote" hidden>Laura FSM SI est un modèle custom - non modifiable</p>
   </div>
 </aside>
 
@@ -481,7 +483,7 @@
     <button type="button" class="vp-replier" id="voicePrefsOk" aria-label="Replier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
     <div class="vp-tete">
       <div class="vp-av"><img src="./icons/laura.png" alt=""></div>
-      <div class="vp-nom">Laura F.S.M · F.S.M AI</div>
+      <div class="vp-nom">Laura F.S.M · FSM SI</div>
       <div class="vp-duree" id="voiceDuree">0:00</div>
     </div>
     <div class="vp-carte">
@@ -502,21 +504,21 @@
 <!-- Couche de morphisme avatar (FLIP) -->
 <div id="morph" hidden aria-hidden="true">
   <div class="av" id="morphAv"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
-  <div class="home-name" id="morphName">Laura F.S.M · F.S.M AI</div>
+  <div class="home-name" id="morphName">Laura F.S.M · FSM SI</div>
 </div>
 
 </div>
-<script src="./coffre.js?v=20261111-80"></script>
-<script src="./laura-rapide.js?v=20261111-80"></script>
-<script src="./mode.js?v=20261111-80"></script>
-<script src="./ordinateur.js?v=20261111-80"></script>
-<script src="./bot-shapes.js?v=20261111-80"></script>
-<script src="./pc.js?v=20261111-80"></script>
-<script src="./gmail.js?v=20261111-80"></script>
-<script src="./stt-flux.js?v=20261111-80"></script>
-<script src="./validations.js?v=20261111-80"></script>
-<script src="./app.js?v=20261111-80"></script>
-<script src="./taches.js?v=20261111-80"></script>
-<script src="./create-bot.js?v=20261111-80"></script>
+<script src="./coffre.js?v=20261111-82"></script>
+<script src="./laura-rapide.js?v=20261111-82"></script>
+<script src="./mode.js?v=20261111-82"></script>
+<script src="./ordinateur.js?v=20261111-82"></script>
+<script src="./bot-shapes.js?v=20261111-82"></script>
+<script src="./pc.js?v=20261111-82"></script>
+<script src="./gmail.js?v=20261111-82"></script>
+<script src="./stt-flux.js?v=20261111-82"></script>
+<script src="./validations.js?v=20261111-82"></script>
+<script src="./app.js?v=20261111-82"></script>
+<script src="./taches.js?v=20261111-82"></script>
+<script src="./create-bot.js?v=20261111-82"></script>
 </body>
 </html>
