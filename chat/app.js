@@ -18,7 +18,7 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
-var BUILD = '20261111-18';
+var BUILD = '20261111-19';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -101,7 +101,10 @@ function rendre(md) {
   md = String(md || '').replace(/\u0001/g, '').replace(/<!--[\s\S]*?-->/g, '');
   md = md.replace(/<details>[\s\S]*?<\/details>/gi, '');
   md = md.replace(/!\[[^\]]*\]\((https:\/\/github\.com\/[^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi, function (m, u) { var p = cheminDepot(u); if (!p) return m; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
-  md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) { var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
+  md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) {
+    var b = window.Ordinateur && Ordinateur.estCapture(u); /* écran de Laura (fsm-si-bureau) */
+    if (b) { var al = (m.match(/alt="([^"]*)"/) || [])[1] || ''; imgs.push({ b: b, alt: al }); return '\u0001I' + (imgs.length - 1) + '\u0001'; }
+    var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
   md = md.replace(/```[^\n]*\n([\s\S]*?)```/g, function (m, c) { codes.push(c); return '\n\u0001C' + (codes.length - 1) + '\u0001\n'; });
   var h = esc(md)
     .replace(/&lt;details&gt;[\s\S]*?&lt;\/details&gt;/g, '')
@@ -128,7 +131,7 @@ function rendre(md) {
   });
   clore();
   return out.join('')
-    .replace(/\u0001I(\d+)\u0001/g, function (m, n) { return imgs[n] ? '<img class="vue" alt="Aperçu" data-p="' + esc(imgs[n]) + '">' : ''; })
+    .replace(/\u0001I(\d+)\u0001/g, function (m, n) { var x = imgs[n]; if (x && x.b) return '<img class="vue ecran" alt="' + esc(x.alt || 'Écran de Laura') + '" data-b="' + esc(x.b) + '">'; return x ? '<img class="vue" alt="Aperçu" data-p="' + esc(x) + '">' : ''; })
     .replace(/\u0001C(\d+)\u0001/g, function (m, n) { return codes[n] == null ? '' : '<pre>' + esc(codes[n]) + '</pre>'; })
     .replace(/(<div class="vide"><\/div>){2,}/g, '<div class="vide"></div>');
 }
@@ -143,6 +146,9 @@ function blobDepot(p) {
   });
 }
 function brancher(el) {
+  if (window.Ordinateur) Array.prototype.forEach.call(el.querySelectorAll('img.vue[data-b]'), function (n) {
+    Ordinateur.image(n.getAttribute('data-b'), S.jeton).then(function (u) { n.src = u; }).catch(function (x) { n.alt = x.message; n.classList.add('perdue'); });
+  });
   Array.prototype.forEach.call(el.querySelectorAll('img.vue[data-p], video[data-p]'), function (n) {
     blobDepot(n.getAttribute('data-p')).then(function (u) { n.src = u; }).catch(function () { n.alt = 'Aperçu indisponible'; });
   });
@@ -390,6 +396,7 @@ function majFil(items) {
     node.dataset.qui = moi ? 'me' : 'bot';
     brancher(node);
     if (!moi && window.LauraRapide) LauraRapide.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
+    if (!moi && window.Ordinateur) Ordinateur.cartes(node, it.corps, { jeton: S.jeton, cle: it.cle, envoyer: envoyer });
     piedMessage(node, it);
   });
   Object.keys(S.els).forEach(function (k) {
@@ -1949,6 +1956,7 @@ function ouvrirMenu() {
   item('Voir le profil', user, function () { fermerMenu(); ecranProfil(); });
   item('Rechercher dans la conversation', search, function () { ouvrirRecherche(); });
   item('Partager la conversation', share, function () { fermerMenu(); partagerConv(); });
+  if (window.Ordinateur) item('Ordinateur de Laura', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>', function () { fermerMenu(); Ordinateur.ouvrir({ jeton: S.jeton, envoyer: envoyer }); });
   if (window.LauraMode) {
     /* une seule ligne discrète : Laura · Grok, coche si actif ; toucher bascule (effet dès le message suivant) */
     var grok = LauraMode.actif() === 'grok';
@@ -2645,10 +2653,12 @@ function ecranProfil() {
     b1.onclick = function () { ecranBibli(); };
     g1.appendChild(b1);
     var ord = el('button', 'row'); ord.type = 'button';
-    ord.innerHTML = '<span class="row-ico">🖥</span><span class="t">Ordinateur</span><span class="val">—</span><span class="chev">›</span>';
-    ord.onclick = function () { ecranDepot(); };
+    ord.innerHTML = '<span class="row-ico">🖥</span><span class="t">Ordinateur</span><span class="val" id="profOrdi">—</span><span class="chev">›</span>';
+    ord.onclick = function () { if (window.Ordinateur) Ordinateur.ouvrir({ jeton: S.jeton, envoyer: envoyer }); else ecranDepot(); };
     g1.appendChild(ord);
     box.appendChild(g1);
+    /* Écran de Laura en direct (ou le dernier écran s'il dort) ; tap = plein écran */
+    if (window.Ordinateur && S.jeton) Ordinateur.vignette(box, S.jeton, ord.querySelector('#profOrdi'));
 
     box.appendChild(el('div', 'sec-lab', 'Configurer le Bot'));
     var g2 = el('div', 'group');

@@ -1,7 +1,7 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v16';
-const BUILD = '20261111-18';
-const SHELL = ['./', './index.html', './style.css?v=20261111-18', './app.js?v=20261111-18', './coffre.js?v=20261111-18', './laura-rapide.js?v=20261111-18', './mode.js?v=20261111-18',
+const C = 'laura-fsm-chat-v19';
+const BUILD = '20261111-19';
+const SHELL = ['./', './index.html', './style.css?v=20261111-19', './app.js?v=20261111-19', './coffre.js?v=20261111-19', './laura-rapide.js?v=20261111-19', './mode.js?v=20261111-19', './ordinateur.js?v=20261111-19',
   './manifest.webmanifest',
   './icons/laura.png', './icons/laura-192.png', './icons/laura-512.png',
   './icons/icon-192.png', './icons/tom.png', './icons/favicon-32.png'];
@@ -20,7 +20,7 @@ self.addEventListener('activate', (e) => {
 function estEnveloppe(u) {
   const p = u.pathname.replace(/\/+$/, '') || '/';
   return /\/chat$/.test(p) || /\/chat\/index\.html$/.test(p) ||
-    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p) || /\/chat\/coffre\.js$/.test(p) || /\/chat\/laura-rapide\.js$/.test(p) || /\/chat\/mode\.js$/.test(p);
+    /\/chat\/app\.js$/.test(p) || /\/chat\/style\.css$/.test(p) || /\/chat\/coffre\.js$/.test(p) || /\/chat\/laura-rapide\.js$/.test(p) || /\/chat\/mode\.js$/.test(p) || /\/chat\/ordinateur\.js$/.test(p);
 }
 
 self.addEventListener('fetch', (e) => {
