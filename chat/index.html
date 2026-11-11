@@ -11,12 +11,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Laura F.S.M">
 <meta name="referrer" content="no-referrer">
+<meta name="si-build" content="20261111-4">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/laura-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/laura-180.png">
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./style.css?v=20261111-4">
 </head>
 <body>
+<div id="app">
 <div id="alerte" role="alert" hidden></div>
 <div id="banner" class="banner" hidden>
   <div class="av"><img src="./icons/laura.png" alt=""><span class="dot"></span></div>
@@ -266,7 +268,7 @@
     <div class="group">
       <button type="button" class="row danger" id="deco">Se déconnecter</button>
     </div>
-    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.</p>
+    <p class="sheet-foot">FSM SI · F.S.M AI<br>Le jeton reste uniquement dans ce navigateur.<br><span id="buildTag" class="build-tag">chat 20261111-4</span></p>
   </div>
 </aside>
 
@@ -328,6 +330,7 @@
   <div class="home-name" id="morphName">Laura F.S.M · F.S.M AI</div>
 </div>
 
-<script src="./app.js"></script>
+</div>
+<script src="./app.js?v=20261111-4"></script>
 </body>
 </html>

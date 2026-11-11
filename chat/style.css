@@ -25,10 +25,20 @@
   --sf: -apple-system, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior-x: none;
+  position: fixed;
+  inset: 0;
+}
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
+  height: 100%;
   height: 100dvh;
   background: var(--fond);
   color: var(--texte);
@@ -38,6 +48,22 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
+}
+#app {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  width: 100vw;
+  max-width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior-x: none;
+}
+#app, #home, #chatView, #login, #fil, .screen, .msg, .msg .bubble, .sheet-scroll, .push-body {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 button, input, textarea, select { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; border: none; background: none; padding: 0; }
@@ -194,8 +220,8 @@ img { display: block; max-width: 100%; }
 .msg.ordre .bubble { background: #3A3A3C; color: #eee; }
 .msg .bubble .petit, .msg .bubble sub, .msg .bubble .sub { display: none !important; }
 .msg .bubble pre {
-  overflow-x: auto; background: rgba(0,0,0,.35); border-radius: 8px;
-  padding: 8px; font-size: 13px; user-select: text;
+  overflow-x: auto; max-width: 100%; background: rgba(0,0,0,.35); border-radius: 8px;
+  padding: 8px; font-size: 13px; user-select: text; overflow-wrap: anywhere;
 }
 .msg .bubble code { font-size: 0.92em; }
 .msg .bubble ul { margin: 4px 0; padding-left: 1.2em; }
@@ -824,3 +850,5 @@ html, body, #chatView, #fil, #home {
   pointer-events: none;
   transition: opacity .2s ease;
 }
+
+.build-tag { display: inline-block; margin-top: 6px; font-size: 11px; color: #636366; letter-spacing: .02em; }

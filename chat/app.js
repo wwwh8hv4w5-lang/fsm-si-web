@@ -18,6 +18,8 @@ var S = {
   convs: [], convsVues: 0, envoi: false, ecran: 'login',
   runEtat: '', lastBotCle: '', pending: []
 };
+var BUILD = '20261111-4';
+window.SI_BUILD = BUILD;
 var NOM = 'Laura F.S.M · F.S.M AI';
 var NOM_COURT = 'Laura F.S.M';
 var MAX_FILE = 25 * 1024 * 1024;
@@ -65,8 +67,24 @@ function enligne(t) {
   t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, function (m, a, u) { return a + lien(u, u); });
   return t;
 }
+function retirerPiedRobot(md) {
+  var s = String(md == null ? '' : md).replace(/\r\n/g, '\n');
+  s = s.replace(/(?:\n[ \t]*)*<sub>[\s\S]*?<\/sub>[ \t]*$/i, function (m) {
+    var t = m.replace(/<[^>]+>/g, '');
+    return /(FSM SI\s*v\s*[\d.]+|appels\s*·|robot\s*·)/i.test(t) ? '' : m;
+  });
+  var lignes = s.split('\n');
+  while (lignes.length) {
+    var last = lignes[lignes.length - 1].replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/^\s+|\s+$/g, '');
+    if (!last) { lignes.pop(); continue; }
+    if (/(FSM SI\s*v\s*[\d.]+|appels\s*·)/i.test(last)) { lignes.pop(); continue; }
+    break;
+  }
+  return lignes.join('\n').replace(/\s+$/g, '');
+}
 function rendre(md) {
   var codes = [], imgs = [];
+  md = retirerPiedRobot(md);
   md = String(md || '').replace(/\u0001/g, '').replace(/<!--[\s\S]*?-->/g, '');
   md = md.replace(/<img\s+src="([^"]+)"[^>]*>/g, function (m, u) { var p = cheminDepot(u); if (!p) return ''; imgs.push(p); return '\u0001I' + (imgs.length - 1) + '\u0001'; });
   md = md.replace(/```[^\n]*\n([\s\S]*?)```/g, function (m, c) { codes.push(c); return '\n\u0001C' + (codes.length - 1) + '\u0001\n'; });
@@ -1037,12 +1055,33 @@ $('backBtn').addEventListener('click', function () { fermerChatMorph(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden && on) settle(null, { cancel: true }); });
   window.addEventListener('pagehide', function () { if (on) settle(null, { cancel: true }); });
   /* expose un accesseur de test */
+  function verrouillerDefilement() {
+    try {
+      document.documentElement.scrollLeft = 0;
+      document.body.scrollLeft = 0;
+      var app = document.getElementById('app');
+      if (app) app.scrollLeft = 0;
+    } catch (err) {}
+  }
+  function corrigerCarteEgarée() {
+    verrouillerDefilement();
+    if (on) return;
+    var p = Math.max(0, Math.min(1, S._cardP || 0));
+    if (S.ecran === 'chat' && p > 0 && p < 1) revenirCarte();
+    else if (S.ecran === 'chat' && p === 0) resetCard();
+  }
+  window.addEventListener('pageshow', corrigerCarteEgarée);
+  window.addEventListener('resize', verrouillerDefilement);
+  window.addEventListener('orientationchange', function () { setTimeout(corrigerCarteEgarée, 50); });
+  document.addEventListener('scroll', verrouillerDefilement, { passive: true, capture: true });
   window.__chatGeste = {
     start: start, move: move, settle: settle,
-    appliquer: appliquerCarte, reset: resetCard,
+    appliquer: appliquerCarte, reset: resetCard, revenir: revenirCarte,
+    enCours: function () { return !!on; },
     p: function () { return S._cardP || 0; },
     ecran: function () { return S.ecran; },
     etat: etatLigne,
+    pied: retirerPiedRobot,
     labels: function () {
       return Array.prototype.map.call(document.querySelectorAll('#typingStack em'), function (n) {
         return { text: n.textContent, cls: n.className };
@@ -1700,8 +1739,24 @@ $('loginForm').addEventListener('submit', function (e) {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(function () {});
+  var _swRelu = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (_swRelu) return;
+    try {
+      if (sessionStorage.getItem('si_sw_reloaded') === BUILD) return;
+      sessionStorage.setItem('si_sw_reloaded', BUILD);
+    } catch (err) {}
+    _swRelu = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(function (reg) {
+    try { reg.update(); } catch (err) {}
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) try { reg.update(); } catch (err) {}
+    });
+  }).catch(function () {});
 }
+if ($('buildTag')) $('buildTag').textContent = 'chat ' + BUILD;
 if (S.depot && S.jeton) demarrer().catch(function (e) { montrerLogin(e.message); });
 else montrerLogin('');
 })();
