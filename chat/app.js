@@ -21,7 +21,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-32';
+var BUILD = '20261111-33';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 var NOM = 'Laura F.S.M · F.S.M AI';
@@ -2359,11 +2359,16 @@ function resetCard() {
   c.classList.remove('carding');
   c.style.transform = '';
   c.style.borderRadius = '';
-  if ($('home')) { $('home').style.transform = ''; $('home').classList.remove('sous-chat'); Array.prototype.forEach.call($('home').querySelectorAll('.home-top, .home-bottom'), function (b) { b.style.opacity = ''; }); }
-  if ($('backBtn')) $('backBtn').style.transform = '';
+  if ($('home')) {
+    $('home').style.transform = '';
+    $('home').style.opacity = '';
+    $('home').classList.remove('sous-chat', 'nav-anim');
+    Array.prototype.forEach.call($('home').querySelectorAll('.home-top, .home-bottom'), function (b) { b.style.opacity = ''; });
+  }
+  c.classList.remove('nav-anim', 'nav-slide');
+  if ($('backBtn')) { $('backBtn').style.transform = ''; $('backBtn').style.opacity = ''; }
   if ($('chatWho')) { $('chatWho').style.transform = ''; $('chatWho').style.opacity = ''; }
   c.style.opacity = '';
-  if ($('backBtn')) $('backBtn').style.opacity = '';
   if ($('menuBtn')) $('menuBtn').style.opacity = '';
   if ($('morph')) $('morph').hidden = true;
   if ($('chatAv')) $('chatAv').style.opacity = '';
@@ -2374,9 +2379,50 @@ function resetCard() {
 }
 function lerp(a, b, p) { return a + (b - a) * p; }
 var _springId = 0, _springTimer = 0;
+var _navTimer = 0, _navId = 0;
+function motionOk() {
+  return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function cancelNav() {
+  _navId++;
+  clearTimeout(_navTimer);
+  var c = $('chatView'), h = $('home');
+  if (c) c.classList.remove('nav-anim');
+  if (h) h.classList.remove('nav-anim');
+}
 function cancelSpring() {
   _springId++;
   clearTimeout(_springTimer);
+  cancelNav();
+}
+function animerNav(from, to, done) {
+  cancelSpring();
+  from = Math.max(0, Math.min(1, Number(from) || 0));
+  to = Math.max(0, Math.min(1, Number(to) || 0));
+  if (!motionOk() || Math.abs(from - to) < 0.001) {
+    appliquerCarte(to);
+    if (done) done();
+    return;
+  }
+  appliquerCarte(from);
+  var c = $('chatView'), h = $('home');
+  if (c) c.getBoundingClientRect();
+  var id = _navId;
+  requestAnimationFrame(function () {
+    if (id !== _navId) return;
+    if (c) c.classList.add('nav-anim');
+    if (h) h.classList.add('nav-anim');
+    requestAnimationFrame(function () {
+      if (id !== _navId) return;
+      appliquerCarte(to);
+    });
+  });
+  _navTimer = setTimeout(function () {
+    if (id !== _navId) return;
+    if (c) c.classList.remove('nav-anim');
+    if (h) h.classList.remove('nav-anim');
+    if (done) done();
+  }, 360);
 }
 function spring(from, to, omega, onup, ondone) {
   cancelSpring();
@@ -2428,35 +2474,32 @@ function mesurerCarte() {
 }
 window.addEventListener('resize', function () { S._carteR = null; });
 function appliquerCarte(p) {
-  /* Glissement iOS comme Grok Bot : le chat se translate d’un bloc (pas d’échelle),
-     l’accueil suit dessous avec une parallaxe de 30 % (relevé image par image sur la vidéo de Tom). */
+  /* Chat 0→100 % (z-index au-dessus, ombre à gauche) ; accueil -30 %→0, opacité 0.8→1.
+     À p=0 le chat est ouvert : l’accueil reste calé à -30 % / 0.8 dessous, prêt pour le retour. */
   p = Math.max(0, Math.min(1, Number(p) || 0));
   S._cardP = p;
   var c = $('chatView'), h = $('home');
   if (!c) return p;
   if (c.hidden) c.hidden = false;
   if (h && h.hidden) h.hidden = false;
-  var on = p > 0.001;
-  if (c._carding !== on) { c._carding = on; c.classList.toggle('carding', on); if (h) h.classList.toggle('sous-chat', on); }
-  var w = c.offsetWidth || window.innerWidth || 390;
-  S._carteR = S._carteR || { w: w };
-  c.style.transform = on ? 'translate3d(' + (p * w).toFixed(2) + 'px,0,0)' : '';
-  if (h) h.style.transform = on ? 'translate3d(' + (-0.3 * w * (1 - p)).toFixed(2) + 'px,0,0)' : '';
-  /* Comme la barre de navigation iOS de Grok Bot : le bouton retour reste en place et ne s’efface qu’à la fin,
-     les barres haut/bas de l’accueil n’apparaissent qu’en fin de geste. */
-  var fin = Math.max(0, (p - 0.85) / 0.15);
-  var bb = $('backBtn');
-  if (bb) { bb.style.transform = on ? 'translate3d(' + (-p * w).toFixed(2) + 'px,0,0)' : ''; bb.style.opacity = on ? String(1 - fin) : ''; }
-  var cw = $('chatWho');
-  if (cw) { cw.style.transform = on ? 'translate3d(' + (-0.5 * p * w).toFixed(2) + 'px,0,0)' : ''; cw.style.opacity = on ? String(1 - fin) : ''; }
-  var barres = h ? h.querySelectorAll('.home-top, .home-bottom') : [];
-  for (var i = 0; i < barres.length; i++) barres[i].style.opacity = on ? String(fin) : '';
+  var sliding = p > 0.001;
+  if (c._carding !== sliding) {
+    c._carding = sliding;
+    c.classList.toggle('carding', sliding);
+    c.classList.toggle('nav-slide', sliding);
+  }
+  if (h) h.classList.add('sous-chat');
+  c.style.transform = 'translate3d(' + (p * 100).toFixed(3) + '%,0,0)';
+  if (h) {
+    h.style.transform = 'translate3d(' + (-30 * (1 - p)).toFixed(3) + '%,0,0)';
+    h.style.opacity = String((0.8 + 0.2 * p).toFixed(3));
+  }
   if ($('morph')) $('morph').hidden = true;
   return p;
 }
 function fermerChatMorph() {
   var start = Math.max(0, Math.min(1, S._cardP || 0));
-  spring(start, 1, 20, appliquerCarte, function () {
+  animerNav(start, 1, function () {
     resetCard();
     $('chatView').hidden = true;
     if ($('homeAv')) $('homeAv').style.opacity = '';
@@ -2471,9 +2514,10 @@ function ouvrirChatMorph() {
   $('home').hidden = false;
   S.ecran = 'chat';
   themeColor('#141414');
-  appliquerCarte(1);
-  spring(1, 0, 22, appliquerCarte, function () {
-    resetCard();
+  animerNav(1, 0, function () {
+    var c = $('chatView'), h = $('home');
+    if (c) { c.classList.remove('nav-anim', 'carding', 'nav-slide'); c._carding = false; }
+    if (h) h.classList.remove('nav-anim');
     $('chatView').hidden = false;
     setTimeout(function () { var f = $('fil'); if (f) f.scrollTop = f.scrollHeight; }, 30);
   });
@@ -2481,7 +2525,7 @@ function ouvrirChatMorph() {
 function revenirCarte() {
   var p = Math.max(0, Math.min(1, S._cardP || 0));
   if (p <= 0) { resetCard(); return; }
-  spring(p, 0, 22, appliquerCarte, function () { resetCard(); });
+  animerNav(p, 0, function () { resetCard(); });
 }
 $('homeAvatar').addEventListener('click', function () {
   if (!S.jeton) return;

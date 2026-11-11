@@ -119,10 +119,11 @@
     if (sheet) { sheet.classList.remove('open', 'kb'); }
     if (back) back.classList.add('hide');
     if ($('botName')) { $('botName').blur(); $('botName').tabIndex = -1; }
+    var wait = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 400;
     window.setTimeout(function () {
       if (sheet) sheet.hidden = true;
       if (back) { back.hidden = true; back.classList.remove('hide'); }
-    }, 420);
+    }, wait);
   }
   function creer() {
     var nom = ($('botName') && $('botName').value || '').trim();
