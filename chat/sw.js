@@ -1,5 +1,5 @@
 /* Laura F.S.M · FSM SI — cache de l’enveloppe */
-const C = 'laura-fsm-chat-v50';
+const C = 'laura-fsm-chat-v51';
 const BUILD = '20261111-50';
 const SHELL = ['./', './index.html', './style.css?v=20261111-50', './app.js?v=20261111-50', './stt-flux.js?v=20261111-50', './stt-flux-worklet.js?v=20261111-50', './coffre.js?v=20261111-50', './laura-rapide.js?v=20261111-50', './mode.js?v=20261111-50', './ordinateur.js?v=20261111-50', './bot-shapes.js?v=20261111-50', './create-bot.js?v=20261111-50', './pc.js?v=20261111-50', './gmail.js?v=20261111-50', './taches.js?v=20261111-50',
   './manifest.webmanifest',

@@ -133,7 +133,9 @@ function montrerCarte() {
   document.body.appendChild(c);
   c.querySelector('.nc-non').onclick = function () { try { localStorage.setItem('si_notif_plus_tard', String(Date.now())); } catch (e) {} c.remove(); };
   c.querySelector('.nc-oui').onclick = function () {
+    var vu = false;
     var fini = function (p) {
+      if (vu) return; vu = true;
       c.remove();
       if (p === 'granted') {
         if (window.SI_notifActive) window.SI_notifActive(true);
