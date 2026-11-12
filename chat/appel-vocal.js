@@ -1,4 +1,4 @@
-/* Appel vocal partagé FSM SI (build 20261111-83) — même moteur que l'appel de LAURA :
+/* Appel vocal partagé FSM SI (build 20261112-84) — même moteur que l'appel de LAURA :
    micro ouvert tout l'appel, transcription en continu (stt-flux.js, relais /stt-flux vers xAI) avec repli sur l'enregistrement,
    fin de tour à 0,5 s de silence (« finalize »), réponse en voix PCM phrase par phrase (laura-rapide.js, /voix en SSE),
    coupure de la voix quand on parle par-dessus (barge-in), reprise propre au retour au premier plan (iPhone).

@@ -54,7 +54,7 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261111-83';
+var BUILD = '20261112-84';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
@@ -133,6 +133,12 @@ function estDemandeImage(texte) {
 }
 function aDesImagesMd(s) {
   return /<img\s|!\[[^\]]*\]\(https?:/i.test(String(s || ''));
+}
+/* captures de l'ordinateur (balises <img> complètes servies par fsm-si-bureau) dans un texte en cours de réponse */
+function capturesDans(s) {
+  var n = 0, re = /<img\s+src="([^"]+)"[^>]*>/g, m;
+  while ((m = re.exec(String(s || '')))) if (window.Ordinateur && Ordinateur.estCapture(m[1])) n++;
+  return n;
 }
 function libelleGenereImage(sujet) {
   if (sujet) return t('etatGenereImage').replace('%s', sujet);
@@ -1393,6 +1399,7 @@ function lancerRapide(tour) {
   var encours = S.runEtat && !S._etatGen && S.runEtat !== 'S’en occupe' ? S.runEtat : (S._tacheEnCours || '');
   var node = null;
   var acc = '';
+  var nCaptures = 0;
   var sujet = sujetImage(texte);
   var imageEnCours = !!(sujet || estDemandeImage(texte));
   /* Lecture à voix haute (réglage « voix ») : la première phrase part pendant que le texte s’écrit encore. */
@@ -1417,9 +1424,12 @@ function lancerRapide(tour) {
     acc = txt;
     if (lect) lect.pousser(txt.replace(/\[\[TACHE\]\]/g, ''));
     if (S._etatPeseT) { clearTimeout(S._etatPeseT); S._etatPeseT = 0; }
+    /* capture de l'ordinateur arrivée : la bulle se peint tout de suite (avant : toutes les captures à la fin du tour) */
+    var n = capturesDans(txt);
+    if (n > nCaptures && !S.modeVocal) { nCaptures = n; node = peindreReponse(node, txt.replace(/\[\[TACHE\]\]/g, '').trim()); }
     if (S._etatGen) return;
     if (!S.modeVocal) etatLigne('ecrit');
-    /* pas de bulle mot à mot : le texte s'accumule, la bulle n'apparaît que complète */
+    /* pas de bulle mot à mot : le texte s'accumule, la bulle n'apparaît que complète (sauf à l'arrivée d'une capture) */
   }, function (phase, outil) {
     if (tour.gen !== gen) return;
     if (conv0 && S.conv !== conv0) return;
@@ -1470,7 +1480,8 @@ function lancerRapide(tour) {
     if (S._rapideTour === tour) S._rapideTour = null;
     nettoyer();
     if (lect) lect.finir();
-    if (e && e.name === 'AbortError') return;
+    /* voie rapide abandonnée (aucun mot en 12 s, ou flux muet) : on le dit au lieu de se taire ; le robot prend le relais */
+    if (e && e.name === 'AbortError') { if (S._quitte) return; alerte('Réponse directe trop longue : le robot prend le relais, la réponse arrivera dans le fil.'); }
     if (S.attente) etatLigne(S._etatGen ? 'avance' : 'travail', S._etatGen ? { reflet: true } : undefined);
   });
 }
