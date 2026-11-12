@@ -286,7 +286,8 @@ function versBureau(cx, cy) {
 function versEcran(x, y) { var c = canvas(); if (!c) return null; var r = c.getBoundingClientRect(); return { x: r.left + x / c.width * r.width, y: r.top + y / c.height * r.height }; }
 function placerCurseur() {
   if (!V) return;
-  var on = V.mode === 'main' && V.trackpad && estTactile();
+  /* PC (souris) : la flèche dessinée remplace le pointeur caché par cursor:none ; tactile : seulement en mode trackpad. */
+  var on = V.mode === 'main' && (V.trackpad || !estTactile());
   V.curseur.style.display = on ? 'block' : 'none';
   if (!on) return;
   var p = versEcran(V.cx, V.cy), r = V.scene.getBoundingClientRect();
@@ -335,7 +336,7 @@ function gestes(v) {
     toucherDebut(ev);
   });
   cap.addEventListener('pointermove', function (ev) {
-    if (ev.pointerType === 'mouse') { var p = versBureau(ev.clientX, ev.clientY); if (p && v.mode === 'main') souris(p.x, p.y, v.masque); return; }
+    if (ev.pointerType === 'mouse') { var p = versBureau(ev.clientX, ev.clientY); if (p && v.mode === 'main') { souris(p.x, p.y, v.masque); placerCurseur(); } return; }
     toucherBouge(ev);
   });
   function finPointeur(ev) {
