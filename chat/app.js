@@ -54,12 +54,18 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261112-84';
+var BUILD = '20261112-85';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
 window.SI_ouvrirConv = function (n) { if (n && S.pret) choisir(Number(n)); };
 window.SI_rafraichir = function () { return rafraichir(); };
+window.SI_modeVocal = function () { return !!S.modeVocal; };
+window.SI_direTache = function (texte) {
+  var t = String(texte || '').trim();
+  if (!t || !S.modeVocal || !S.jeton) return;
+  if (window.LauraRapide && LauraRapide.voix && typeof LauraRapide.voix.parler === 'function') LauraRapide.voix.parler(S.jeton, t);
+};
 window.SI_pret = function () { return S.ecran === 'home' || S.ecran === 'chat'; };
 window.SI_alerte = function (m) { alerte(m); };
 window.SI_notifActive = function (v) { S.notif = !!v; mem.ecrire('si_notif', v ? '1' : '0'); try { majCompteUI(); } catch (e) {} };
@@ -2540,6 +2546,7 @@ function vocalDirect(blob, type, texteSeul, source) {
   };
   var pv = prefsVoix();
   var meta = { messages: hist, encours: encours, voix: pv.voix, vitesse: pv.vitesse, langue: pv.langue };
+  if (S.conv) meta.conv = S.conv;
   if (modeVoix()) meta.mode = modeVoix();
   if (texteSeul) meta.texte = texteSeul;   /* résultat d'une action PC validée pendant l'appel, ou texte de la transcription en continu : pas d'audio */
   if (source === 'flux') meta.stt = 'flux';
