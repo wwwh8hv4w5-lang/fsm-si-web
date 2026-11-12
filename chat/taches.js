@@ -61,20 +61,35 @@ function dessiner() {
 }
 function sauverVus() { try { localStorage.setItem('si_taches_vues', JSON.stringify(etat.vus)); } catch (e) {} }
 try { etat.vus = JSON.parse(localStorage.getItem('si_taches_vues') || '{}') || {}; } catch (e) {}
+function enAppel() { return typeof window.SI_modeVocal === 'function' && window.SI_modeVocal(); }
+function resumeDit(t) {
+  var r = String(t.resultat || t.demande || 'c’est terminé').replace(/<!--[\s\S]*?-->/g, '').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim();
+  if (r.length > 240) r = r.slice(0, 237) + '…';
+  var debut = t.etat === 'fini' ? 'C’est fait' : (t.etat === 'annule' ? 'J’ai arrêté' : 'Je n’ai pas pu terminer');
+  return debut + (t.demande ? ' pour « ' + String(t.demande).slice(0, 80) + ' »' : '') + '. ' + r;
+}
 function relire() {
-  if (!LAURA || document.hidden) return Promise.resolve();
+  if (!LAURA || (document.hidden && !enAppel())) return Promise.resolve();
   return q('/taches').then(function (d) {
     var avant = {}; etat.taches.forEach(function (t) { avant[t.id] = t.etat; });
     etat.taches = d.taches || []; etat.pret = true;
-    /* une tâche vient de finir dans la conversation ouverte : on recharge le fil */
+    /* une tâche vient de finir dans la conversation ouverte : on recharge le fil, et en appel on le dit */
     var conv = window.SI_conv ? window.SI_conv() : 0;
-    if (etat.taches.some(function (t) { return t.fin && avant[t.id] && avant[t.id] !== t.etat && t.conv === conv; }) && window.SI_rafraichir) window.SI_rafraichir();
+    var finies = etat.taches.filter(function (t) { return t.fin && avant[t.id] && avant[t.id] !== t.etat && t.conv === conv; });
+    var dire = function () {
+      if (!enAppel() || !window.SI_direTache) return;
+      finies.forEach(function (t) { var s = resumeDit(t); if (s) window.SI_direTache(s); });
+    };
+    if (finies.length && window.SI_rafraichir) {
+      var p = window.SI_rafraichir();
+      if (p && typeof p.then === 'function') p.then(dire, dire); else dire();
+    }
     dessiner(); planifier();
   }).catch(function () { planifier(); });
 }
 function planifier() {
   clearTimeout(etat.minuteur);
-  if (actives().length && !document.hidden) etat.minuteur = setTimeout(relire, 15000);
+  if (actives().length && (!document.hidden || enAppel())) etat.minuteur = setTimeout(relire, 15000);
 }
 document.addEventListener('visibilitychange', function () { if (!document.hidden) relire(); });
 /* ---------- Web Push ---------- */
