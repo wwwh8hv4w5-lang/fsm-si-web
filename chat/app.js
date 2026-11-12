@@ -2548,9 +2548,9 @@ function vocalDirect(blob, type, texteSeul, source) {
   var meta = { messages: hist, encours: encours, voix: pv.voix, vitesse: pv.vitesse, langue: pv.langue };
   if (S.conv) meta.conv = S.conv;
   if (modeVoix()) meta.mode = modeVoix();
-  if (texteSeul) meta.texte = texteSeul;   /* résultat d'une action PC validée pendant l'appel, ou texte de la transcription en continu : pas d'audio */
+  if (texteSeul) meta.texte = texteSeul;   /* action PC, ou texte du flux ; l'audio du flux part aussi, en secours si ce texte est refusé */
   if (source === 'flux') meta.stt = 'flux';
-  LauraRapide.voix.appel(S.jeton, texteSeul ? null : blob, meta, {
+  LauraRapide.voix.appel(S.jeton, (texteSeul && source !== 'flux') ? null : blob, meta, {
     entendu: function (t) { entendu = t; tt.tom = String(t || '').trim(); },   /* gardé pour l'historique, jamais affiché */
     capture: vocalCaptureEcran,
     texte: function (txt) { tt.laura = String(txt || '').replace(/\[\[TACHE\]\]/g, '').trim(); if (parlait && $('voiceCaption')) $('voiceCaption').textContent = txt.replace(/\[\[TACHE\]\]/g, ''); },
