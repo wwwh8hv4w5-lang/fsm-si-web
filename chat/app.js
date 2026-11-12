@@ -54,18 +54,45 @@ var S = {
 var PROXY = (typeof location !== 'undefined' && location.hostname === 'laura.fsmsibot.app')
   ? location.origin
   : 'https://fsm-si-proxy.fsmdev66.workers.dev';
-var BUILD = '20261112-85';
+var BUILD = '20261112-86';
 window.SI_BUILD = BUILD;
 window.SI_conv = function () { return S.conv; };
 /* build 49 : passerelle pour taches.js (bandeau des tâches de fond) */
 window.SI_ouvrirConv = function (n) { if (n && S.pret) choisir(Number(n)); };
 window.SI_rafraichir = function () { return rafraichir(); };
 window.SI_modeVocal = function () { return !!S.modeVocal; };
+/* v86 : le résumé d'une tâche finie est mis en file et dit seulement quand l'appel est libre (avant : parler() → stop()
+   annulait la réponse /voix en route et son surFin, l'appel restait bloqué sur « Réfléchit… »). */
 window.SI_direTache = function (texte) {
   var t = String(texte || '').trim();
   if (!t || !S.modeVocal || !S.jeton) return;
-  if (window.LauraRapide && LauraRapide.voix && typeof LauraRapide.voix.parler === 'function') LauraRapide.voix.parler(S.jeton, t);
+  (S._tachesADire = S._tachesADire || []).push(t);
+  vocalDireTaches();
 };
+function vocalDireTaches() {
+  clearTimeout(S._tachesMinuteur); S._tachesMinuteur = 0;
+  if (!S.modeVocal || !S.jeton) { S._tachesADire = []; return; }
+  if (!S._tachesADire || !S._tachesADire.length) return;
+  var LR = window.LauraRapide && LauraRapide.voix;
+  if (!LR || typeof LR.parler !== 'function') { S._tachesADire = []; return; }
+  /* appel libre : pas de tour en route, à l'écoute, aucun son joué ou en attente, Tom silencieux depuis 1,5 s */
+  var libre = !S._vocalAppel && !S._tacheDite && S.vocalEtat === 'listen' && !(LR.occupe && LR.occupe()) &&
+    performance.now() - (S._vocalFinParole || 0) >= 1500;
+  if (!libre) { S._tachesMinuteur = setTimeout(vocalDireTaches, 800); return; }
+  var texte = S._tachesADire.shift();
+  var tour = S._vocalTour = (S._vocalTour || 0) + 1;
+  S._tacheDite = true;
+  vocalEtatUI('speak', '');   /* Tom peut couper Laura comme pendant une réponse */
+  LR.parler(S.jeton, texte, function () {
+    S._tacheDite = false;
+    if (!S.modeVocal || tour !== S._vocalTour || S.vocalEtat !== 'speak') { vocalDireTaches(); return; }
+    vocalEtatUI('listen', '');
+    if (!(S._vocalMr && S._vocalMr._propre) && !S.vocalMuet) vocalEcouter();
+    vocalDireTaches();
+  });
+  /* coupée par Tom (stop() efface surFin) : on libère la file dès que l'appel n'est plus en « speak » pour ce résumé */
+  (function garde() { setTimeout(function () { if (!S._tacheDite) return; if (tour !== S._vocalTour || S.vocalEtat !== 'speak' || !S.modeVocal) { S._tacheDite = false; vocalDireTaches(); } else garde(); }, 800); })();
+}
 window.SI_pret = function () { return S.ecran === 'home' || S.ecran === 'chat'; };
 window.SI_alerte = function (m) { alerte(m); };
 window.SI_notifActive = function (v) { S.notif = !!v; mem.ecrire('si_notif', v ? '1' : '0'); try { majCompteUI(); } catch (e) {} };
@@ -2588,7 +2615,8 @@ function vocalDirect(blob, type, texteSeul, source) {
   }).catch(function (e) {
     if (!S.modeVocal || tour !== S._vocalTour) return;
     S._vocalAppel = false;
-    if (e && e.name === 'AbortError') return;
+    /* v86 : réponse annulée sans tour plus récent (ex. stop() d'ailleurs) : on revient toujours à l'écoute */
+    if (e && e.name === 'AbortError') { if (S.vocalEtat === 'wait') { if (!parlait) vocalStopMediaRec(true); relancer(); } return; }
     if (e && e.etape === 'stt') { vocalEtatUI('listen', e.message); if (!S.vocalMuet) vocalEcouter(); return; }
     /* Coupure réseau passagère : un nouvel essai, puis l’ancien chemin.
        build 52 : si Laura avait déjà commencé à parler (flux coupé au passage en arrière-plan), on ne rejoue pas tout le tour
@@ -3301,6 +3329,7 @@ window.__voix = {
   etat: function () { return S.vocalEtat; },
   caption: function () { return $('voiceCaption') && $('voiceCaption').textContent; },
   texte: textePourVoix,
+  _test: { S: S, direct: function (b, t, txt, src) { return vocalDirect(b, t, txt, src); } },
   simuler: function (kind, txt) {
     if ($('voiceScreen') && $('voiceScreen').hidden) {
       $('voiceScreen').hidden = false;
