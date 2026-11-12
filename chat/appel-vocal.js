@@ -301,7 +301,7 @@ function direct(blob, type, texteSeul, source) {
   var relancer = function () { if (!A.on) return; etatUI('listen', ''); if (A.mr && A.mr._propre) return; if (!A.muet) ecouter(); };
   var meta = Object.assign({}, A.o.meta ? A.o.meta() : {});
   if (texteSeul) { meta.texte = texteSeul; meta.stt = source === 'flux' ? 'flux' : 'texte'; }
-  V.appel(A.o.jeton || 'cookie', texteSeul ? null : blob, meta, {
+  V.appel(A.o.jeton || 'cookie', (texteSeul && source !== 'flux') ? null : blob, meta, {
     entendu: function (x) { entendu = x; tt.tom = String(x || '').trim(); },   /* gardé pour l'historique, jamais affiché */
     capture: function (c) { if (A.o.surCapture) try { A.o.surCapture(c); } catch (e) {} },   /* capture de l'ordinateur pendant l'appel : montrée dans le fil, jamais lue */
     aide: function (x) { if (A.o.surAide) try { A.o.surAide(x); } catch (e) {} },
